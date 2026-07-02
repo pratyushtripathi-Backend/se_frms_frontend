@@ -3,7 +3,7 @@ import { useState } from 'react'
 import TextField from '../../../components/forms/TextField'
 import { forgotPassword } from '../services/authService'
 
-function ForgotPasswordForm({ onCancel }) {
+function ForgotPasswordForm({ onCancel, onSuccess }) {
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -20,6 +20,7 @@ function ForgotPasswordForm({ onCancel }) {
       setSuccessMessage(
         response.data?.message ?? 'Password reset link sent successfully.',
       )
+      onSuccess?.()
     } catch (forgotPasswordError) {
       const message =
         forgotPasswordError.response?.data?.message ??

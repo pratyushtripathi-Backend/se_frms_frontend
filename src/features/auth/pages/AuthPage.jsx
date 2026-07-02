@@ -5,6 +5,7 @@ import { AUTH_STEPS } from '../constants/authFlow'
 import ForgotPasswordPage from './ForgotPasswordPage'
 import LoginPage from './LoginPage'
 import LogoutPage from './LogoutPage'
+import NewPasswordPage from './NewPasswordPage'
 import OtpVerificationPage from './OtpVerificationPage'
 
 function AuthPage() {
@@ -13,6 +14,7 @@ function AuthPage() {
 
   const goToLogin = () => setStep(AUTH_STEPS.LOGIN)
   const goToForgotPassword = () => setStep(AUTH_STEPS.FORGOT_PASSWORD)
+  const goToNewPassword = () => setStep(AUTH_STEPS.NEW_PASSWORD)
   const goToOtpVerification = (email = loginEmail) => {
     setLoginEmail(email)
     setStep(AUTH_STEPS.OTP_VERIFICATION)
@@ -27,9 +29,13 @@ function AuthPage() {
     return (
       <ForgotPasswordPage
         onBackToLogin={goToLogin}
-        onContinue={goToOtpVerification}
+        onContinue={goToNewPassword}
       />
     )
+  }
+
+  if (step === AUTH_STEPS.NEW_PASSWORD) {
+    return <NewPasswordPage onComplete={goToLogin} />
   }
 
   return (

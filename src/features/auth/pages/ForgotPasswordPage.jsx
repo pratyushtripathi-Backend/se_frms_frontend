@@ -1,22 +1,12 @@
 import BrandMark from '../../../components/BrandMark'
+import BackgroundShapes from '../../../components/BackgroundShapes'
 import forgotPasswordIllustration from '../../../assets/forgot-password-illustration.png'
-import leftShape from '../../../assets/left-shape.png'
-import rightShape from '../../../assets/right-shape.png'
 import ForgotPasswordForm from '../components/ForgotPasswordForm'
 
-function ForgotPasswordPage({ onBackToLogin }) {
+function ForgotPasswordPage({ onBackToLogin, onContinue }) {
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#f3f3f3] px-5 py-8 text-black sm:px-10 lg:px-0 lg:py-0">
-      <img
-        alt=""
-        className="pointer-events-none absolute bottom-0 left-0 w-[min(70vw,430px)] sm:w-[min(38vw,520px)]"
-        src={leftShape}
-      />
-      <img
-        alt=""
-        className="pointer-events-none absolute right-[-110px] top-[-20px] hidden w-[520px] md:block lg:right-0 lg:top-0 lg:w-[560px]"
-        src={rightShape}
-      />
+      <BackgroundShapes />
 
       <div className="relative z-10 lg:absolute lg:left-[63px] lg:top-[84px]">
         <BrandMark />
@@ -39,7 +29,7 @@ function ForgotPasswordPage({ onBackToLogin }) {
           </p>
 
           <div className="mt-10">
-            <ForgotPasswordForm onCancel={onBackToLogin} />
+            <ForgotPasswordForm onCancel={onBackToLogin} onSuccess={onContinue} />
           </div>
         </div>
       </section>
