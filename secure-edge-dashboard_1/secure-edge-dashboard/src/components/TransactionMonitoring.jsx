@@ -10,22 +10,7 @@ import {
 } from "recharts";
 import { useRef, useState } from "react";
 import { CalendarDays } from "lucide-react";
-
-const data = [
-  { date: "27-8-2025", value: 3100 },
-  { date: "26-8-2025", value: 1800 },
-  { date: "13-12-2025", value: 3750 },
-  { date: "13-12-2025", value: 2150 },
-  { date: "13-12-2025", value: 2750 },
-  { date: "13-12-2025", value: 900 },
-  { date: "13-12-2025", value: 3900, flagged: true },
-  { date: "13-12-2025", value: 2900 },
-  { date: "13-12-2025", value: 3150 },
-  { date: "13-12-2025", value: 1750 },
-  { date: "13-12-2025", value: 4900 },
-  { date: "27-1-2026", value: 900 },
-  { date: "27-1-2026", value: 1150 },
-];
+import { transactionMonitoringData } from "./TransactionMonitoringData";
 
 const LINE = "#2582DA";
 const FLAG = "#FF3F2F";
@@ -93,7 +78,8 @@ function FlaggedDot(props) {
 
 export default function TransactionMonitoring() {
   const [selectedDate, setSelectedDate] = useState("");
-const dateInputRef = useRef(null);
+  const dateInputRef = useRef(null);
+
   return (
     <div className="rounded-card border border-brand-border bg-brand-panel p-5 shadow-card">
       {/* Header */}
@@ -106,38 +92,38 @@ const dateInputRef = useRef(null);
         </h2>
 
         <>
-  <input
-    ref={dateInputRef}
-    type="date"
-    value={selectedDate}
-    onChange={(e) => setSelectedDate(e.target.value)}
-    style={{
-      position: "absolute",
-      opacity: 0,
-      pointerEvents: "none",
-    }}
-  />
+          <input
+            ref={dateInputRef}
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            style={{
+              position: "absolute",
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+          />
 
-  <button
-    type="button"
-    onClick={() => {
-      if (dateInputRef.current?.showPicker) {
-        dateInputRef.current.showPicker();
-      } else {
-        dateInputRef.current?.focus();
-        dateInputRef.current?.click();
-      }
-    }}
-    className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[12.5px]"
-    style={{
-      borderColor: "#D9D9D9",
-      color: DIM,
-    }}
-  >
-    {selectedDate || "Select Date"}
-    <CalendarDays size={14} />
-  </button>
-</>
+          <button
+            type="button"
+            onClick={() => {
+              if (dateInputRef.current?.showPicker) {
+                dateInputRef.current.showPicker();
+              } else {
+                dateInputRef.current?.focus();
+                dateInputRef.current?.click();
+              }
+            }}
+            className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[12.5px]"
+            style={{
+              borderColor: "#D9D9D9",
+              color: DIM,
+            }}
+          >
+            {selectedDate || "Select Date"}
+            <CalendarDays size={14} />
+          </button>
+        </>
       </div>
 
       {/* Graph */}
@@ -152,7 +138,7 @@ const dateInputRef = useRef(null);
           height="100%"
         >
           <AreaChart
-            data={data}
+            data={transactionMonitoringData}
             margin={{
               top: 36,
               right: 16,

@@ -8,21 +8,7 @@ import {
   Tooltip,
   Cell,
 } from "recharts";
-
-const data = [
-  { month: "Jan", value: 60, type: "fraud" },
-  { month: "Feb", value: 32, type: "fraud" },
-  { month: "March", value: 18, type: "blocked" },
-  { month: "April", value: 45, type: "fraud" },
-  { month: "May", value: 45, type: "blocked" },
-  { month: "June", value: 23, type: "fraud" },
-  { month: "July", value: 36, type: "blocked" },
-  { month: "Aug", value: 18, type: "fraud" },
-  { month: "Sep", value: 29, type: "blocked" },
-  { month: "Oct", value: 49, type: "fraud" },
-  { month: "Nov", value: 49, type: "fraud" },
-  { month: "Dec", value: 5, type: "fraud" },
-];
+import { fraudDetectionTrendData } from "./FraudDetectionTrendData";
 
 const RED = "#F0424F";
 const BLUE = "#4C7EF3";
@@ -66,7 +52,7 @@ export default function FraudDetectionTrend() {
       <div className="h-[300px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={data}
+            data={fraudDetectionTrendData}
             margin={{
               top: 8,
               right: 10,
@@ -130,7 +116,7 @@ export default function FraudDetectionTrend() {
               barSize={50}
               radius={0}
             >
-              {data.map((item) => (
+              {fraudDetectionTrendData.map((item) => (
                 <Cell
                   key={item.month}
                   fill={item.type === "fraud" ? RED : BLUE}

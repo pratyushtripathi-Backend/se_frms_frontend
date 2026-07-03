@@ -1,15 +1,12 @@
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Bell } from "lucide-react";
+import { fraudDetectTypeData } from "./FraudDetectTypeData";
 
-const data = [
-  { name: "Card", value: 89, color: "#F97316" },
-  { name: "UPI", value: 456, color: "#4C7EF3" },
-  { name: "Net Banking", value: 230, color: "#E7202D" },
-  { name: "Mobile Banking", value: 123, color: "#22C55E" },
-  { name: "ATM", value: 189, color: "#FBBF24" },
-];
 
-const total = data.reduce((sum, d) => sum + d.value, 0);
+const total = fraudDetectTypeData.reduce(
+  (sum, d) => sum + d.value,
+  0
+);
 
 export default function FraudDetectType() {
   return (
@@ -29,7 +26,7 @@ export default function FraudDetectType() {
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
-                data={data}
+                data={fraudDetectTypeData}
                 dataKey="value"
                 innerRadius={58}
                 outerRadius={90}
@@ -41,7 +38,7 @@ export default function FraudDetectType() {
                 strokeWidth={2}
                 isAnimationActive={false}
               >
-                {data.map((d) => (
+                {fraudDetectTypeData.map((d) => (
                   <Cell
                     key={d.name}
                     fill={d.color}
@@ -66,7 +63,7 @@ export default function FraudDetectType() {
         </div>
 
         <ul className="flex-1 space-y-2.5">
-          {data.map((d) => (
+          {fraudDetectTypeData.map((d) => (
             <li
               key={d.name}
               className="flex items-center justify-between text-[13px]"

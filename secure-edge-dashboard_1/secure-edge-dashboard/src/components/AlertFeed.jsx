@@ -1,32 +1,6 @@
 import { AlertCircle } from "lucide-react";
+import { alertFeedData } from "./AlertFeedData";
 
-const ALERTS = [
-  {
-    title: "High Risk Transaction Detected",
-    time: "10:30 AM",
-    rows: ["Amount: 15000", "Location: International"],
-  },
-  {
-    title: "Multiple failed Login",
-    time: "10:30 AM",
-    rows: ["User- Cust_1003", "Location: International"],
-  },
-  {
-    title: "High Risk Transaction Detected",
-    time: "10:30 AM",
-    rows: ["Amount: 15000", "Location: International"],
-  },
-  {
-    title: "High Risk Transaction Detected",
-    time: "10:30 AM",
-    rows: ["Amount: 15000", "Location: International"],
-  },
-  {
-    title: "High Risk Transaction Detected",
-    time: "10:30 AM",
-    rows: ["Amount: 15000", "Location: International"],
-  },
-];
 
 export default function AlertFeed() {
   return (
@@ -46,7 +20,7 @@ export default function AlertFeed() {
       </div>
 
       <div className="thin-scroll flex-1 overflow-y-auto pr-1">
-        {ALERTS.map((alert, index) => (
+        {alertFeedData.map((alert, index) => (
           <div
             key={index}
             className="pb-5 last:pb-0"
