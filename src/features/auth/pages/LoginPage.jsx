@@ -1,24 +1,49 @@
-import AuthHeader from '../components/AuthHeader'
-import LoginForm from '../components/LoginForm'
-import { AUTH_STEP_CONTENT, AUTH_STEPS } from '../constants/authFlow'
+import AuthHeader from "../components/AuthHeader";
+import LoginForm from "../components/LoginForm";
+import { AUTH_STEP_CONTENT, AUTH_STEPS } from "../constants/authFlow";
 
-function LoginPage({ onForgotPassword, onLoginSuccess, onLogout }) {
+function LoginPage({
+  onForgotPassword,
+  onLoginSuccess,
+  onLogout,
+}) {
   return (
-    <div className="w-full rounded-[28px] border border-[#e7e7e7] bg-white px-5 py-8 shadow-[0_4px_10px_rgba(0,0,0,0.18)] sm:rounded-[36px] sm:px-8 sm:py-10 md:rounded-[42px] md:px-12 md:py-12 lg:max-w-[637px] xl:px-8 2xl:px-8">
-      <AuthHeader content={AUTH_STEP_CONTENT[AUTH_STEPS.LOGIN]} />
+    <section
+  className="
+    w-full
+    max-w-[1290px]
+    min-h-[700px]
+    rounded-[40px]
+    border
+    border-[#E8E8E8]
+    bg-white
+    px-[80px]
+    py-[64px]
+    shadow-[0_24px_70px_rgba(0,0,0,0.12)]
+    flex
+    flex-col
+  "
+>
+      <AuthHeader
+        content={AUTH_STEP_CONTENT[AUTH_STEPS.LOGIN]}
+      />
 
-      <div className="mt-8 sm:mt-12 lg:mt-16">
+      <div className="mt-10">
         <LoginForm
           onForgotPassword={onForgotPassword}
           onLoginSuccess={onLoginSuccess}
         />
       </div>
 
-      <button className="sr-only" onClick={onLogout} type="button">
+      <button
+        type="button"
+        onClick={onLogout}
+        className="sr-only"
+      >
         View logout state
       </button>
-    </div>
-  )
+    </section>
+  );
 }
 
-export default LoginPage
+export default LoginPage;

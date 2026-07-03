@@ -1,0 +1,15 @@
+export const transactionMonitoringData = [
+  { date: "27-8-2025", value: 3100 },
+  { date: "26-8-2025", value: 1800 },
+  { date: "13-12-2025", value: 3750 },
+  { date: "13-12-2025", value: 2150 },
+  { date: "13-12-2025", value: 2750 },
+  { date: "13-12-2025", value: 900 },
+  { date: "13-12-2025", value: 3900, flagged: true },
+  { date: "13-12-2025", value: 2900 },
+  { date: "13-12-2025", value: 3150 },
+  { date: "13-12-2025", value: 1750 },
+  { date: "13-12-2025", value: 4900 },
+  { date: "27-1-2026", value: 900 },
+  { date: "27-1-2026", value: 1150 },
+];
