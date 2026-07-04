@@ -1,39 +1,67 @@
-import Sidebar from "./components/Sidebar.jsx";
-import Header from "./components/Header.jsx";
-import StatCards from "./components/StatCards.jsx";
-import TransactionMonitoring from "./components/TransactionMonitoring.jsx";
-import FraudDetectType from "./components/FraudDetectType.jsx";
-import FraudDetectionTrend from "./components/FraudDetectionTrend.jsx";
-import AlertFeed from "./components/AlertFeed.jsx";
-import RecentTransactions from "./components/RecentTransactions.jsx";
+import { useState } from "react";
+
+import Sidebar from "./components/Sidebar";
+import Header from "./components/Header";
+
+import StatCards from "./components/StatCards";
+import TransactionMonitoring from "./components/TransactionMonitoring";
+import FraudDetectType from "./components/FraudDetectType";
+import FraudDetectionTrend from "./components/FraudDetectionTrend";
+import AlertFeed from "./components/AlertFeed";
+import RecentTransactions from "./components/RecentTransactions";
+
+import LoginHistoryPage from "./components/LoginHistoryPage";
 
 export default function App() {
+  const [currentPage, setCurrentPage] = useState("dashboard");
+
   return (
     <div className="flex h-screen overflow-hidden bg-brand-bg">
-      <Sidebar />
+      <Sidebar
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+      />
 
-      <main className="min-w-0 flex-1 overflow-y-auto">
-        <Header />
+      <main className="min-w-0 flex-1 overflow-y-auto bg-[#F4F5F9]">
 
-        <div className="flex flex-col gap-4 px-6 pb-10">
-          <StatCards />
+        {/* Dynamic Header */}
+        <Header
+          title={
+            currentPage === "login-history"
+              ? "Login History"
+              : "Dashboard Overview"
+          }
+          showDivider={currentPage === "login-history"}
+        />
 
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
-            <TransactionMonitoring />
-            <FraudDetectType />
+        {/* Dashboard */}
+        {currentPage === "dashboard" && (
+          <div className="flex flex-col gap-4 px-6 pt-4 pb-10">
+            <StatCards />
+
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
+              <TransactionMonitoring />
+              <FraudDetectType />
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
+              <FraudDetectionTrend />
+              <AlertFeed />
+            </div>
+
+            <RecentTransactions />
+
+            <footer className="pt-2 text-center text-[12px] text-brand-dim">
+              Copyright@2026 design by secureedge
+            </footer>
           </div>
+        )}
 
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
-            <FraudDetectionTrend />
-            <AlertFeed />
-          </div>
+        {/* Login History */}
+        {currentPage === "login-history" && (
+          <LoginHistoryPage />
+        )}
 
-          <RecentTransactions />
-
-          <footer className="pt-2 text-center text-[12px] text-brand-dim">
-            Copyright@2026 design by secureedge
-          </footer>
-        </div>
       </main>
     </div>
   );
