@@ -86,8 +86,15 @@ export default function Sidebar({
 }) {
   const [openMenu, setOpenMenu] = useState("Login Details");
 
+  const loginPages = [
+    "login-history",
+    "login-attempt",
+    "login-session",
+  ];
+
   return (
     <aside className="relative flex h-screen w-[260px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-panel">
+
       {/* Logo */}
       <div className="flex items-center px-7 pt-1 pb-3">
         <img
@@ -99,7 +106,7 @@ export default function Sidebar({
 
       {/* Navigation */}
       <nav
-        className="hide-scrollbar flex-1 overflow-y-auto overflow-x-hidden"
+        className="hide-scrollbar flex-1 overflow-y-auto overflow-x-hidden pb-40"
         style={{
           scrollbarWidth: "none",
           msOverflowStyle: "none",
@@ -108,7 +115,12 @@ export default function Sidebar({
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const hasChildren = !!item.children;
-          const isOpen = openMenu === item.label;
+
+          const isOpen =
+            item.label === "Login Details"
+              ? openMenu === item.label ||
+                loginPages.includes(currentPage)
+              : openMenu === item.label;
 
           const parentActive =
             item.page === currentPage ||
@@ -119,11 +131,14 @@ export default function Sidebar({
 
           return (
             <div key={item.label}>
-              {/* Parent Item */}
+
+              {/* Parent */}
               <button
                 onClick={() => {
                   if (hasChildren) {
-                    setOpenMenu(isOpen ? "" : item.label);
+                    setOpenMenu(
+                      isOpen ? "" : item.label
+                    );
                   } else {
                     setCurrentPage(item.page);
                   }
@@ -186,7 +201,10 @@ export default function Sidebar({
                   {item.children.map((child) => (
                     <button
                       key={child.page}
-                      onClick={() => setCurrentPage(child.page)}
+                      onClick={() => {
+                        setCurrentPage(child.page);
+                        setOpenMenu("Login Details");
+                      }}
                       className={`relative flex w-full items-center py-2 pl-[52px] pr-6 text-[12px] transition-colors ${
                         currentPage === child.page
                           ? "font-semibold text-brand-red"
@@ -206,10 +224,10 @@ export default function Sidebar({
           );
         })}
       </nav>
-
-      {/* Logout */}
-      <div className="absolute bottom-[120px] left-0 w-full px-4">
+            {/* Logout */}
+      <div className="absolute bottom-[72px] left-0 w-full px-6">
         <button
+          type="button"
           className="
             flex
             h-[42px]

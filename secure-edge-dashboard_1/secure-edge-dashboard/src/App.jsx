@@ -11,9 +11,18 @@ import AlertFeed from "./components/AlertFeed";
 import RecentTransactions from "./components/RecentTransactions";
 
 import LoginHistoryPage from "./components/LoginHistoryPage";
+import LoginAttemptPage from "./components/LoginAttemptPage";
+import LoginSessionPage from "./components/LoginSessionPage";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
+
+  const pageTitle = {
+    dashboard: "Dashboard Overview",
+    "login-history": "Login History",
+    "login-attempt": "Login Attempt",
+    "login-session": "Login Session",
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-brand-bg">
@@ -24,19 +33,16 @@ export default function App() {
 
       <main className="min-w-0 flex-1 overflow-y-auto bg-[#F4F5F9]">
 
-        {/* Dynamic Header */}
+        {/* Header */}
         <Header
-          title={
-            currentPage === "login-history"
-              ? "Login History"
-              : "Dashboard Overview"
-          }
-          showDivider={currentPage === "login-history"}
+          title={pageTitle[currentPage] || "Dashboard Overview"}
+          showDivider={currentPage !== "dashboard"}
         />
 
         {/* Dashboard */}
         {currentPage === "dashboard" && (
           <div className="flex flex-col gap-4 px-6 pt-4 pb-10">
+
             <StatCards />
 
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
@@ -54,12 +60,23 @@ export default function App() {
             <footer className="pt-2 text-center text-[12px] text-brand-dim">
               Copyright@2026 design by secureedge
             </footer>
+
           </div>
         )}
 
         {/* Login History */}
         {currentPage === "login-history" && (
           <LoginHistoryPage />
+        )}
+
+        {/* Login Attempt */}
+        {currentPage === "login-attempt" && (
+          <LoginAttemptPage />
+        )}
+
+        {/* Login Session */}
+        {currentPage === "login-session" && (
+          <LoginSessionPage />
         )}
 
       </main>
