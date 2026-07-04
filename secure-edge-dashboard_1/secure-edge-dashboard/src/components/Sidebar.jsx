@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   LayoutGrid,
   FileEdit,
@@ -9,84 +10,229 @@ import {
   FileText,
   Lock,
   ChevronRight,
+  ChevronDown,
   LogOut,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { label: "Dashboard", icon: LayoutGrid, active: true },
-  { label: "Fraud Rules", icon: FileEdit },
-  { label: "Fraud Alert", icon: AlertTriangle },
-  { label: "Transaction Monitoring", icon: Monitor },
-  { label: "Risk Analytics", icon: BarChart3 },
-  { label: "Case Management", icon: FolderSearch },
-  { label: "User Management", icon: User, chevron: true },
-  { label: "Report", icon: FileText },
-  { label: "Login Details", icon: Lock, chevron: true },
+  {
+    label: "Dashboard",
+    icon: LayoutGrid,
+    page: "dashboard",
+  },
+  {
+    label: "Fraud Rules",
+    icon: FileEdit,
+    page: "fraud-rules",
+  },
+  {
+    label: "Fraud Alert",
+    icon: AlertTriangle,
+    page: "fraud-alert",
+  },
+  {
+    label: "Transaction Monitoring",
+    icon: Monitor,
+    page: "transaction-monitoring",
+  },
+  {
+    label: "Risk Analytics",
+    icon: BarChart3,
+    page: "risk-analytics",
+  },
+  {
+    label: "Case Management",
+    icon: FolderSearch,
+    page: "case-management",
+  },
+  {
+    label: "User Management",
+    icon: User,
+    children: [
+      {
+        label: "User List",
+        page: "user-list",
+      },
+    ],
+  },
+  {
+    label: "Report",
+    icon: FileText,
+    page: "report",
+  },
+  {
+    label: "Login Details",
+    icon: Lock,
+    children: [
+      {
+        label: "Login History",
+        page: "login-history",
+      },
+      {
+        label: "Login Attempt",
+        page: "login-attempt",
+      },
+      {
+        label: "Login Session",
+        page: "login-session",
+      },
+    ],
+  },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({
+  currentPage,
+  setCurrentPage,
+}) {
+  const [openMenu, setOpenMenu] = useState("Login Details");
+
   return (
-    <aside className="relative flex h-screen w-[260px] shrink-0 flex-col overflow-visible border-r border-brand-border bg-brand-panel">
+    <aside className="relative flex h-screen w-[260px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-panel">
       {/* Logo */}
-      <div className="relative z-10 flex items-center px-7 pt-8 pb-5">
+      <div className="flex items-center px-7 pt-1 pb-3">
         <img
           src="/logo.png"
           alt="Secure Edge"
-          className="w-[180px] h-auto object-contain"
+          className="h-auto w-[180px] object-contain"
         />
       </div>
 
       {/* Navigation */}
-      <nav className="relative z-10 flex flex-1 flex-col">
-        {NAV_ITEMS.map(({ label, icon: Icon, active, chevron }) => (
-          <a
-            key={label}
-            href="#"
-            className={`relative flex items-center gap-2.5 px-6 py-2 text-[12px] whitespace-nowrap transition-colors ${
-              active
-  ? "font-bold text-[#111827]"
-  : "font-semibold text-[#111827] hover:text-[#111827]"
-            }`}
-          >
-            {active && (
-              <img
-                src="/arc.png"
-                alt=""
-                className="pointer-events-none absolute right-[-16px] top-1/2 h-12 w-auto -translate-y-1/2"
-              />
-            )}
+      <nav
+        className="hide-scrollbar flex-1 overflow-y-auto overflow-x-hidden"
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        }}
+      >
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const hasChildren = !!item.children;
+          const isOpen = openMenu === item.label;
 
-            <Icon
-              size={17}
-              strokeWidth={2}
-              className={active ? "text-brand-red" : "text-[#111827]"}
-            />
+          const parentActive =
+            item.page === currentPage ||
+            (hasChildren &&
+              item.children.some(
+                (child) => child.page === currentPage
+              ));
 
-            <div className="flex items-center">
-              <span className="font-['Poppins'] font-semibold text-[#111827]">
-                {label}
-              </span>
+          return (
+            <div key={item.label}>
+              {/* Parent Item */}
+              <button
+                onClick={() => {
+                  if (hasChildren) {
+                    setOpenMenu(isOpen ? "" : item.label);
+                  } else {
+                    setCurrentPage(item.page);
+                  }
+                }}
+                className={`relative flex w-full items-center gap-2.5 px-6 py-2 text-left text-[12px] transition-all ${
+                  parentActive
+                    ? "font-bold text-[#111827]"
+                    : "font-semibold text-[#111827]"
+                }`}
+              >
+                {parentActive && (
+                  <img
+                    src="/arc.png"
+                    alt=""
+                    className="pointer-events-none absolute right-[-16px] top-1/2 h-12 -translate-y-1/2"
+                  />
+                )}
 
-              {active && (
-                <span className="ml-4 h-6 w-[2px] rounded-full bg-brand-red" />
+                <Icon
+                  size={17}
+                  strokeWidth={2}
+                  className={
+                    parentActive
+                      ? "text-brand-red"
+                      : "text-[#111827]"
+                  }
+                />
+
+                <div className="flex items-center">
+                  <span>{item.label}</span>
+
+                  {parentActive && (
+                    <span className="ml-4 h-6 w-[2px] rounded-full bg-brand-red" />
+                  )}
+                </div>
+
+                {hasChildren &&
+                  (isOpen ? (
+                    <ChevronDown
+                      size={14}
+                      className="ml-auto text-gray-500"
+                    />
+                  ) : (
+                    <ChevronRight
+                      size={14}
+                      className="ml-auto text-gray-500"
+                    />
+                  ))}
+              </button>
+
+              {/* Dropdown */}
+              {hasChildren && (
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    isOpen
+                      ? "max-h-40 opacity-100"
+                      : "max-h-0 opacity-0"
+                  }`}
+                >
+                  {item.children.map((child) => (
+                    <button
+                      key={child.page}
+                      onClick={() => setCurrentPage(child.page)}
+                      className={`relative flex w-full items-center py-2 pl-[52px] pr-6 text-[12px] transition-colors ${
+                        currentPage === child.page
+                          ? "font-semibold text-brand-red"
+                          : "text-[#111827]"
+                      }`}
+                    >
+                      <span>{child.label}</span>
+
+                      {currentPage === child.page && (
+                        <span className="absolute right-3 h-5 w-[2px] rounded-full bg-brand-red" />
+                      )}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
-
-            {chevron && (
-              <ChevronRight
-                size={14}
-                className="ml-auto text-brand-dim/70"
-              />
-            )}
-          </a>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Logout */}
-      <div className="relative z-10 px-6 pb-6 pt-3">
-        <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-red py-2.5 text-[12px] font-bold text-white shadow-card transition-colors hover:bg-brand-redDark">
-          Logout
-          <LogOut size={15} strokeWidth={2.2} />
+      <div className="absolute bottom-[120px] left-0 w-full px-4">
+        <button
+          className="
+            flex
+            h-[42px]
+            w-[132px]
+            items-center
+            justify-center
+            gap-2
+            rounded-[8px]
+            bg-[#FF0D0D]
+            text-[14px]
+            font-semibold
+            text-white
+            transition-colors
+            hover:bg-[#E60000]
+          "
+        >
+          <span>Logout</span>
+
+          <LogOut
+            size={16}
+            strokeWidth={2.5}
+            className="text-white"
+          />
         </button>
       </div>
     </aside>
