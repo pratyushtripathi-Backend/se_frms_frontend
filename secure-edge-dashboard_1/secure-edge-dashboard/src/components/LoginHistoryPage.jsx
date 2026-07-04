@@ -47,7 +47,7 @@ export default function LoginHistoryPage() {
   }, [year, fromDate, toDate]);
 
   return (
-    <div className="flex min-h-full flex-col bg-[#F4F5F9] px-6 pt-6">
+    <div className="flex min-h-full flex-col bg-[#F4F5F9] pl-6 pr-20 pt-6">
 
       {/* Main Card */}
       <div className="rounded-[20px] bg-white p-6 shadow-sm">

@@ -14,7 +14,7 @@ export default function Header({
 
         {/* Center Search */}
         <div className="flex flex-1 justify-center">
-          <div className="relative w-[390px]">
+          <div className="relative w-full max-w-[760px]">
             <Search
               size={15}
               className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]"
@@ -44,29 +44,9 @@ export default function Header({
         <div className="flex items-center gap-6">
           {/* Notification */}
           <button className="relative flex h-10 w-10 items-center justify-center">
-            <Bell
-              size={19}
-              strokeWidth={2}
-              className="text-[#202224]"
-            />
+            <Bell size={19} strokeWidth={2} className="text-[#202224]" />
 
-            <span
-              className="
-                absolute
-                -right-[1px]
-                -top-[1px]
-                flex
-                h-[16px]
-                w-[16px]
-                items-center
-                justify-center
-                rounded-full
-                bg-[#FF3B30]
-                text-[9px]
-                font-semibold
-                text-white
-              "
-            >
+            <span className="absolute -right-[1px] -top-[1px] flex h-[16px] w-[16px] items-center justify-center rounded-full bg-[#FF3B30] text-[9px] font-semibold text-white">
               12
             </span>
           </button>
@@ -87,11 +67,7 @@ export default function Header({
                 <span className="text-[14px] font-semibold text-[#202224]">
                   Admin User
                 </span>
-
-                <ChevronDown
-                  size={14}
-                  className="text-[#666]"
-                />
+                <ChevronDown size={14} className="text-[#666]" />
               </div>
 
               <p className="mt-0.5 text-[12px] text-[#8A8A8A]">
@@ -102,7 +78,6 @@ export default function Header({
         </div>
       </header>
 
-      {/* Optional divider (Login History only) */}
       {showDivider && (
         <div className="h-[2px] w-full bg-white border-b border-[#ECECEC]" />
       )}
