@@ -87,9 +87,9 @@ export default function Sidebar({
   const [openMenu, setOpenMenu] = useState("Login Details");
 
   return (
-    <aside className="relative flex h-screen w-[260px] shrink-0 flex-col border-r border-brand-border bg-brand-panel">
+    <aside className="relative flex h-screen w-[260px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-panel">
       {/* Logo */}
-      <div className="flex items-center px-7 pt-8 pb-5">
+      <div className="flex items-center px-7 pt-1 pb-3">
         <img
           src="/logo.png"
           alt="Secure Edge"
@@ -98,7 +98,13 @@ export default function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto">
+      <nav
+        className="hide-scrollbar flex-1 overflow-y-auto overflow-x-hidden"
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        }}
+      >
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const hasChildren = !!item.children;
@@ -180,9 +186,7 @@ export default function Sidebar({
                   {item.children.map((child) => (
                     <button
                       key={child.page}
-                      onClick={() => {
-                        setCurrentPage(child.page);
-                      }}
+                      onClick={() => setCurrentPage(child.page)}
                       className={`relative flex w-full items-center py-2 pl-[52px] pr-6 text-[12px] transition-colors ${
                         currentPage === child.page
                           ? "font-semibold text-brand-red"
@@ -204,10 +208,31 @@ export default function Sidebar({
       </nav>
 
       {/* Logout */}
-      <div className="px-6 pb-6 pt-3">
-        <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-red py-2.5 text-[12px] font-bold text-white shadow-card transition-colors hover:bg-brand-redDark">
-          Logout
-          <LogOut size={15} strokeWidth={2.2} />
+      <div className="absolute bottom-[120px] left-0 w-full px-4">
+        <button
+          className="
+            flex
+            h-[42px]
+            w-[132px]
+            items-center
+            justify-center
+            gap-2
+            rounded-[8px]
+            bg-[#FF0D0D]
+            text-[14px]
+            font-semibold
+            text-white
+            transition-colors
+            hover:bg-[#E60000]
+          "
+        >
+          <span>Logout</span>
+
+          <LogOut
+            size={16}
+            strokeWidth={2.5}
+            className="text-white"
+          />
         </button>
       </div>
     </aside>

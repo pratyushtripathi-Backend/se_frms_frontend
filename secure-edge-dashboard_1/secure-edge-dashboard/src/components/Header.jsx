@@ -41,7 +41,7 @@ export default function Header({
         </div>
 
         {/* Right */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-6 pr-10">
           {/* Notification */}
           <button className="relative flex h-10 w-10 items-center justify-center">
             <Bell size={19} strokeWidth={2} className="text-[#202224]" />
@@ -67,6 +67,7 @@ export default function Header({
                 <span className="text-[14px] font-semibold text-[#202224]">
                   Admin User
                 </span>
+
                 <ChevronDown size={14} className="text-[#666]" />
               </div>
 
@@ -79,7 +80,7 @@ export default function Header({
       </header>
 
       {showDivider && (
-        <div className="h-[2px] w-full bg-white border-b border-[#ECECEC]" />
+        <div className="h-[2px] w-full border-b border-[#ECECEC] bg-white" />
       )}
     </>
   );
