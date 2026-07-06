@@ -14,15 +14,18 @@ import LoginHistoryPage from "./components/LoginHistoryPage";
 import LoginAttemptPage from "./components/LoginAttemptPage";
 import LoginSessionPage from "./components/LoginSessionPage";
 
+import ProfilePage from "./components/ProfilePage";
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
 
   const pageTitle = {
-    dashboard: "Dashboard Overview",
-    "login-history": "Login History",
-    "login-attempt": "Login Attempt",
-    "login-session": "Login Session",
-  };
+  dashboard: "Dashboard Overview",
+  profile: "User Profile & Settings",
+  "login-history": "Login History",
+  "login-attempt": "Login Attempt",
+  "login-session": "Login Session",
+};
 
   return (
     <div className="flex h-screen overflow-hidden bg-brand-bg">
@@ -35,9 +38,10 @@ export default function App() {
 
         {/* Header */}
         <Header
-          title={pageTitle[currentPage] || "Dashboard Overview"}
-          showDivider={currentPage !== "dashboard"}
-        />
+  title={pageTitle[currentPage] || "Dashboard Overview"}
+  showDivider={currentPage !== "dashboard"}
+  setCurrentPage={setCurrentPage}
+/>
 
         {/* Dashboard */}
         {currentPage === "dashboard" && (
@@ -63,6 +67,25 @@ export default function App() {
 
           </div>
         )}
+        {/* Profile */}
+{currentPage === "profile" && (
+  <ProfilePage />
+)}
+
+{/* Login History */}
+{currentPage === "login-history" && (
+  <LoginHistoryPage />
+)}
+
+{/* Login Attempt */}
+{currentPage === "login-attempt" && (
+  <LoginAttemptPage />
+)}
+
+{/* Login Session */}
+{currentPage === "login-session" && (
+  <LoginSessionPage />
+)}
 
         {/* Login History */}
         {currentPage === "login-history" && (
