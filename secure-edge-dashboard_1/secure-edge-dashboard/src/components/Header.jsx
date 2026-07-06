@@ -3,6 +3,7 @@ import { Search, Bell, ChevronDown } from "lucide-react";
 export default function Header({
   title = "Dashboard Overview",
   showDivider = false,
+  setCurrentPage,
 }) {
   return (
     <>
@@ -55,7 +56,14 @@ export default function Header({
           <div className="h-12 w-px bg-[#E8E8E8]" />
 
           {/* Profile */}
-          <button className="flex items-center gap-3">
+          <button
+  type="button"
+  onClick={() => {
+    console.log("Profile clicked");
+    setCurrentPage("profile");
+  }}
+  className="flex items-center gap-3 cursor-pointer"
+>
             <img
               src="/admin.png"
               alt="Admin User"
