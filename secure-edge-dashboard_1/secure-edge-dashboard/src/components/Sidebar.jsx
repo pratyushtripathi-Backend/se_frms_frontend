@@ -106,12 +106,12 @@ export default function Sidebar({
 
       {/* Navigation */}
       <nav
-        className="hide-scrollbar flex-1 overflow-y-auto overflow-x-hidden pb-40"
-        style={{
-          scrollbarWidth: "none",
-          msOverflowStyle: "none",
-        }}
-      >
+  className="hide-scrollbar mt-8 flex-1 overflow-y-auto overflow-x-hidden pb-40"
+  style={{
+    scrollbarWidth: "none",
+    msOverflowStyle: "none",
+  }}
+>
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const hasChildren = !!item.children;

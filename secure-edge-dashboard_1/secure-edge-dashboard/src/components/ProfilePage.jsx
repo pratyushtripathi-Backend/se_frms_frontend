@@ -18,16 +18,17 @@ export default function ProfilePage() {
     <div
   className="
     mx-auto
-    mt-10
-    w-[calc(100%-24px)]
-    max-w-[2050px]
-    min-h-[900px]
+    mt-5
+    w-[calc(100%-56px)]
+    max-w-[1515px]
+    min-h-[392px]
     rounded-[12px]
     border
     border-[#E5E9F0]
     bg-white
-    px-20
-    py-14
+    px-10
+    pt-7
+    pb-0
   "
 >
       {/* ================= TOP SECTION ================= */}
@@ -35,38 +36,37 @@ export default function ProfilePage() {
       <div
         className="
           mx-auto
-          w-full
-          max-w-[1380px]
           flex
-          gap-8
-          bg-white
+          w-full
+          gap-7
         "
       >
         {/* ================= CHANGE PROFILE PHOTO ================= */}
 
         <div
           className="
-            w-[520px]
-            h-[470px]
+            w-[420px]
+            h-[430px]
             overflow-hidden
             rounded-[12px]
             border
             border-[#E5E9F0]
             bg-white
             shadow-sm
+            flex-shrink-5
           "
         >
-          <div className="bg-[#F5F7FA] px-6 py-4">
+          <div className="border-b border-[#EDF1F5] bg-[#F6F8FB] px-6 py-5">
             <h2 className="text-[15px] font-semibold text-[#20242C]">
               Change Profile Photo
             </h2>
           </div>
 
-          <div className="flex flex-col items-center px-8 py-10">
+          <div className="flex flex-col items-center pt-8">
             <img
               src="/admin.png"
               alt="Profile"
-              className="h-[170px] w-[170px] rounded-full object-cover"
+              className="h-[150px] w-[150px] rounded-full object-cover"
             />
 
             <button
@@ -74,18 +74,18 @@ export default function ProfilePage() {
               className="
                 mt-7
                 flex
-                h-[40px]
+                h-[42px]
                 items-center
                 justify-center
                 gap-2
-                rounded-[6px]
-                bg-[#6B6B6B]
+                rounded-[7px]
+                bg-[#6F6F6F]
                 px-7
                 text-[13px]
                 font-medium
                 text-white
                 transition
-                hover:bg-[#5A5A5A]
+                hover:bg-[#5C5C5C]
               "
             >
               <Pencil size={13} />
@@ -98,8 +98,8 @@ export default function ProfilePage() {
 
         <div
           className="
-            w-[852px]
-            h-[470px]
+            flex-1
+            h-[430px]
             overflow-hidden
             rounded-[12px]
             border
@@ -108,7 +108,7 @@ export default function ProfilePage() {
             shadow-sm
           "
         >
-          <div className="flex items-center justify-between bg-[#F5F7FA] px-7 py-5">
+          <div className="flex items-center justify-between border-b border-[#EDF1F5] bg-[#F6F8FB] px-7 py-4">
             <h2 className="text-[15px] font-semibold text-[#20242C]">
               Profile details &amp; Settings
             </h2>
@@ -120,35 +120,37 @@ export default function ProfilePage() {
                 h-[34px]
                 items-center
                 gap-2
-                rounded-full
-                bg-[#2D3142]
+                rounded-[8px]
+                bg-[#313646]
                 px-5
                 text-[12px]
                 font-medium
                 text-white
-                transition
-                hover:bg-[#20232F]
+                hover:bg-[#262B38]
               "
             >
               <Pencil size={12} />
               Edit
             </button>
-
           </div>
 
-          <div className="px-8 py-8">
-
+          <div className="px-7 py-7">
             <dl className="space-y-5">
-                              {details.map((item) => (
+                            {details.map((item) => (
                 <div
                   key={item.label}
-                  className="grid grid-cols-[180px_1fr] items-start text-[14px]"
+                  className="
+                    grid
+                    grid-cols-[170px_1fr]
+                    items-start
+                    text-[14px]
+                  "
                 >
                   <dt className="font-semibold text-[#20242C]">
                     {item.label}
                   </dt>
 
-                  <dd className="text-[#4B4F58]">
+                  <dd className="leading-6 text-[#4B4F58]">
                     {item.value}
                   </dd>
                 </div>
@@ -158,14 +160,12 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* ======================= CHANGE PASSWORD ======================= */}
+      {/* ================= CHANGE PASSWORD ================= */}
 
       <div
         className="
-          mx-auto
-          mt-8
+          mt-5
           w-full
-          max-w-[1380px]
           overflow-hidden
           rounded-[12px]
           border
@@ -174,14 +174,14 @@ export default function ProfilePage() {
           shadow-sm
         "
       >
-        <div className="bg-[#F5F7FA] px-6 py-4">
+        <div className="border-b border-[#EDF1F5] bg-[#F6F8FB] px-6 py-5">
           <h2 className="text-[15px] font-semibold text-[#20242C]">
             Change Password
           </h2>
         </div>
 
-        <div className="px-8 py-8">
-          <div className="grid grid-cols-3 gap-8">
+        <div className="px-6 py-7">
+          <div className="grid grid-cols-3 gap-6">
 
             <div>
               <label className="mb-2 block text-[13px] font-medium text-[#20242C]">
@@ -254,36 +254,40 @@ export default function ProfilePage() {
                 "
               />
             </div>
-
           </div>
-
-          <button
+                    <button
             type="button"
             className="
-              mt-8
+              mt-7
               flex
               h-[46px]
               items-center
               justify-center
               rounded-[8px]
-              bg-[#3A3F4B]
+              bg-[#313646]
               px-8
               text-[14px]
               font-medium
               text-white
               transition
-              hover:bg-[#2C303A]
+              hover:bg-[#262B38]
             "
           >
             Change Password
           </button>
 
-          <p className="mt-4 text-[12px] text-[#E0453C]">
+          <p className="mt-4 text-[12px] text-[#E0453C] leading-5">
             Include: Uppercase letters (A-Z), Lowercase letters (a-z),
             Numbers (0-9), Special characters (!, @, #, $, %, etc.)
           </p>
         </div>
       </div>
-          </div>
+       {/* Footer */}
+      <footer className="mt- pb-5 text-center">
+        <p className="text-[12px] font-medium text-[#8C8C8C]">
+          Copyright@2026 design by secureedge
+        </p>
+      </footer>
+    </div>
   );
 }
