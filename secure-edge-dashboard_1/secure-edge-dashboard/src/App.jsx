@@ -10,22 +10,33 @@ import FraudDetectionTrend from "./components/FraudDetectionTrend";
 import AlertFeed from "./components/AlertFeed";
 import RecentTransactions from "./components/RecentTransactions";
 
+import ProfilePage from "./components/ProfilePage";
+
 import LoginHistoryPage from "./components/LoginHistoryPage";
 import LoginAttemptPage from "./components/LoginAttemptPage";
 import LoginSessionPage from "./components/LoginSessionPage";
 
-import ProfilePage from "./components/ProfilePage";
+import AllEmployeePage from "./components/AllEmployeePage";
+import AddUserPage from "./components/AddUserPage";
+import ManageRolePage from "./components/ManageRolePage";
+import UserBlacklistPage from "./components/UserBlacklistPage";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
 
   const pageTitle = {
-  dashboard: "Dashboard Overview",
-  profile: "User Profile & Settings",
-  "login-history": "Login History",
-  "login-attempt": "Login Attempt",
-  "login-session": "Login Session",
-};
+    dashboard: "Dashboard Overview",
+    profile: "User Profile & Settings",
+
+    "login-history": "Login History",
+    "login-attempt": "Login Attempt",
+    "login-session": "Login Session",
+
+    "all-employee": "All Employee",
+    "add-user": "Add User",
+    "manage-role": "Manage Role",
+    "user-blacklist": "User Blacklist",
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-brand-bg">
@@ -35,18 +46,15 @@ export default function App() {
       />
 
       <main className="min-w-0 flex-1 overflow-y-auto bg-[#F4F5F9]">
-
-        {/* Header */}
         <Header
-  title={pageTitle[currentPage] || "Dashboard Overview"}
-  showDivider={currentPage !== "dashboard"}
-  setCurrentPage={setCurrentPage}
-/>
+          title={pageTitle[currentPage] || "Dashboard Overview"}
+          showDivider={currentPage !== "dashboard"}
+          setCurrentPage={setCurrentPage}
+        />
 
         {/* Dashboard */}
         {currentPage === "dashboard" && (
           <div className="flex flex-col gap-4 px-6 pt-4 pb-10">
-
             <StatCards />
 
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
@@ -64,44 +72,27 @@ export default function App() {
             <footer className="pt-2 text-center text-[12px] text-brand-dim">
               Copyright@2026 design by secureedge
             </footer>
-
           </div>
         )}
+
         {/* Profile */}
-{currentPage === "profile" && (
-  <ProfilePage />
-)}
+        {currentPage === "profile" && <ProfilePage />}
 
-{/* Login History */}
-{currentPage === "login-history" && (
-  <LoginHistoryPage />
-)}
+        {/* Login Pages */}
+        {currentPage === "login-history" && <LoginHistoryPage />}
 
-{/* Login Attempt */}
-{currentPage === "login-attempt" && (
-  <LoginAttemptPage />
-)}
+        {currentPage === "login-attempt" && <LoginAttemptPage />}
 
-{/* Login Session */}
-{currentPage === "login-session" && (
-  <LoginSessionPage />
-)}
+        {currentPage === "login-session" && <LoginSessionPage />}
 
-        {/* Login History */}
-        {currentPage === "login-history" && (
-          <LoginHistoryPage />
-        )}
+        {/* User Management */}
+        {currentPage === "all-employee" && <AllEmployeePage />}
 
-        {/* Login Attempt */}
-        {currentPage === "login-attempt" && (
-          <LoginAttemptPage />
-        )}
+        {currentPage === "add-user" && <AddUserPage />}
 
-        {/* Login Session */}
-        {currentPage === "login-session" && (
-          <LoginSessionPage />
-        )}
+        {currentPage === "manage-role" && <ManageRolePage />}
 
+        {currentPage === "user-blacklist" && <UserBlacklistPage />}
       </main>
     </div>
   );
