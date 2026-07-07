@@ -7,33 +7,36 @@ export default function Header({
 }) {
   return (
     <>
-      <header className="flex items-center justify-between bg-white px-6 py-3">
+      <header className="w-full h-[92px] bg-white flex items-center justify-between px-8 border-b border-[#ECECEC]">
+
         {/* Left */}
-        <h1 className="text-[18px] font-semibold text-[#202224]">
-          {title}
-        </h1>
+        <div className="min-w-[260px]">
+          <h1 className="text-[20px] font-semibold text-[#202224]">
+            {title}
+          </h1>
+        </div>
 
         {/* Center Search */}
         <div className="flex flex-1 justify-center">
-          <div className="relative w-full max-w-[760px]">
+          <div className="relative w-[597px] h-[43px]">
             <Search
-              size={15}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]"
+              size={16}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8F8F8F]"
             />
 
             <input
               type="text"
               placeholder="Search..."
               className="
-                h-[42px]
                 w-full
-                rounded-xl
+                h-full
+                rounded-[10px]
                 border
-                border-[#E8E8E8]
+                border-[#E5E7EB]
                 bg-white
-                pl-10
+                pl-11
                 pr-4
-                text-[13px]
+                text-[14px]
                 outline-none
                 placeholder:text-[#A3A3A3]
               "
@@ -42,53 +45,70 @@ export default function Header({
         </div>
 
         {/* Right */}
-        <div className="flex items-center gap-6 pr-10">
-          {/* Notification */}
-          <button className="relative flex h-10 w-10 items-center justify-center">
-            <Bell size={19} strokeWidth={2} className="text-[#202224]" />
+        <div className="flex items-center">
 
-            <span className="absolute -right-[1px] -top-[1px] flex h-[16px] w-[16px] items-center justify-center rounded-full bg-[#FF3B30] text-[9px] font-semibold text-white">
+          {/* Notification */}
+
+          <button className="relative flex items-center justify-center w-11 h-11 mr-8">
+
+            <Bell
+              size={21}
+              strokeWidth={2}
+              className="text-[#202224]"
+            />
+
+            <span className="absolute right-0 top-0 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#FF3B30] text-[10px] font-semibold text-white">
               12
             </span>
+
           </button>
 
           {/* Divider */}
-          <div className="h-12 w-px bg-[#E8E8E8]" />
+
+          <div className="h-[52px] w-px bg-[#E8E8E8] mr-8" />
 
           {/* Profile */}
+
           <button
-  type="button"
-  onClick={() => {
-    console.log("Profile clicked");
-    setCurrentPage("profile");
-  }}
-  className="flex items-center gap-3 cursor-pointer"
->
+            type="button"
+            onClick={() => setCurrentPage("profile")}
+            className="flex items-center cursor-pointer"
+          >
             <img
               src="/admin.png"
-              alt="Admin User"
-              className="h-12 w-12 rounded-full object-cover"
+              alt="Admin"
+              className="w-[76px] h-[76px] rounded-full object-cover"
             />
 
-            <div className="text-left leading-tight">
+            <div className="ml-3 w-[118px] text-left">
+
               <div className="flex items-center gap-1">
-                <span className="text-[14px] font-semibold text-[#202224]">
+
+                <span className="text-[15px] font-semibold text-[#202224]">
                   Admin User
                 </span>
 
-                <ChevronDown size={14} className="text-[#666]" />
+                <ChevronDown
+                  size={15}
+                  className="text-[#666666]"
+                />
+
               </div>
 
-              <p className="mt-0.5 text-[12px] text-[#8A8A8A]">
+              <p className="text-[12px] text-[#8A8A8A] mt-1">
                 Ankit Tripathi
               </p>
+
             </div>
+
           </button>
+
         </div>
+
       </header>
 
       {showDivider && (
-        <div className="h-[2px] w-full border-b border-[#ECECEC] bg-white" />
+        <div className="h-[1px] w-full bg-[#ECECEC]" />
       )}
     </>
   );

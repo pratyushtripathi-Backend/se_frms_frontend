@@ -46,15 +46,27 @@ const NAV_ITEMS = [
     page: "case-management",
   },
   {
-    label: "User Management",
-    icon: User,
-    children: [
-      {
-        label: "User List",
-        page: "user-list",
-      },
-    ],
-  },
+  label: "User Management",
+  icon: User,
+  children: [
+    {
+      label: "All Employee",
+      page: "all-employee",
+    },
+    {
+      label: "Add User",
+      page: "add-user",
+    },
+    {
+      label: "Manage Role",
+      page: "manage-role",
+    },
+    {
+      label: "User Blacklist",
+      page: "user-blacklist",
+    },
+  ],
+},
   {
     label: "Report",
     icon: FileText,
@@ -84,13 +96,24 @@ export default function Sidebar({
   currentPage,
   setCurrentPage,
 }) {
-  const [openMenu, setOpenMenu] = useState("Login Details");
+  const userManagementPages = [
+  "all-employee",
+  "add-user",
+  "manage-role",
+  "user-blacklist",
+];
 
-  const loginPages = [
-    "login-history",
-    "login-attempt",
-    "login-session",
-  ];
+const loginPages = [
+  "login-history",
+  "login-attempt",
+  "login-session",
+];
+
+const [openMenu, setOpenMenu] = useState(() => {
+  if (loginPages.includes(currentPage)) return "Login Details";
+  if (userManagementPages.includes(currentPage)) return "User Management";
+  return "";
+});
 
   return (
     <aside className="relative flex h-screen w-[260px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-panel">
@@ -117,10 +140,13 @@ export default function Sidebar({
           const hasChildren = !!item.children;
 
           const isOpen =
-            item.label === "Login Details"
-              ? openMenu === item.label ||
-                loginPages.includes(currentPage)
-              : openMenu === item.label;
+  item.label === "Login Details"
+    ? openMenu === item.label ||
+      loginPages.includes(currentPage)
+    : item.label === "User Management"
+    ? openMenu === item.label ||
+      userManagementPages.includes(currentPage)
+    : openMenu === item.label;
 
           const parentActive =
             item.page === currentPage ||
@@ -149,13 +175,13 @@ export default function Sidebar({
                     : "font-semibold text-[#111827]"
                 }`}
               >
-                {parentActive && (
-                  <img
-                    src="/arc.png"
-                    alt=""
-                    className="pointer-events-none absolute right-[-16px] top-1/2 h-12 -translate-y-1/2"
-                  />
-                )}
+                {item.label === "Dashboard" && (
+  <img
+    src="/arc.png"
+    alt=""
+    className="pointer-events-none absolute right-[-16px] top-1/2 h-12 -translate-y-1/2"
+  />
+)}
 
                 <Icon
                   size={17}
