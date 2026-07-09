@@ -5,6 +5,7 @@ import {
   FiChevronRight,
   FiMoreVertical,
   FiPlus,
+  FiX,
 } from "react-icons/fi";
 
 import { userBlacklistData } from "./UserBlacklistData";
@@ -14,6 +15,16 @@ const UserBlacklistPage = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    userId: "",
+    userName: "",
+    mobile: "",
+    blockedBy: "Admin",
+    reason: "",
+  });
 
   const rowsPerPage = 10;
 
@@ -32,6 +43,25 @@ const UserBlacklistPage = () => {
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
+
+  const handleFormChange = (field) => (e) => {
+    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+  };
+
+  const handleSubmit = () => {
+    // TODO: wire up to your API / add-to-list logic
+    console.log("Submitting blacklist entry:", formData);
+    setIsModalOpen(false);
+    setFormData({
+      userId: "",
+      userName: "",
+      mobile: "",
+      blockedBy: "Admin",
+      reason: "",
+    });
+  };
+
+  const closeModal = () => setIsModalOpen(false);
 
   const styles = {
     page: {
@@ -197,6 +227,137 @@ const UserBlacklistPage = () => {
       alignItems: "center",
       gap: "8px",
     },
+
+    // ---------- Modal styles ----------
+    modalOverlay: {
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: "rgba(20, 20, 20, 0.55)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 1000,
+    },
+
+    modalCard: {
+      width: "770px",
+      maxWidth: "92vw",
+      background: "#FFFFFF",
+      borderRadius: "14px",
+      padding: "36px 40px 40px",
+      boxSizing: "border-box",
+      boxShadow: "0 20px 60px rgba(0,0,0,.25)",
+      position: "relative",
+    },
+
+    modalHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: "28px",
+    },
+
+    modalTitle: {
+      fontSize: "19px",
+      fontWeight: 700,
+      color: "#1A1A1A",
+      marginBottom: "6px",
+    },
+
+    modalSubtitle: {
+      fontSize: "13px",
+      color: "#8C8C8C",
+      fontWeight: 400,
+    },
+
+    closeButton: {
+      width: "30px",
+      height: "30px",
+      borderRadius: "50%",
+      background: "#111111",
+      color: "#FFFFFF",
+      border: "none",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      cursor: "pointer",
+      flexShrink: 0,
+    },
+
+    formGrid: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      columnGap: "24px",
+      rowGap: "22px",
+      marginBottom: "22px",
+    },
+
+    fieldGroup: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "8px",
+    },
+
+    fieldLabel: {
+      fontSize: "13px",
+      fontWeight: 600,
+      color: "#333",
+    },
+
+    fieldInput: {
+      height: "46px",
+      border: "1px solid #E5E7EB",
+      borderRadius: "8px",
+      padding: "0 14px",
+      fontSize: "13px",
+      outline: "none",
+      width: "100%",
+      boxSizing: "border-box",
+      color: "#333",
+    },
+
+    fieldSelect: {
+      height: "46px",
+      border: "1px solid #E5E7EB",
+      borderRadius: "8px",
+      padding: "0 14px",
+      fontSize: "13px",
+      outline: "none",
+      width: "100%",
+      boxSizing: "border-box",
+      color: "#333",
+      background: "#fff",
+      appearance: "auto",
+    },
+
+    fieldTextarea: {
+      minHeight: "110px",
+      border: "1px solid #E5E7EB",
+      borderRadius: "8px",
+      padding: "12px 14px",
+      fontSize: "13px",
+      outline: "none",
+      width: "100%",
+      boxSizing: "border-box",
+      color: "#333",
+      resize: "vertical",
+      fontFamily: "Inter, sans-serif",
+    },
+
+    submitButton: {
+      height: "48px",
+      padding: "0 32px",
+      borderRadius: "8px",
+      border: "none",
+      background: "#6B6B6B",
+      color: "#FFFFFF",
+      fontWeight: 600,
+      fontSize: "14px",
+      cursor: "pointer",
+    },
   };
 
   const getRiskStyle = (risk) => {
@@ -274,7 +435,7 @@ const UserBlacklistPage = () => {
               />
             </div>
 
-            <button style={styles.addButton}>
+            <button style={styles.addButton} onClick={() => setIsModalOpen(true)}>
               <FiPlus />
               Add Blacklist
             </button>
@@ -444,6 +605,87 @@ const UserBlacklistPage = () => {
         </div>
 
       </div>
+
+      {/* Add Blacklist Modal */}
+      {isModalOpen && (
+        <div style={styles.modalOverlay} onClick={closeModal}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+
+            <div style={styles.modalHeader}>
+              <div>
+                <div style={styles.modalTitle}>Add User Blacklist</div>
+                <div style={styles.modalSubtitle}>Fill all fileds to blacklist user</div>
+              </div>
+              <button style={styles.closeButton} onClick={closeModal}>
+                <FiX size={16} />
+              </button>
+            </div>
+
+            <div style={styles.formGrid}>
+
+              <div style={styles.fieldGroup}>
+                <label style={styles.fieldLabel}>User ID</label>
+                <input
+                  style={styles.fieldInput}
+                  placeholder="User ID"
+                  value={formData.userId}
+                  onChange={handleFormChange("userId")}
+                />
+              </div>
+
+              <div style={styles.fieldGroup}>
+                <label style={styles.fieldLabel}>User Name</label>
+                <input
+                  style={styles.fieldInput}
+                  placeholder="Enter Name"
+                  value={formData.userName}
+                  onChange={handleFormChange("userName")}
+                />
+              </div>
+
+              <div style={styles.fieldGroup}>
+                <label style={styles.fieldLabel}>Mobile No</label>
+                <input
+                  style={styles.fieldInput}
+                  placeholder="Enter User Mobile no"
+                  value={formData.mobile}
+                  onChange={handleFormChange("mobile")}
+                />
+              </div>
+
+              <div style={styles.fieldGroup}>
+                <label style={styles.fieldLabel}>Blocked By</label>
+                <select
+                  style={styles.fieldSelect}
+                  value={formData.blockedBy}
+                  onChange={handleFormChange("blockedBy")}
+                >
+                  <option value="Admin">Admin</option>
+                  <option value="System">System</option>
+                  <option value="Manager">Manager</option>
+                </select>
+              </div>
+
+            </div>
+
+            <div style={{ ...styles.fieldGroup, marginBottom: "28px" }}>
+              <label style={styles.fieldLabel}>Reason</label>
+              <textarea
+                style={styles.fieldTextarea}
+                placeholder="Write a Reason"
+                value={formData.reason}
+                onChange={handleFormChange("reason")}
+              />
+            </div>
+
+            <button style={styles.submitButton} onClick={handleSubmit}>
+              Submit
+            </button>
+
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <footer className="mt-6 pb-5 text-center">
         <p className="text-[12px] font-medium text-[#8C8C8C]">
