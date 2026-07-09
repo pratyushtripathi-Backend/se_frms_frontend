@@ -21,9 +21,26 @@ const NAV_ITEMS = [
     page: "dashboard",
   },
   {
-    label: "Fraud Rules",
+    label: "Fraud Details",
     icon: FileEdit,
-    page: "fraud-rules",
+    children: [
+      {
+        label: "Create Rule",
+        page: "create-rule",
+      },
+      {
+        label: "All Fraud Rules",
+        page: "all-fraud-rules",
+      },
+      {
+        label: "All Rule Score",
+        page: "all-rule-score",
+      },
+      {
+        label: "All Category",
+        page: "all-category",
+      },
+    ],
   },
   {
     label: "Fraud Alert",
@@ -96,7 +113,14 @@ export default function Sidebar({
   currentPage,
   setCurrentPage,
 }) {
-  const userManagementPages = [
+  const fraudDetailsPages = [
+  "create-rule",
+  "all-fraud-rules",
+  "all-rule-score",
+  "all-category",
+];
+
+const userManagementPages = [
   "all-employee",
   "add-user",
   "manage-role",
@@ -112,6 +136,7 @@ const loginPages = [
 const [openMenu, setOpenMenu] = useState(() => {
   if (loginPages.includes(currentPage)) return "Login Details";
   if (userManagementPages.includes(currentPage)) return "User Management";
+  if (fraudDetailsPages.includes(currentPage)) return "Fraud Details";
   return "";
 });
 
@@ -146,6 +171,9 @@ const [openMenu, setOpenMenu] = useState(() => {
     : item.label === "User Management"
     ? openMenu === item.label ||
       userManagementPages.includes(currentPage)
+    : item.label === "Fraud Details"
+    ? openMenu === item.label ||
+      fraudDetailsPages.includes(currentPage)
     : openMenu === item.label;
 
           const parentActive =
@@ -229,7 +257,7 @@ const [openMenu, setOpenMenu] = useState(() => {
                       key={child.page}
                       onClick={() => {
                         setCurrentPage(child.page);
-                        setOpenMenu("Login Details");
+                        setOpenMenu(item.label);
                       }}
                       className={`relative flex w-full items-center py-2 pl-[52px] pr-6 text-[12px] transition-colors ${
                         currentPage === child.page
