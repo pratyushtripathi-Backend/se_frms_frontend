@@ -21,6 +21,15 @@ import AddUserPage from "./components/AddUserPage";
 import ManageRolePage from "./components/ManageRolePage";
 import UserBlacklistPage from "./components/UserBlacklistPage";
 
+// Not built yet — keep commented until the component exists
+// import FraudAlertPage from "./components/FraudAlertPage";
+
+// Fraud Details sub-pages
+import CreateRulePage from "./components/CreateRulesPage";
+import AllFraudRulesPage from "./components/AllFraudRulesPage";
+import AllRuleScorePage from "./components/AllRuleScorePage";
+import AllCategoryPage from "./components/AllCategoryPage";
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
 
@@ -36,6 +45,13 @@ export default function App() {
     "add-user": "Add User",
     "manage-role": "Manage Role",
     "user-blacklist": "User Blacklist",
+
+    "fraud-alert": "Fraud Alert",
+
+    "create-rule": "Create Rule",
+    "all-fraud-rules": "All Fraud Rules",
+    "all-rule-score": "All Rule Score",
+    "all-category": "All Category",
   };
 
   return (
@@ -93,6 +109,18 @@ export default function App() {
         {currentPage === "manage-role" && <ManageRolePage />}
 
         {currentPage === "user-blacklist" && <UserBlacklistPage />}
+
+        {/* Not built yet — uncomment once FraudAlertPage exists */}
+        {/* {currentPage === "fraud-alert" && <FraudAlertPage />} */}
+
+        {/* Fraud Details */}
+        {currentPage === "create-rule" && <CreateRulePage />}
+
+        {currentPage === "all-fraud-rules" && <AllFraudRulesPage />}
+
+        {currentPage === "all-rule-score" && <AllRuleScorePage />} 
+        
+        {currentPage === "all-category" && <AllCategoryPage />}
       </main>
     </div>
   );

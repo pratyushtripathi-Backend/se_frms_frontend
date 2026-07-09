@@ -7,7 +7,7 @@ export default function Header({
 }) {
   return (
     <>
-      <header className="w-full h-[92px] bg-white flex items-center justify-between px-8 border-b border-[#ECECEC]">
+      <header className="w-full h-[100px] bg-white flex items-center justify-between pl-8 pr-14 border-b border-[#ECECEC]">
 
         {/* Left */}
         <div className="min-w-[260px]">
@@ -49,7 +49,7 @@ export default function Header({
 
           {/* Notification */}
 
-          <button className="relative flex items-center justify-center w-11 h-11 mr-8">
+          <button className="relative flex items-center justify-center w-11 h-11 mr-10">
 
             <Bell
               size={21}
@@ -65,7 +65,7 @@ export default function Header({
 
           {/* Divider */}
 
-          <div className="h-[52px] w-px bg-[#E8E8E8] mr-8" />
+          <div className="h-[52px] w-px bg-[#E8E8E8] mr-10" />
 
           {/* Profile */}
 
