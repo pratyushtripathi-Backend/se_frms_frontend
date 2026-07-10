@@ -2,6 +2,7 @@ import { useState, useRef, useMemo } from "react";
 import {
   CalendarDays,
   ChevronDown,
+  Trash2,
 } from "lucide-react";
 import ExportFile from "./ExportFile";
 import { allCategoryData } from "./AllCategoryData";
@@ -22,6 +23,10 @@ export default function AllCategoryPage() {
   const [toDate, setToDate] = useState("");
   const [openActionId, setOpenActionId] = useState(null);
 
+  // Delete flow state
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
 
@@ -39,6 +44,26 @@ export default function AllCategoryPage() {
       return true;
     });
   }, [year, fromDate, toDate]);
+
+  const handleDeleteClick = (id) => {
+    setOpenActionId(null);
+    setDeleteTargetId(id);
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteTargetId(null);
+  };
+
+  const handleConfirmDelete = () => {
+    // TODO: wire up to your actual delete API call using deleteTargetId
+    console.log("Deleting category id:", deleteTargetId);
+    setDeleteTargetId(null);
+    setShowSuccessModal(true);
+  };
+
+  const handleBackToPage = () => {
+    setShowSuccessModal(false);
+  };
 
   return (
     <div className="flex min-h-full flex-col bg-[#F4F5F9] pl-6 pr-20 pt-6">
@@ -234,7 +259,7 @@ export default function AllCategoryPage() {
                           <button
                             type="button"
                             className="px-3 py-1.5 text-left text-[12px] text-[#EB5757] hover:bg-[#F8F9FB]"
-                            onClick={() => setOpenActionId(null)}
+                            onClick={() => handleDeleteClick(item.id)}
                           >
                             Delete
                           </button>
@@ -284,6 +309,122 @@ export default function AllCategoryPage() {
 
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteTargetId !== null && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
+          onClick={handleCancelDelete}
+        >
+          <div
+            className="w-[640px] max-w-[92vw] rounded-2xl bg-white px-12 py-14 text-center shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-6 flex justify-center">
+              <Trash2 size={56} className="text-black" strokeWidth={1.75} />
+            </div>
+
+            <h3 className="mb-4 text-[20px] font-semibold text-[#202224]">
+              Delete Category
+            </h3>
+
+            <p className="mx-auto mb-8 max-w-[420px] text-[14px] leading-6 text-[#7A7A7A]">
+              Are you sure you want to delete this Category. This action is
+              permanent and cannot be undone.
+            </p>
+
+            <div className="flex items-center justify-center gap-4">
+              <button
+                type="button"
+                onClick={handleCancelDelete}
+                className="h-[46px] w-[140px] rounded-lg border border-[#E5E7EB] bg-white text-[14px] font-semibold text-[#202224]"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="h-[46px] w-[140px] rounded-lg border-none bg-[#EB5757] text-[14px] font-semibold text-white"
+              >
+                Delete User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55">
+          <div className="w-[640px] max-w-[92vw] rounded-2xl bg-white px-12 py-14 text-center shadow-2xl">
+
+            <div className="mb-6 flex justify-center">
+              <svg
+                width="88"
+                height="88"
+                viewBox="0 0 88 88"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="44"
+                  cy="44"
+                  r="40"
+                  stroke="#111111"
+                  strokeWidth="3"
+                  fill="none"
+                  strokeDasharray="252"
+                  strokeDashoffset="252"
+                  style={{
+                    animation: "drawCircle 0.6s ease-out forwards",
+                  }}
+                />
+                <path
+                  d="M27 45 L39 57 L61 33"
+                  stroke="#EB5757"
+                  strokeWidth="4"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="46"
+                  strokeDashoffset="46"
+                  style={{
+                    animation:
+                      "drawCheck 0.4s ease-out 0.55s forwards",
+                  }}
+                />
+              </svg>
+
+              <style>{`
+                @keyframes drawCircle {
+                  to { stroke-dashoffset: 0; }
+                }
+                @keyframes drawCheck {
+                  to { stroke-dashoffset: 0; }
+                }
+              `}</style>
+            </div>
+
+            <h3 className="mb-4 text-[20px] font-semibold text-[#202224]">
+              Category deleted Successfully
+            </h3>
+
+            <p className="mx-auto mb-8 max-w-[420px] text-[14px] leading-6 text-[#7A7A7A]">
+              The Selected Category has been deleted successfully.
+            </p>
+
+            <button
+              type="button"
+              onClick={handleBackToPage}
+              className="h-[46px] w-[160px] rounded-lg border-none bg-[#4B4B4B] text-[14px] font-semibold text-white"
+            >
+              Back to Page
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <footer className="mt-6 pb-5 text-center">
         <p className="text-[12px] font-medium text-[#8C8C8C]">

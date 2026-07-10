@@ -16,7 +16,7 @@ const UserBlacklistPage = () => {
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Modal state
+  // Add Blacklist modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     userId: "",
@@ -25,6 +25,10 @@ const UserBlacklistPage = () => {
     blockedBy: "Admin",
     reason: "",
   });
+
+  // Unblock flow state
+  const [unblockTarget, setUnblockTarget] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const rowsPerPage = 10;
 
@@ -62,6 +66,25 @@ const UserBlacklistPage = () => {
   };
 
   const closeModal = () => setIsModalOpen(false);
+
+  const handleRemoveClick = (item) => {
+    setUnblockTarget(item);
+  };
+
+  const handleCancelUnblock = () => {
+    setUnblockTarget(null);
+  };
+
+  const handleConfirmUnblock = () => {
+    // TODO: wire up to your actual unblock API call using unblockTarget
+    console.log("Unblocking user:", unblockTarget);
+    setUnblockTarget(null);
+    setShowSuccessModal(true);
+  };
+
+  const handleBackToPage = () => {
+    setShowSuccessModal(false);
+  };
 
   const styles = {
     page: {
@@ -228,7 +251,7 @@ const UserBlacklistPage = () => {
       gap: "8px",
     },
 
-    // ---------- Modal styles ----------
+    // ---------- Add Blacklist Modal styles ----------
     modalOverlay: {
       position: "fixed",
       top: 0,
@@ -356,6 +379,85 @@ const UserBlacklistPage = () => {
       color: "#FFFFFF",
       fontWeight: 600,
       fontSize: "14px",
+      cursor: "pointer",
+    },
+
+    // ---------- Unblock / Success Modal styles ----------
+    confirmModalCard: {
+      width: "640px",
+      maxWidth: "92vw",
+      background: "#FFFFFF",
+      borderRadius: "16px",
+      padding: "56px 48px",
+      boxSizing: "border-box",
+      boxShadow: "0 20px 60px rgba(0,0,0,.25)",
+      textAlign: "center",
+    },
+
+    iconWrapper: {
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      width: "100%",
+      marginBottom: "8px",
+    },
+
+    confirmTitle: {
+      fontSize: "20px",
+      fontWeight: 700,
+      color: "#202224",
+      marginTop: "24px",
+      marginBottom: "16px",
+    },
+
+    confirmDescription: {
+      fontSize: "14px",
+      lineHeight: "22px",
+      color: "#7A7A7A",
+      maxWidth: "440px",
+      margin: "0 auto 32px",
+    },
+
+    confirmButtonsRow: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "16px",
+    },
+
+    cancelButton: {
+      height: "46px",
+      width: "140px",
+      borderRadius: "8px",
+      border: "1px solid #E5E7EB",
+      background: "#FFFFFF",
+      color: "#202224",
+      fontSize: "14px",
+      fontWeight: 600,
+      cursor: "pointer",
+    },
+
+    unblockConfirmButton: {
+      height: "46px",
+      width: "150px",
+      borderRadius: "8px",
+      border: "none",
+      background: "#EB5757",
+      color: "#FFFFFF",
+      fontSize: "14px",
+      fontWeight: 600,
+      cursor: "pointer",
+    },
+
+    backToPageButton: {
+      height: "46px",
+      width: "160px",
+      borderRadius: "8px",
+      border: "none",
+      background: "#4B4B4B",
+      color: "#FFFFFF",
+      fontSize: "14px",
+      fontWeight: 600,
       cursor: "pointer",
     },
   };
@@ -517,7 +619,10 @@ const UserBlacklistPage = () => {
                   </td>
 
                   <td style={styles.td}>
-                    <button style={styles.removeButton}>
+                    <button
+                      style={styles.removeButton}
+                      onClick={() => handleRemoveClick(item)}
+                    >
                       Remove
                     </button>
                   </td>
@@ -682,6 +787,131 @@ const UserBlacklistPage = () => {
               Submit
             </button>
 
+          </div>
+        </div>
+      )}
+
+      {/* Unblock Confirmation Modal */}
+      {unblockTarget && (
+        <div style={styles.modalOverlay} onClick={handleCancelUnblock}>
+          <div style={styles.confirmModalCard} onClick={(e) => e.stopPropagation()}>
+
+            <div style={styles.iconWrapper}>
+              <svg
+                width="72"
+                height="72"
+                viewBox="0 0 72 72"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M36 8 L67 62 H5 Z"
+                  stroke="#111111"
+                  strokeWidth="3"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+                <line
+                  x1="36"
+                  y1="30"
+                  x2="36"
+                  y2="44"
+                  stroke="#EB5757"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                />
+                <circle cx="36" cy="52" r="2.2" fill="#EB5757" />
+              </svg>
+            </div>
+
+            <div style={styles.confirmTitle}>Unblock User</div>
+
+            <div style={styles.confirmDescription}>
+              Are you sure you want to remove this user from the block list?
+              The user will regain access to the system.
+            </div>
+
+            <div style={styles.confirmButtonsRow}>
+              <button style={styles.cancelButton} onClick={handleCancelUnblock}>
+                Cancel
+              </button>
+
+              <button
+                style={styles.unblockConfirmButton}
+                onClick={handleConfirmUnblock}
+              >
+                Unblock User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.confirmModalCard}>
+
+            <div style={styles.iconWrapper}>
+              <svg
+                width="88"
+                height="88"
+                viewBox="0 0 88 88"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="44"
+                  cy="44"
+                  r="40"
+                  stroke="#111111"
+                  strokeWidth="3"
+                  fill="none"
+                  strokeDasharray="252"
+                  strokeDashoffset="252"
+                  style={{
+                    animation: "drawCircle 0.6s ease-out forwards",
+                  }}
+                />
+                <path
+                  d="M27 45 L39 57 L61 33"
+                  stroke="#EB5757"
+                  strokeWidth="4"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="46"
+                  strokeDashoffset="46"
+                  style={{
+                    animation: "drawCheck 0.4s ease-out 0.55s forwards",
+                  }}
+                />
+              </svg>
+            </div>
+
+            <style>{`
+              @keyframes drawCircle {
+                to { stroke-dashoffset: 0; }
+              }
+              @keyframes drawCheck {
+                to { stroke-dashoffset: 0; }
+              }
+            `}</style>
+
+            <div style={styles.confirmTitle}>User Unblocked Successfully</div>
+
+            <div style={styles.confirmDescription}>
+              The user has been removed from the block list and can now
+              access the system.
+            </div>
+
+            <button
+              style={styles.backToPageButton}
+              onClick={handleBackToPage}
+            >
+              Back to Page
+            </button>
           </div>
         </div>
       )}
