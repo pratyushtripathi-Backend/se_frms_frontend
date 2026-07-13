@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FiPlus, FiChevronDown } from "react-icons/fi";
+import { FiPlus, FiX } from "react-icons/fi";
 
 const AddUserPage = () => {
   const [formData, setFormData] = useState({
@@ -10,8 +10,22 @@ const AddUserPage = () => {
     email: "",
   });
 
+  // Add Role modal state
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [roleFormData, setRoleFormData] = useState({
+    roleName: "",
+    slug: "",
+  });
+
   const handleChange = (e) => {
     setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleRoleFormChange = (e) => {
+    setRoleFormData((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
     }));
@@ -21,6 +35,15 @@ const AddUserPage = () => {
     e.preventDefault();
     console.log(formData);
   };
+
+  const handleAddRole = () => {
+    // TODO: wire up to your API / add-role logic
+    console.log("Adding role:", roleFormData);
+    setIsRoleModalOpen(false);
+    setRoleFormData({ roleName: "", slug: "" });
+  };
+
+  const closeRoleModal = () => setIsRoleModalOpen(false);
 
   const styles = {
     page: {
@@ -145,6 +168,89 @@ const AddUserPage = () => {
       fontWeight: 600,
       cursor: "pointer",
     },
+
+    // ---------- Add Role Modal styles ----------
+    modalOverlay: {
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: "rgba(20, 20, 20, 0.55)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 1000,
+    },
+
+    modalCard: {
+      width: "400px",
+      maxWidth: "92vw",
+      background: "#FFFFFF",
+      borderRadius: "14px",
+      padding: "28px 32px 32px",
+      boxSizing: "border-box",
+      boxShadow: "0 20px 60px rgba(0,0,0,.25)",
+      position: "relative",
+    },
+
+    modalCloseRow: {
+      display: "flex",
+      justifyContent: "flex-end",
+      marginBottom: "18px",
+    },
+
+    closeButton: {
+      width: "30px",
+      height: "30px",
+      borderRadius: "50%",
+      background: "transparent",
+      color: "#111111",
+      border: "none",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      cursor: "pointer",
+      flexShrink: 0,
+    },
+
+    modalField: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "8px",
+      marginBottom: "20px",
+    },
+
+    modalFieldLabel: {
+      fontSize: "13px",
+      fontWeight: 600,
+      color: "#333",
+    },
+
+    modalInput: {
+      height: "46px",
+      border: "1px solid #E5E7EB",
+      borderRadius: "8px",
+      padding: "0 14px",
+      fontSize: "13px",
+      outline: "none",
+      width: "100%",
+      boxSizing: "border-box",
+      color: "#333",
+    },
+
+    addSubmitButton: {
+      height: "46px",
+      padding: "0 32px",
+      borderRadius: "8px",
+      border: "none",
+      background: "#6B6B6B",
+      color: "#FFFFFF",
+      fontWeight: 600,
+      fontSize: "14px",
+      cursor: "pointer",
+      marginTop: "6px",
+    },
   };
 
   return (
@@ -169,7 +275,10 @@ const AddUserPage = () => {
             </select>
           </div>
 
-          <button style={styles.addRoleButton}>
+          <button
+            style={styles.addRoleButton}
+            onClick={() => setIsRoleModalOpen(true)}
+          >
             Add Role
             <FiPlus size={18} />
           </button>
@@ -254,6 +363,48 @@ const AddUserPage = () => {
           </button>
         </form>
       </div>
+
+      {/* Add Role Modal */}
+      {isRoleModalOpen && (
+        <div style={styles.modalOverlay} onClick={closeRoleModal}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+
+            <div style={styles.modalCloseRow}>
+              <button style={styles.closeButton} onClick={closeRoleModal}>
+                <FiX size={20} />
+              </button>
+            </div>
+
+            <div style={styles.modalField}>
+              <label style={styles.modalFieldLabel}>Add Role</label>
+              <input
+                style={styles.modalInput}
+                name="roleName"
+                placeholder="Add Role"
+                value={roleFormData.roleName}
+                onChange={handleRoleFormChange}
+              />
+            </div>
+
+            <div style={styles.modalField}>
+              <label style={styles.modalFieldLabel}>Slug</label>
+              <input
+                style={styles.modalInput}
+                name="slug"
+                placeholder="Slug"
+                value={roleFormData.slug}
+                onChange={handleRoleFormChange}
+              />
+            </div>
+
+            <button style={styles.addSubmitButton} onClick={handleAddRole}>
+              Add
+            </button>
+
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <footer className="mt-6 pb-5 text-center">
         <p className="text-[12px] font-medium text-[#8C8C8C]">

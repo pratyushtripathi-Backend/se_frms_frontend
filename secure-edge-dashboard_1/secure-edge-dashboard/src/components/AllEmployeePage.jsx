@@ -4,6 +4,7 @@ import {
   FiChevronDown,
   FiChevronLeft,
   FiChevronRight,
+  FiTrash2,
 } from "react-icons/fi";
 
 import { allEmployeeData } from "./AllEmployeeData";
@@ -12,6 +13,10 @@ const AllEmployeePage = () => {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [openMenu, setOpenMenu] = useState(null);
+
+  // Delete flow state
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const rowsPerPage = 10;
 
@@ -30,6 +35,26 @@ const AllEmployeePage = () => {
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
+
+  const handleDeleteClick = (employee) => {
+    setOpenMenu(null);
+    setDeleteTarget(employee);
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteTarget(null);
+  };
+
+  const handleConfirmDelete = () => {
+    // TODO: wire up to your actual delete API call using deleteTarget
+    console.log("Deleting employee:", deleteTarget);
+    setDeleteTarget(null);
+    setShowSuccessModal(true);
+  };
+
+  const handleBackToPage = () => {
+    setShowSuccessModal(false);
+  };
 
   const styles = {
     page: {
@@ -186,6 +211,98 @@ const AllEmployeePage = () => {
       alignItems: "center",
       gap: "10px",
     },
+
+    // ---------- Modal styles ----------
+    modalOverlay: {
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: "rgba(20, 20, 20, 0.55)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 1000,
+    },
+
+    modalCard: {
+      width: "640px",
+      maxWidth: "92vw",
+      background: "#FFFFFF",
+      borderRadius: "16px",
+      padding: "56px 48px",
+      boxSizing: "border-box",
+      boxShadow: "0 20px 60px rgba(0,0,0,.25)",
+      textAlign: "center",
+    },
+
+    iconWrapper: {
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      width: "100%",
+      marginBottom: "8px",
+    },
+
+    modalTitle: {
+      fontSize: "20px",
+      fontWeight: 700,
+      color: "#202224",
+      marginTop: "24px",
+      marginBottom: "16px",
+    },
+
+    modalDescription: {
+      fontSize: "14px",
+      lineHeight: "22px",
+      color: "#7A7A7A",
+      maxWidth: "420px",
+      margin: "0 auto 32px",
+    },
+
+    modalButtonsRow: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "16px",
+    },
+
+    cancelButton: {
+      height: "46px",
+      width: "140px",
+      borderRadius: "8px",
+      border: "1px solid #E5E7EB",
+      background: "#FFFFFF",
+      color: "#202224",
+      fontSize: "14px",
+      fontWeight: 600,
+      cursor: "pointer",
+    },
+
+    deleteConfirmButton: {
+      height: "46px",
+      width: "140px",
+      borderRadius: "8px",
+      border: "none",
+      background: "#EB5757",
+      color: "#FFFFFF",
+      fontSize: "14px",
+      fontWeight: 600,
+      cursor: "pointer",
+    },
+
+    backToPageButton: {
+      height: "46px",
+      width: "160px",
+      borderRadius: "8px",
+      border: "none",
+      background: "#4B4B4B",
+      color: "#FFFFFF",
+      fontSize: "14px",
+      fontWeight: 600,
+      cursor: "pointer",
+    },
   };
 
   return (
@@ -288,10 +405,7 @@ const AllEmployeePage = () => {
 
                         <div
                           style={{ ...styles.menuItem, color: "#DC2626" }}
-                          onClick={() => {
-                            console.log("Delete", employee);
-                            setOpenMenu(null);
-                          }}
+                          onClick={() => handleDeleteClick(employee)}
                         >
                           Delete
                         </div>
@@ -380,6 +494,106 @@ const AllEmployeePage = () => {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div style={styles.modalOverlay} onClick={handleCancelDelete}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+
+            <div style={styles.iconWrapper}>
+              <FiTrash2 size={56} color="#111111" strokeWidth={1.75} />
+            </div>
+
+            <div style={styles.modalTitle}>Delete User</div>
+
+            <div style={styles.modalDescription}>
+              Are you sure you want to delete this user and all associated
+              data? This action is permanent and cannot be undone.
+            </div>
+
+            <div style={styles.modalButtonsRow}>
+              <button style={styles.cancelButton} onClick={handleCancelDelete}>
+                Cancel
+              </button>
+
+              <button
+                style={styles.deleteConfirmButton}
+                onClick={handleConfirmDelete}
+              >
+                Delete User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalCard}>
+
+            <div style={styles.iconWrapper}>
+              <svg
+                width="88"
+                height="88"
+                viewBox="0 0 88 88"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="44"
+                  cy="44"
+                  r="40"
+                  stroke="#111111"
+                  strokeWidth="3"
+                  fill="none"
+                  strokeDasharray="252"
+                  strokeDashoffset="252"
+                  style={{
+                    animation: "drawCircle 0.6s ease-out forwards",
+                  }}
+                />
+                <path
+                  d="M27 45 L39 57 L61 33"
+                  stroke="#EB5757"
+                  strokeWidth="4"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="46"
+                  strokeDashoffset="46"
+                  style={{
+                    animation: "drawCheck 0.4s ease-out 0.55s forwards",
+                  }}
+                />
+              </svg>
+            </div>
+
+            <style>{`
+              @keyframes drawCircle {
+                to { stroke-dashoffset: 0; }
+              }
+              @keyframes drawCheck {
+                to { stroke-dashoffset: 0; }
+              }
+            `}</style>
+
+            <div style={styles.modalTitle}>User Deleted Successfully</div>
+
+            <div style={styles.modalDescription}>
+              The Selected user account has been deleted successfully.
+            </div>
+
+            <button
+              style={styles.backToPageButton}
+              onClick={handleBackToPage}
+            >
+              Back to Page
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <footer className="mt-6 pb-5 text-center">
         <p className="text-[12px] font-medium text-[#8C8C8C]">
