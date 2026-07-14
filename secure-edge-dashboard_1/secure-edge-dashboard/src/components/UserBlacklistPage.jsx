@@ -26,6 +26,9 @@ const UserBlacklistPage = () => {
     reason: "",
   });
 
+  // Add Blacklist success modal state
+  const [showBlockSuccessModal, setShowBlockSuccessModal] = useState(false);
+
   // Unblock flow state
   const [unblockTarget, setUnblockTarget] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -63,6 +66,11 @@ const UserBlacklistPage = () => {
       blockedBy: "Admin",
       reason: "",
     });
+    setShowBlockSuccessModal(true);
+  };
+
+  const handleBackFromBlockSuccess = () => {
+    setShowBlockSuccessModal(false);
   };
 
   const closeModal = () => setIsModalOpen(false);
@@ -787,6 +795,77 @@ const UserBlacklistPage = () => {
               Submit
             </button>
 
+          </div>
+        </div>
+      )}
+
+      {/* Add Blacklist Success Modal */}
+      {showBlockSuccessModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.confirmModalCard}>
+
+            <div style={styles.iconWrapper}>
+              <svg
+                width="88"
+                height="88"
+                viewBox="0 0 88 88"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="44"
+                  cy="44"
+                  r="40"
+                  stroke="#111111"
+                  strokeWidth="3"
+                  fill="none"
+                  strokeDasharray="252"
+                  strokeDashoffset="252"
+                  style={{
+                    animation: "drawCircleBlock 0.6s ease-out forwards",
+                  }}
+                />
+                <path
+                  d="M27 45 L39 57 L61 33"
+                  stroke="#EB5757"
+                  strokeWidth="4"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="46"
+                  strokeDashoffset="46"
+                  style={{
+                    animation: "drawVanishCheckBlock 2.2s ease-in-out 0.55s infinite",
+                  }}
+                />
+              </svg>
+            </div>
+
+            <style>{`
+              @keyframes drawCircleBlock {
+                to { stroke-dashoffset: 0; }
+              }
+              @keyframes drawVanishCheckBlock {
+                0%   { stroke-dashoffset: 46; }
+                35%  { stroke-dashoffset: 0; }
+                65%  { stroke-dashoffset: 0; }
+                100% { stroke-dashoffset: -46; }
+              }
+            `}</style>
+
+            <div style={styles.confirmTitle}>User Blocked Successfully</div>
+
+            <div style={styles.confirmDescription}>
+              The user has been blocked successfully and can no longer
+              access the system.
+            </div>
+
+            <button
+              style={styles.backToPageButton}
+              onClick={handleBackFromBlockSuccess}
+            >
+              Back to Page
+            </button>
           </div>
         </div>
       )}

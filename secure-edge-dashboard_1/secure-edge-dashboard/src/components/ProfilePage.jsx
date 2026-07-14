@@ -1,6 +1,9 @@
-import { Pencil } from "lucide-react";
+import { useState } from "react";
+import { Pencil, Lock, Check } from "lucide-react";
 
 export default function ProfilePage() {
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+
   const details = [
     { label: "Full Name", value: "Ankit Tripathi" },
     { label: "Date of Birth", value: "12-02-1989" },
@@ -14,23 +17,35 @@ export default function ProfilePage() {
     { label: "Designation", value: "Accountant" },
   ];
 
+  const handleChangePassword = () => {
+    // TODO: hook this up to your actual password-change API call.
+    // Only open the success modal once that call resolves successfully.
+    setShowPasswordModal(true);
+  };
+
+  const handleContinueToLogin = () => {
+    setShowPasswordModal(false);
+    // TODO: redirect to your login route, e.g. navigate("/login")
+  };
+
   return (
     <div
-  className="
-    mx-auto
-    mt-5
-    w-[calc(100%-56px)]
-    max-w-[1515px]
-    min-h-[392px]
-    rounded-[12px]
-    border
-    border-[#E5E9F0]
-    bg-white
-    px-10
-    pt-7
-    pb-0
-  "
->
+      className="
+        relative
+        mx-auto
+        mt-5
+        w-[calc(100%-56px)]
+        max-w-[1515px]
+        min-h-[392px]
+        rounded-[12px]
+        border
+        border-[#E5E9F0]
+        bg-white
+        px-10
+        pt-7
+        pb-0
+      "
+    >
       {/* ================= TOP SECTION ================= */}
 
       <div
@@ -136,7 +151,7 @@ export default function ProfilePage() {
 
           <div className="px-7 py-7">
             <dl className="space-y-5">
-                            {details.map((item) => (
+              {details.map((item) => (
                 <div
                   key={item.label}
                   className="
@@ -182,7 +197,6 @@ export default function ProfilePage() {
 
         <div className="px-6 py-7">
           <div className="grid grid-cols-3 gap-6">
-
             <div>
               <label className="mb-2 block text-[13px] font-medium text-[#20242C]">
                 Current Password
@@ -255,8 +269,10 @@ export default function ProfilePage() {
               />
             </div>
           </div>
-                    <button
+
+          <button
             type="button"
+            onClick={handleChangePassword}
             className="
               mt-7
               flex
@@ -282,12 +298,115 @@ export default function ProfilePage() {
           </p>
         </div>
       </div>
-       {/* Footer */}
+
+      {/* Footer */}
       <footer className="mt- pb-5 text-center">
         <p className="text-[12px] font-medium text-[#8C8C8C]">
           Copyright@2026 design by secureedge
         </p>
       </footer>
+
+      {/* ================= PASSWORD UPDATED MODAL ================= */}
+      {showPasswordModal && (
+        <div
+          className="
+            fixed
+            inset-0
+            z-50
+            flex
+            items-center
+            justify-center
+            bg-black/50
+            px-4
+          "
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="password-updated-title"
+        >
+          <div
+            className="
+              w-full
+              max-w-[440px]
+              rounded-[16px]
+              bg-white
+              px-8
+              py-10
+              text-center
+              shadow-xl
+            "
+          >
+            {/* Icon */}
+            <div className="relative mx-auto mb-6 flex h-[110px] w-[110px] items-center justify-center">
+              {/* decorative dashed/burst ring */}
+              <svg
+                viewBox="0 0 110 110"
+                className="absolute inset-0 h-full w-full"
+                fill="none"
+              >
+                <circle
+                  cx="55"
+                  cy="55"
+                  r="48"
+                  stroke="#F3D3D1"
+                  strokeWidth="1.5"
+                  strokeDasharray="3 6"
+                />
+                <path
+                  d="M85 20l3 3M90 30l4 1M18 85l3-3M14 74l4-1"
+                  stroke="#E0453C"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+
+              {/* lock badge */}
+              <div className="flex h-[74px] w-[74px] items-center justify-center rounded-2xl bg-[#F3F4F6] shadow-sm">
+                <Lock size={30} className="text-[#20242C]" strokeWidth={2} />
+              </div>
+
+              {/* check badge */}
+              <div className="absolute bottom-0 right-1 flex h-[26px] w-[26px] items-center justify-center rounded-full bg-[#E0453C] ring-4 ring-white">
+                <Check size={15} className="text-white" strokeWidth={3} />
+              </div>
+            </div>
+
+            <h2
+              id="password-updated-title"
+              className="text-[20px] font-bold text-[#20242C]"
+            >
+              Password Updated
+            </h2>
+
+            <p className="mx-auto mt-3 max-w-[320px] text-[13px] leading-5 text-[#6B7280]">
+              Your password has been changed successfully. For security
+              reasons, you may need to sign in again on your devices
+            </p>
+
+            <button
+              type="button"
+              onClick={handleContinueToLogin}
+              className="
+                mt-7
+                inline-flex
+                h-[46px]
+                w-full
+                max-w-[260px]
+                items-center
+                justify-center
+                rounded-[8px]
+                bg-[#313646]
+                text-[14px]
+                font-medium
+                text-white
+                transition
+                hover:bg-[#262B38]
+              "
+            >
+              Continue to Login
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

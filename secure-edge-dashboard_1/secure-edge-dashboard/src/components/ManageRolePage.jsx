@@ -6,6 +6,8 @@ import {
   FiChevronDown,
   FiCalendar,
   FiTrash2,
+  FiPlus,
+  FiX,
 } from "react-icons/fi";
 
 import { manageRoleData } from "./ManageRoleData";
@@ -20,6 +22,16 @@ const ManageRolePage = () => {
   // Delete flow state
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // Add Role modal state
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [roleFormData, setRoleFormData] = useState({
+    roleName: "",
+    slug: "",
+  });
+
+  // Add Role success modal state
+  const [showAddSuccessModal, setShowAddSuccessModal] = useState(false);
 
   const rowsPerPage = 10;
 
@@ -58,6 +70,27 @@ const ManageRolePage = () => {
   const handleBackToPage = () => {
     setShowSuccessModal(false);
   };
+
+  const handleRoleFormChange = (e) => {
+    setRoleFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleAddRole = () => {
+    // TODO: wire up to your API / add-role logic
+    console.log("Adding role:", roleFormData);
+    setIsRoleModalOpen(false);
+    setRoleFormData({ roleName: "", slug: "" });
+    setShowAddSuccessModal(true);
+  };
+
+  const handleBackFromAddSuccess = () => {
+    setShowAddSuccessModal(false);
+  };
+
+  const closeRoleModal = () => setIsRoleModalOpen(false);
 
   const styles = {
     page: {
@@ -125,6 +158,22 @@ const ManageRolePage = () => {
       width: "100%",
       marginLeft: "8px",
       fontSize: "13px",
+    },
+
+    addRoleButton: {
+      height: "38px",
+      padding: "0 18px",
+      borderRadius: "8px",
+      border: "1px solid #FF4D4F",
+      background: "#FFFFFF",
+      color: "#FF4D4F",
+      fontWeight: 600,
+      fontSize: "13px",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      whiteSpace: "nowrap",
     },
 
     tableContainer: {
@@ -219,7 +268,7 @@ const ManageRolePage = () => {
       gap: "8px",
     },
 
-    // ---------- Modal styles ----------
+    // ---------- Delete / Success Modal styles ----------
     modalOverlay: {
       position: "fixed",
       top: 0,
@@ -310,6 +359,76 @@ const ManageRolePage = () => {
       fontWeight: 600,
       cursor: "pointer",
     },
+
+    // ---------- Add Role Modal styles ----------
+    roleModalCard: {
+      width: "400px",
+      maxWidth: "92vw",
+      background: "#FFFFFF",
+      borderRadius: "14px",
+      padding: "28px 32px 32px",
+      boxSizing: "border-box",
+      boxShadow: "0 20px 60px rgba(0,0,0,.25)",
+      position: "relative",
+    },
+
+    roleModalCloseRow: {
+      display: "flex",
+      justifyContent: "flex-end",
+      marginBottom: "18px",
+    },
+
+    closeButton: {
+      width: "30px",
+      height: "30px",
+      borderRadius: "50%",
+      background: "transparent",
+      color: "#111111",
+      border: "none",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      cursor: "pointer",
+      flexShrink: 0,
+    },
+
+    roleModalField: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "8px",
+      marginBottom: "20px",
+    },
+
+    roleModalFieldLabel: {
+      fontSize: "13px",
+      fontWeight: 600,
+      color: "#333",
+    },
+
+    roleModalInput: {
+      height: "46px",
+      border: "1px solid #E5E7EB",
+      borderRadius: "8px",
+      padding: "0 14px",
+      fontSize: "13px",
+      outline: "none",
+      width: "100%",
+      boxSizing: "border-box",
+      color: "#333",
+    },
+
+    addSubmitButton: {
+      height: "46px",
+      padding: "0 32px",
+      borderRadius: "8px",
+      border: "none",
+      background: "#6B6B6B",
+      color: "#FFFFFF",
+      fontWeight: 600,
+      fontSize: "14px",
+      cursor: "pointer",
+      marginTop: "6px",
+    },
   };
 
   return (
@@ -350,6 +469,14 @@ const ManageRolePage = () => {
               />
 
             </div>
+
+            <button
+              style={styles.addRoleButton}
+              onClick={() => setIsRoleModalOpen(true)}
+            >
+              Add Role
+              <FiPlus size={16} />
+            </button>
 
           </div>
 
@@ -407,16 +534,6 @@ const ManageRolePage = () => {
                     </button>
                     {openMenu === role.id && (
                       <div style={styles.menu}>
-                        <div
-                          style={styles.menuItem}
-                          onClick={() => {
-                            console.log("Permission", role);
-                            setOpenMenu(null);
-                          }}
-                        >
-                          Permission
-                        </div>
-
                         <div
                           style={{ ...styles.menuItem, color: "#0A84FF" }}
                           onClick={() => {
@@ -523,6 +640,47 @@ const ManageRolePage = () => {
 
       </div>
 
+      {/* Add Role Modal */}
+      {isRoleModalOpen && (
+        <div style={styles.modalOverlay} onClick={closeRoleModal}>
+          <div style={styles.roleModalCard} onClick={(e) => e.stopPropagation()}>
+
+            <div style={styles.roleModalCloseRow}>
+              <button style={styles.closeButton} onClick={closeRoleModal}>
+                <FiX size={20} />
+              </button>
+            </div>
+
+            <div style={styles.roleModalField}>
+              <label style={styles.roleModalFieldLabel}>Add Role</label>
+              <input
+                style={styles.roleModalInput}
+                name="roleName"
+                placeholder="Add Role"
+                value={roleFormData.roleName}
+                onChange={handleRoleFormChange}
+              />
+            </div>
+
+            <div style={styles.roleModalField}>
+              <label style={styles.roleModalFieldLabel}>Slug</label>
+              <input
+                style={styles.roleModalInput}
+                name="slug"
+                placeholder="Slug"
+                value={roleFormData.slug}
+                onChange={handleRoleFormChange}
+              />
+            </div>
+
+            <button style={styles.addSubmitButton} onClick={handleAddRole}>
+              Add
+            </button>
+
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {deleteTarget && (
         <div style={styles.modalOverlay} onClick={handleCancelDelete}>
@@ -555,7 +713,7 @@ const ManageRolePage = () => {
         </div>
       )}
 
-      {/* Success Modal */}
+      {/* Delete Success Modal */}
       {showSuccessModal && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalCard}>
@@ -591,7 +749,7 @@ const ManageRolePage = () => {
                   strokeDasharray="46"
                   strokeDashoffset="46"
                   style={{
-                    animation: "drawCheck 0.4s ease-out 0.55s forwards",
+                    animation: "drawVanishCheck 2.2s ease-in-out 0.55s infinite",
                   }}
                 />
               </svg>
@@ -601,8 +759,11 @@ const ManageRolePage = () => {
               @keyframes drawCircle {
                 to { stroke-dashoffset: 0; }
               }
-              @keyframes drawCheck {
-                to { stroke-dashoffset: 0; }
+              @keyframes drawVanishCheck {
+                0%   { stroke-dashoffset: 46; }
+                35%  { stroke-dashoffset: 0; }
+                65%  { stroke-dashoffset: 0; }
+                100% { stroke-dashoffset: -46; }
               }
             `}</style>
 
@@ -615,6 +776,76 @@ const ManageRolePage = () => {
             <button
               style={styles.backToPageButton}
               onClick={handleBackToPage}
+            >
+              Back to Page
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Add Role Success Modal */}
+      {showAddSuccessModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalCard}>
+
+            <div style={styles.iconWrapper}>
+              <svg
+                width="88"
+                height="88"
+                viewBox="0 0 88 88"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="44"
+                  cy="44"
+                  r="40"
+                  stroke="#111111"
+                  strokeWidth="3"
+                  fill="none"
+                  strokeDasharray="252"
+                  strokeDashoffset="252"
+                  style={{
+                    animation: "drawCircleAdd 0.6s ease-out forwards",
+                  }}
+                />
+                <path
+                  d="M27 45 L39 57 L61 33"
+                  stroke="#EB5757"
+                  strokeWidth="4"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="46"
+                  strokeDashoffset="46"
+                  style={{
+                    animation: "drawVanishCheckAdd 2.2s ease-in-out 0.55s infinite",
+                  }}
+                />
+              </svg>
+            </div>
+
+            <style>{`
+              @keyframes drawCircleAdd {
+                to { stroke-dashoffset: 0; }
+              }
+              @keyframes drawVanishCheckAdd {
+                0%   { stroke-dashoffset: 46; }
+                35%  { stroke-dashoffset: 0; }
+                65%  { stroke-dashoffset: 0; }
+                100% { stroke-dashoffset: -46; }
+              }
+            `}</style>
+
+            <div style={styles.modalTitle}>Role Added Successfully</div>
+
+            <div style={styles.modalDescription}>
+              The Role has been successfully registered and activated
+            </div>
+
+            <button
+              style={styles.backToPageButton}
+              onClick={handleBackFromAddSuccess}
             >
               Back to Page
             </button>
