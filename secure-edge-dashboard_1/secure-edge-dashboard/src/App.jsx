@@ -20,6 +20,8 @@ import AllEmployeePage from "./components/AllEmployeePage";
 import AddUserPage from "./components/AddUserPage";
 import ManageRolePage from "./components/ManageRolePage";
 import UserBlacklistPage from "./components/UserBlacklistPage";
+import AccessMasterPage from "./components/AccessMasterPage";
+import RoleAccessPage from "./components/RoleAccessPage";
 
 // Not built yet — keep commented until the component exists
 // import FraudAlertPage from "./components/FraudAlertPage";
@@ -45,6 +47,8 @@ export default function App() {
     "add-user": "Add User",
     "manage-role": "Manage Role",
     "user-blacklist": "User Blacklist",
+    "access-master": "Access Master",
+    "role-access": "Role Access",
 
     "fraud-alert": "Fraud Alert",
 
@@ -109,6 +113,10 @@ export default function App() {
         {currentPage === "manage-role" && <ManageRolePage />}
 
         {currentPage === "user-blacklist" && <UserBlacklistPage />}
+
+        {currentPage === "access-master" && <AccessMasterPage />}
+
+        {currentPage === "role-access" && <RoleAccessPage />}
 
         {/* Not built yet — uncomment once FraudAlertPage exists */}
         {/* {currentPage === "fraud-alert" && <FraudAlertPage />} */}

@@ -82,6 +82,14 @@ const NAV_ITEMS = [
       label: "User Blacklist",
       page: "user-blacklist",
     },
+    {
+      label: "Access Master",
+      page: "access-master",
+    },
+    {
+      label: "Role Access",
+      page: "role-access",
+    },
   ],
 },
   {
@@ -125,6 +133,8 @@ const userManagementPages = [
   "add-user",
   "manage-role",
   "user-blacklist",
+  "access-master",
+  "role-access",
 ];
 
 const loginPages = [
@@ -248,7 +258,7 @@ const [openMenu, setOpenMenu] = useState(() => {
                 <div
                   className={`overflow-hidden transition-all duration-300 ease-in-out ${
                     isOpen
-                      ? "max-h-40 opacity-100"
+                      ? "max-h-60 opacity-100"
                       : "max-h-0 opacity-0"
                   }`}
                 >

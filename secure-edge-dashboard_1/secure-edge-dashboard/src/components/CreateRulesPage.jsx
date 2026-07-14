@@ -2,13 +2,12 @@ import React, { useMemo, useState } from "react";
 import { FiPlus } from "react-icons/fi";
 
 const CreateRulesPage = () => {
-  // ---- Category state ----
-  const [categories, setCategories] = useState([
+  // ---- Category state (still used for the dropdown) ----
+  const [categories] = useState([
     "Transaction Fraud",
     "Account Takeover",
     "Identity Fraud",
   ]);
-  const [newCategory, setNewCategory] = useState("");
 
   // ---- Create Fraud Rule state ----
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -33,17 +32,6 @@ const CreateRulesPage = () => {
     isRuleSectionActive && ruleName.trim() !== "" && ruleCode.trim() !== "";
 
   const canSaveScore = isScoreSectionActive && ruleScore.trim() !== "";
-
-  const handleAddCategory = () => {
-    const trimmed = newCategory.trim();
-    if (!trimmed) return;
-    if (categories.includes(trimmed)) {
-      setNewCategory("");
-      return;
-    }
-    setCategories((prev) => [...prev, trimmed]);
-    setNewCategory("");
-  };
 
   const handleSaveRule = () => {
     if (!canSaveRule) return;
@@ -116,47 +104,6 @@ const CreateRulesPage = () => {
       display: "block",
     },
 
-    categoryRow: {
-      display: "flex",
-      alignItems: "flex-end",
-      gap: "14px",
-      marginBottom: "24px",
-    },
-
-    categoryInputWrap: {
-      flex: 1,
-      maxWidth: "340px",
-    },
-
-    textInput: {
-      width: "100%",
-      height: "62px",
-      border: "1px solid #E5E7EB",
-      borderRadius: "8px",
-      padding: "0 14px",
-      fontSize: "13px",
-      color: "#111827",
-      background: "#FFFFFF",
-      boxSizing: "border-box",
-      outline: "none",
-    },
-
-    addCategoryBtn: {
-      height: "42px",
-      padding: "0 18px",
-      borderRadius: "8px",
-      border: "1px solid #FF0D0D",
-      background: "#FFFFFF",
-      color: "#FF0D0D",
-      fontSize: "13px",
-      fontWeight: 600,
-      display: "flex",
-      alignItems: "center",
-      gap: "6px",
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-    },
-
     innerBox: {
       border: "1px solid #E5E7EB",
       borderRadius: "10px",
@@ -224,26 +171,6 @@ const CreateRulesPage = () => {
   return (
     <div style={styles.page}>
       <div style={styles.outerCard}>
-        {/* ---- Add Category ---- */}
-        <div style={styles.sectionTitle}>
-          Create a New Category if It's Not Available
-        </div>
-
-        <div style={styles.categoryRow}>
-          <div style={styles.categoryInputWrap}>
-            <label style={styles.label}>Add Category</label>
-            <input
-              style={styles.textInput}
-              placeholder="Category Name"
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-            />
-          </div>
-
-          <button style={styles.addCategoryBtn} onClick={handleAddCategory}>
-            Add Category <FiPlus size={14} />
-          </button>
-        </div>
 
         {/* ---- Create Fraud Rule ---- */}
         <div style={styles.innerBox}>
