@@ -11,6 +11,8 @@ import AlertFeed from "./components/AlertFeed";
 import RecentTransactions from "./components/RecentTransactions";
 
 import ProfilePage from "./components/ProfilePage";
+import ChangePasswordPage from "./components/ChangePasswordPage";
+import EmailFormatPage from "./components/EmailFormatPage";
 
 import LoginHistoryPage from "./components/LoginHistoryPage";
 import LoginAttemptPage from "./components/LoginAttemptPage";
@@ -37,7 +39,10 @@ export default function App() {
 
   const pageTitle = {
     dashboard: "Dashboard Overview",
+
     profile: "User Profile & Settings",
+    "change-password": "Change Password",
+    "email-format": "Email Format",
 
     "login-history": "Login History",
     "login-attempt": "Login Attempt",
@@ -96,7 +101,19 @@ export default function App() {
         )}
 
         {/* Profile */}
-        {currentPage === "profile" && <ProfilePage />}
+        {currentPage === "profile" && (
+          <ProfilePage setCurrentPage={setCurrentPage} />
+        )}
+
+        {/* Change Password */}
+        {currentPage === "change-password" && (
+          <ChangePasswordPage setCurrentPage={setCurrentPage} />
+        )}
+
+        {/* Email Format */}
+        {currentPage === "email-format" && (
+          <EmailFormatPage setCurrentPage={setCurrentPage} />
+        )}
 
         {/* Login Pages */}
         {currentPage === "login-history" && <LoginHistoryPage />}
@@ -126,8 +143,8 @@ export default function App() {
 
         {currentPage === "all-fraud-rules" && <AllFraudRulesPage />}
 
-        {currentPage === "all-rule-score" && <AllRuleScorePage />} 
-        
+        {currentPage === "all-rule-score" && <AllRuleScorePage />}
+
         {currentPage === "all-category" && <AllCategoryPage />}
       </main>
     </div>
