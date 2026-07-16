@@ -137,37 +137,43 @@ export default function Header({
                   bg-white
                   rounded-[10px]
                   border
-                  border-[#ECECEC]
+                  border-[#D9D9D9]
                   shadow-[0_8px_24px_rgba(0,0,0,0.12)]
                   py-2
                   z-50
                 "
               >
-                {menuItems.map(({ label, icon: Icon, page }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => {
-                      setCurrentPage(page);
-                      setDropdownOpen(false);
-                    }}
-                    className="
-                      w-full
-                      flex
-                      items-center
-                      gap-3
-                      px-4
-                      py-[10px]
-                      text-left
-                      hover:bg-[#F7F7F7]
-                      transition-colors
-                    "
-                  >
-                    <Icon size={16} className="text-[#202224] shrink-0" />
-                    <span className="text-[14px] text-[#202224] whitespace-nowrap">
-                      {label}
-                    </span>
-                  </button>
+                {menuItems.map(({ label, icon: Icon, page }, index) => (
+                  <div key={label}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentPage(page);
+                        setDropdownOpen(false);
+                      }}
+                      className="
+                        w-full
+                        flex
+                        items-center
+                        gap-3
+                        px-4
+                        py-[10px]
+                        text-left
+                        hover:bg-[#F7F7F7]
+                        transition-colors
+                      "
+                    >
+                      <Icon size={16} className="text-[#202224] shrink-0" />
+                      <span className="text-[14px] text-[#202224] whitespace-nowrap">
+                        {label}
+                      </span>
+                    </button>
+
+                    {/* Divider below Profile and Change Password */}
+                    {index < menuItems.length - 1 && (
+                      <div className="h-px w-full bg-[#ECECEC] my-1" />
+                    )}
+                  </div>
                 ))}
               </div>
             )}

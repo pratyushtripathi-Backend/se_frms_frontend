@@ -32,15 +32,15 @@ function CreateEmailFormatModal({ onClose, onSubmit }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="relative w-[90%] max-w-[606px] rounded-[20px] bg-white p-10 shadow-2xl">
+      <div className="relative w-[90%] max-w-[960px] rounded-[20px] bg-white p-12 shadow-2xl">
 
         {/* Header */}
-        <div className="mb-8 flex items-start justify-between">
+        <div className="mb-9 flex items-start justify-between">
           <div>
-            <h3 className="text-[20px] font-semibold text-[#202224]">
+            <h3 className="text-[22px] font-semibold text-[#202224]">
               Create Email Format
             </h3>
-            <p className="mt-1 text-[13px] text-[#8A8A8A]">
+            <p className="mt-1.5 text-[14px] text-[#8A8A8A]">
               Fill all filed to Format
             </p>
           </div>
@@ -48,18 +48,18 @@ function CreateEmailFormatModal({ onClose, onSubmit }) {
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#111827] text-white transition-colors hover:bg-[#2E2E33]"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#111827] text-white transition-colors hover:bg-[#2E2E33]"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Fields */}
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-5">
 
           {/* Template Code */}
           <div>
-            <label className="mb-2 block text-[14px] font-medium text-[#202224]">
+            <label className="mb-1.5 block text-[14px] font-semibold text-[#202224]">
               Template Code
             </label>
 
@@ -67,7 +67,7 @@ function CreateEmailFormatModal({ onClose, onSubmit }) {
               <select
                 value={templateCode}
                 onChange={(e) => setTemplateCode(e.target.value)}
-                className="h-[50px] w-full appearance-none rounded-[10px] border border-[#E5E7EB] bg-white px-4 pr-10 text-[14px] text-[#202224] outline-none"
+                className="h-[48px] w-full appearance-none rounded-[10px] border border-[#E5E7EB] bg-white px-4 pr-10 text-[14px] text-[#202224] outline-none"
               >
                 <option value="" disabled>
                   Select Template Code
@@ -88,7 +88,7 @@ function CreateEmailFormatModal({ onClose, onSubmit }) {
 
           {/* Channel */}
           <div>
-            <label className="mb-2 block text-[14px] font-medium text-[#202224]">
+            <label className="mb-1.5 block text-[14px] font-semibold text-[#202224]">
               Channel
             </label>
 
@@ -96,7 +96,7 @@ function CreateEmailFormatModal({ onClose, onSubmit }) {
               <select
                 value={channel}
                 onChange={(e) => setChannel(e.target.value)}
-                className="h-[50px] w-full appearance-none rounded-[10px] border border-[#E5E7EB] bg-white px-4 pr-10 text-[14px] text-[#202224] outline-none"
+                className="h-[48px] w-full appearance-none rounded-[10px] border border-[#E5E7EB] bg-white px-4 pr-10 text-[14px] text-[#202224] outline-none"
               >
                 <option value="" disabled>
                   Select Channel
@@ -117,7 +117,7 @@ function CreateEmailFormatModal({ onClose, onSubmit }) {
 
           {/* Subject */}
           <div>
-            <label className="mb-2 block text-[14px] font-medium text-[#202224]">
+            <label className="mb-1.5 block text-[14px] font-semibold text-[#202224]">
               Subject
             </label>
 
@@ -126,13 +126,13 @@ function CreateEmailFormatModal({ onClose, onSubmit }) {
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Enter Subject"
-              className="h-[50px] w-full rounded-[10px] border border-[#E5E7EB] bg-white px-4 text-[14px] text-[#202224] outline-none placeholder:text-[#A3A3A3]"
+              className="h-[48px] w-full rounded-[10px] border border-[#E5E7EB] bg-white px-4 text-[14px] text-[#202224] outline-none placeholder:text-[#A3A3A3]"
             />
           </div>
 
           {/* Body Text */}
           <div>
-            <label className="mb-2 block text-[14px] font-medium text-[#202224]">
+            <label className="mb-1.5 block text-[14px] font-semibold text-[#202224]">
               Body Text
             </label>
 
@@ -150,7 +150,7 @@ function CreateEmailFormatModal({ onClose, onSubmit }) {
         <button
           type="button"
           onClick={() => onSubmit({ templateCode, channel, subject, bodyText })}
-          className="mt-9 h-[48px] w-[140px] rounded-[10px] bg-[#4B5563] text-[14px] font-semibold text-white transition-colors hover:bg-[#374151]"
+          className="mt-8 h-[48px] w-[140px] rounded-[10px] bg-[#4B5563] text-[14px] font-semibold text-white transition-colors hover:bg-[#374151]"
         >
           Submit
         </button>
@@ -162,10 +162,10 @@ function CreateEmailFormatModal({ onClose, onSubmit }) {
 function SuccessModal({ onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="w-[90%] max-w-[644px] rounded-[20px] bg-white px-10 py-16 text-center shadow-2xl">
+      <div className="w-[90%] max-w-[900px] rounded-[20px] bg-white px-10 py-20 text-center shadow-2xl">
 
         {/* Animated checkmark */}
-        <div className="mx-auto mb-7 flex h-[100px] w-[100px] items-center justify-center">
+        <div className="mx-auto mb-8 flex h-[140px] w-[140px] items-center justify-center">
           <svg viewBox="0 0 100 100" className="h-full w-full">
             <circle
               cx="50"
@@ -198,18 +198,18 @@ function SuccessModal({ onClose }) {
           </svg>
         </div>
 
-        <h3 className="text-[20px] font-semibold text-[#202224]">
+        <h3 className="text-[24px] font-semibold text-[#202224]">
           Created Successfully
         </h3>
 
-        <p className="mt-2 text-[13px] text-[#7A7A7A]">
+        <p className="mt-2 text-[15px] text-[#7A7A7A]">
           The Email Format created successfully
         </p>
 
         <button
           type="button"
           onClick={onClose}
-          className="mt-8 h-[48px] rounded-[10px] bg-[#111827] px-8 text-[14px] font-semibold text-white transition-colors hover:bg-[#2E2E33]"
+          className="mt-9 h-[48px] rounded-[10px] bg-[#111827] px-8 text-[15px] font-semibold text-white transition-colors hover:bg-[#2E2E33]"
         >
           Back to Page
         </button>
@@ -255,6 +255,8 @@ export default function EmailFormatPage() {
     });
   }, [year, fromDate, toDate]);
 
+  const visibleData = filteredData.slice(0, 10);
+
   const handleSubmit = () => {
     setShowFormModal(false);
     setShowSuccessModal(true);
@@ -269,7 +271,7 @@ export default function EmailFormatPage() {
         {/* Top Controls */}
         <div className="mb-6 flex items-center justify-between">
 
-          <h2 className="text-[16px] font-semibold text-[#202224]">
+          <h2 className="text-[17px] font-semibold text-[#202224]">
             Email Format Deatils
           </h2>
 
@@ -280,7 +282,7 @@ export default function EmailFormatPage() {
               <select
                 value={year}
                 onChange={(e) => setYear(e.target.value)}
-                className="h-10 w-[110px] appearance-none rounded-lg border border-[#E5E7EB] bg-white pl-3 pr-8 text-[12px] text-[#808080] outline-none"
+                className="h-10 w-[110px] appearance-none rounded-lg border border-[#E5E7EB] bg-white pl-3 pr-8 text-[13px] text-[#808080] outline-none"
               >
                 <option value="">Year</option>
                 {YEAR_OPTIONS.map((opt) => (
@@ -315,7 +317,7 @@ export default function EmailFormatPage() {
                     fromInputRef.current?.click();
                   }
                 }}
-                className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
+                className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[13px] text-[#808080]"
               >
                 <span>{fromDate || "From"}</span>
                 <CalendarDays size={15} />
@@ -341,7 +343,7 @@ export default function EmailFormatPage() {
                     toInputRef.current?.click();
                   }
                 }}
-                className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
+                className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[13px] text-[#808080]"
               >
                 <span>{toDate || "To"}</span>
                 <CalendarDays size={15} />
@@ -352,7 +354,7 @@ export default function EmailFormatPage() {
             <button
               type="button"
               onClick={() => setShowFormModal(true)}
-              className="flex h-10 items-center gap-2 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[13px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1]"
+              className="flex h-10 items-center gap-2 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[14px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1]"
             >
               <span>Create format</span>
               <Plus size={16} strokeWidth={2.5} />
@@ -361,137 +363,134 @@ export default function EmailFormatPage() {
           </div>
         </div>
 
-        {/* Table Card */}
-        <div className="overflow-hidden rounded-xl border border-[#ECECEC] bg-white">
+        {/* Table (no wrapping card/border) */}
+        <div className="w-full overflow-x-auto">
 
-          <div className="w-full overflow-x-auto">
+          <table className="w-full min-w-[1200px] border-collapse">
 
-            <table className="w-full min-w-[1200px] border-collapse">
-
-              <thead className="bg-[#F8F9FB]">
-                <tr>
-                  {TABLE_COLUMNS.map((column) => (
-                    <th
-                      key={column}
-                      className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[12px] font-semibold text-[#5A5A5A]"
-                    >
-                      {column}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredData.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
+            <thead className="bg-[#F8F9FB]">
+              <tr>
+                {TABLE_COLUMNS.map((column) => (
+                  <th
+                    key={column}
+                    className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[13px] font-semibold text-[#5A5A5A]"
                   >
-                    <td className="px-4 py-4 font-medium align-top">
-                      {item.id}
-                    </td>
-
-                    <td className="max-w-[220px] px-4 py-4 align-top leading-5">
-                      {item.bodyText}
-                    </td>
-
-                    <td className="whitespace-nowrap px-4 py-4 align-top">
-                      {item.subject}
-                    </td>
-
-                    <td className="whitespace-nowrap px-4 py-4 align-top">
-                      {item.templateCode}
-                    </td>
-
-                    <td className="whitespace-nowrap px-4 py-4 align-top">
-                      {item.channel}
-                    </td>
-
-                    <td className="whitespace-nowrap px-4 py-4 align-top">
-                      {item.createdBy}
-                    </td>
-
-                    <td className="px-4 py-4 align-top">
-                      <div className="flex flex-col leading-5">
-                        <span className="font-medium text-[#2F80ED]">
-                          {item.createdDate}
-                        </span>
-
-                        <span className="text-[#27AE60]">
-                          {item.createdTime}
-                        </span>
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4 align-top">
-                      <div className="flex flex-col leading-5">
-                        <span className="font-medium text-[#2F80ED]">
-                          {item.updatedDate}
-                        </span>
-
-                        <span className="text-[#27AE60]">
-                          {item.updatedTime}
-                        </span>
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4 align-top">
-                      <span
-                        className={`font-semibold ${
-                          item.status === "False"
-                            ? "text-[#EB5757]"
-                            : "text-[#2F80ED]"
-                        }`}
-                      >
-                        {item.status}
-                      </span>
-                    </td>
-                  </tr>
+                    {column}
+                  </th>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
 
-          {/* Bottom Bar */}
-
-          <div className="flex items-center justify-between border-t border-[#ECECEC] bg-white px-6 py-4">
-
-            <p className="text-[12px] text-[#7A7A7A]">
-              Showing {filteredData.length} of 135 transactions
-            </p>
-
-            <div className="flex items-center gap-2">
-
-              <button className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50">
-                &lt;
-              </button>
-
-              {[1, 2, 3, 4, 5].map((page) => (
-                <button
-                  key={page}
-                  className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium transition ${
-                    page === 1
-                      ? "bg-[#F3F4F6] text-[#111827]"
-                      : "text-[#6B7280] hover:bg-[#F8F8F8]"
-                  }`}
+            <tbody>
+              {visibleData.map((item) => (
+                <tr
+                  key={item.id}
+                  className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
                 >
-                  {page}
-                </button>
+                  <td className="px-4 py-4 font-medium align-top">
+                    {item.id}
+                  </td>
+
+                  <td className="max-w-[220px] px-4 py-4 align-top leading-5">
+                    {item.bodyText}
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-4 align-top">
+                    {item.subject}
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-4 align-top">
+                    {item.templateCode}
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-4 align-top">
+                    {item.channel}
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-4 align-top">
+                    {item.createdBy}
+                  </td>
+
+                  <td className="px-4 py-4 align-top">
+                    <div className="flex flex-col leading-5">
+                      <span className="font-medium text-[#2F80ED]">
+                        {item.createdDate}
+                      </span>
+
+                      <span className="text-[#27AE60]">
+                        {item.createdTime}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td className="px-4 py-4 align-top">
+                    <div className="flex flex-col leading-5">
+                      <span className="font-medium text-[#2F80ED]">
+                        {item.updatedDate}
+                      </span>
+
+                      <span className="text-[#27AE60]">
+                        {item.updatedTime}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td className="px-4 py-4 align-top">
+                    <span
+                      className={`font-semibold ${
+                        item.status === "False"
+                          ? "text-[#EB5757]"
+                          : "text-[#2F80ED]"
+                      }`}
+                    >
+                      {item.status}
+                    </span>
+                  </td>
+                </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
 
-              <button className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50">
-                &gt;
+        {/* Bottom Bar */}
+
+        <div className="flex items-center justify-between bg-white px-6 py-4">
+
+          <p className="text-[13px] text-[#7A7A7A]">
+            Showing {visibleData.length} of 135 transactions
+          </p>
+
+          <div className="flex items-center gap-2">
+
+            <button className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50">
+              &lt;
+            </button>
+
+            {[1, 2, 3, 4, 5].map((page) => (
+              <button
+                key={page}
+                className={`flex h-8 w-8 items-center justify-center rounded-md text-[13px] font-medium transition ${
+                  page === 1
+                    ? "bg-[#F3F4F6] text-[#111827]"
+                    : "text-[#6B7280] hover:bg-[#F8F8F8]"
+                }`}
+              >
+                {page}
               </button>
+            ))}
 
-            </div>
+            <button className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50">
+              &gt;
+            </button>
 
           </div>
 
         </div>
+
       </div>
       {/* Footer */}
       <footer className="mt-6 pb-5 text-center">
-        <p className="text-[12px] font-medium text-[#8C8C8C]">
+        <p className="text-[13px] font-medium text-[#8C8C8C]">
           Copyright@2026 design by secureedge
         </p>
       </footer>
