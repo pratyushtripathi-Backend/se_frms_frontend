@@ -3,8 +3,9 @@ import {
   CalendarDays,
   ChevronDown,
   Trash2,
+  Plus,
+  X,
 } from "lucide-react";
-import ExportFile from "./ExportFile";
 import { allCategoryData } from "./AllCategoryData";
 
 const TABLE_COLUMNS = [
@@ -26,6 +27,11 @@ export default function AllCategoryPage() {
   // Delete flow state
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // Add Category flow state
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [showAddSuccessModal, setShowAddSuccessModal] = useState(false);
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
@@ -63,6 +69,27 @@ export default function AllCategoryPage() {
 
   const handleBackToPage = () => {
     setShowSuccessModal(false);
+  };
+
+  const handleAddCategoryClick = () => {
+    setShowAddCategoryModal(true);
+  };
+
+  const handleCancelAddCategory = () => {
+    setShowAddCategoryModal(false);
+    setNewCategoryName("");
+  };
+
+  const handleAddCategorySave = () => {
+    // TODO: wire up to your actual add-category API call using newCategoryName
+    console.log("Adding category:", newCategoryName);
+    setShowAddCategoryModal(false);
+    setNewCategoryName("");
+    setShowAddSuccessModal(true);
+  };
+
+  const handleAddSuccessBack = () => {
+    setShowAddSuccessModal(false);
   };
 
   return (
@@ -151,8 +178,15 @@ export default function AllCategoryPage() {
               </button>
             </>
 
-            {/* Export */}
-            <ExportFile rows={filteredData} />
+            {/* Add Category */}
+            <button
+              type="button"
+              onClick={handleAddCategoryClick}
+              className="flex h-10 items-center gap-2 rounded-lg border border-[#EB5757] bg-white px-4 text-[12px] font-semibold text-[#EB5757]"
+            >
+              Add Category
+              <Plus size={15} />
+            </button>
 
           </div>
         </div>
@@ -310,6 +344,118 @@ export default function AllCategoryPage() {
         </div>
       </div>
 
+      {/* Add Category Modal */}
+      {showAddCategoryModal && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
+          onClick={handleCancelAddCategory}
+        >
+          <div
+            className="relative w-[760px] max-w-[94vw] rounded-lg bg-white p-10 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={handleCancelAddCategory}
+              className="absolute right-6 top-6 text-[#202224]"
+            >
+              <X size={20} />
+            </button>
+
+            <p className="mb-3 text-[14px] font-medium text-[#202224]">
+              Add Category
+            </p>
+
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="Add Category"
+              className="mb-8 h-12 w-full rounded-lg border border-[#E5E7EB] px-4 text-[13px] text-[#202224] outline-none placeholder:text-[#A0A0A0]"
+            />
+
+            <button
+              type="button"
+              onClick={handleAddCategorySave}
+              className="h-[46px] w-[140px] rounded-lg border-none bg-[#4B4B4B] text-[14px] font-semibold text-white"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Add Category Success Modal */}
+      {showAddSuccessModal && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55">
+          <div className="w-[760px] max-w-[94vw] rounded-lg bg-white px-12 py-14 text-center shadow-2xl">
+
+            <div className="mb-6 flex justify-center">
+              <svg
+                width="88"
+                height="88"
+                viewBox="0 0 88 88"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="44"
+                  cy="44"
+                  r="40"
+                  stroke="#111111"
+                  strokeWidth="3"
+                  fill="none"
+                  strokeDasharray="252"
+                  strokeDashoffset="252"
+                  style={{
+                    animation: "drawCircleAdd 0.6s ease-out forwards",
+                  }}
+                />
+                <path
+                  d="M27 45 L39 57 L61 33"
+                  stroke="#EB5757"
+                  strokeWidth="4"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="46"
+                  strokeDashoffset="46"
+                  style={{
+                    animation:
+                      "drawCheckAdd 0.4s ease-out 0.55s forwards",
+                  }}
+                />
+              </svg>
+
+              <style>{`
+                @keyframes drawCircleAdd {
+                  to { stroke-dashoffset: 0; }
+                }
+                @keyframes drawCheckAdd {
+                  to { stroke-dashoffset: 0; }
+                }
+              `}</style>
+            </div>
+
+            <h3 className="mb-4 text-[20px] font-semibold text-[#202224]">
+              Category Create Successfully
+            </h3>
+
+            <p className="mx-auto mb-8 max-w-[420px] text-[14px] leading-6 text-[#7A7A7A]">
+              The Selected user account has been deleted successfully.
+            </p>
+
+            <button
+              type="button"
+              onClick={handleAddSuccessBack}
+              className="h-[46px] w-[160px] rounded-lg border-none bg-[#4B4B4B] text-[14px] font-semibold text-white"
+            >
+              Back to Page
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {deleteTargetId !== null && (
         <div
@@ -317,7 +463,7 @@ export default function AllCategoryPage() {
           onClick={handleCancelDelete}
         >
           <div
-            className="w-[640px] max-w-[92vw] rounded-2xl bg-white px-12 py-14 text-center shadow-2xl"
+            className="w-[760px] max-w-[94vw] rounded-lg bg-white px-12 py-14 text-center shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-6 flex justify-center">
@@ -357,7 +503,7 @@ export default function AllCategoryPage() {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55">
-          <div className="w-[640px] max-w-[92vw] rounded-2xl bg-white px-12 py-14 text-center shadow-2xl">
+          <div className="w-[760px] max-w-[94vw] rounded-lg bg-white px-12 py-14 text-center shadow-2xl">
 
             <div className="mb-6 flex justify-center">
               <svg

@@ -90,6 +90,10 @@ const NAV_ITEMS = [
       label: "Role Access",
       page: "role-access",
     },
+    {
+      label: "User Role",
+      page: "user-role",
+    },
   ],
 },
   {
@@ -135,6 +139,7 @@ const userManagementPages = [
   "user-blacklist",
   "access-master",
   "role-access",
+  "user-role",
 ];
 
 const loginPages = [
