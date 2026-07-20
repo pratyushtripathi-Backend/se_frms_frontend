@@ -10,9 +10,8 @@ import { roleAccessData } from "./RoleAccessData";
 
 const TABLE_COLUMNS = [
   "ID",
-  "Role",
   "Access",
-  "Created by",
+  "Created By",
   "Created at",
   "Update at",
   "Status",
@@ -152,11 +151,11 @@ function SuccessModal({ onClose }) {
         </div>
 
         <h3 className="text-[18px] font-semibold text-[#202224]">
-          Access Create Successfully
+          Role&nbsp; Access add Successfully
         </h3>
 
         <p className="mt-2 text-[13px] text-[#7A7A7A]">
-          Access permissions have been created successfully.
+          Role Access permissions have been created successfully.
         </p>
 
         <button
@@ -178,10 +177,44 @@ function SuccessModal({ onClose }) {
   );
 }
 
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-center">
+
+      <img
+        src="/icon.png"
+        alt="Search documents"
+        className="mb-8 h-[170px] w-[170px] origin-top object-contain"
+        style={{ animation: "doc-dangle 2.6s ease-in-out infinite" }}
+      />
+
+      <h3 className="text-[18px] font-semibold text-[#202224]">
+        Search to View Access Details
+      </h3>
+
+      <p className="mt-3 max-w-[480px] text-[13px] italic leading-6 text-[#9A9A9A]">
+        "Use the search bar above to find a user or role. Assigned
+        permissions and access details will appear here after a
+        successful search."
+      </p>
+
+      <style>{`
+        @keyframes doc-dangle {
+          0%, 100% { transform: rotate(-8deg); }
+          50% { transform: rotate(8deg); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function RoleAccessPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+
+  const [searchInput, setSearchInput] = useState("");
   const [searchValue, setSearchValue] = useState("");
+  const [hasSearched, setHasSearched] = useState(false);
 
   const [showFormModal, setShowFormModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -190,6 +223,8 @@ export default function RoleAccessPage() {
   const toInputRef = useRef(null);
 
   const filteredData = useMemo(() => {
+    if (!hasSearched) return [];
+
     return roleAccessData.filter((item) => {
       const [day, month, year] = item.createdDate.split("-");
       const itemDate = new Date(`${year}-${month}-${day}`);
@@ -208,7 +243,14 @@ export default function RoleAccessPage() {
 
       return true;
     });
-  }, [fromDate, toDate, searchValue]);
+  }, [fromDate, toDate, searchValue, hasSearched]);
+
+  const matchedRole = filteredData[0]?.role || searchValue;
+
+  const handleSearch = () => {
+    setSearchValue(searchInput);
+    setHasSearched(true);
+  };
 
   const handleSave = () => {
     setShowFormModal(false);
@@ -222,214 +264,247 @@ export default function RoleAccessPage() {
       <div className="rounded-[20px] bg-white p-6 shadow-sm">
 
         {/* Top Controls */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex items-center gap-3">
 
-          <h2 className="text-[16px] font-semibold text-[#202224]">
-            All Access Details
-          </h2>
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search
+              size={16}
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#A6A6A6]"
+            />
 
-          <div className="flex items-center gap-3">
-
-            {/* From */}
-            <>
-              <input
-                ref={fromInputRef}
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="hidden"
-              />
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (fromInputRef.current?.showPicker) {
-                    fromInputRef.current.showPicker();
-                  } else {
-                    fromInputRef.current?.click();
-                  }
-                }}
-                className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
-              >
-                <span>{fromDate || "From"}</span>
-                <CalendarDays size={15} />
-              </button>
-            </>
-
-            {/* To */}
-            <>
-              <input
-                ref={toInputRef}
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="hidden"
-              />
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (toInputRef.current?.showPicker) {
-                    toInputRef.current.showPicker();
-                  } else {
-                    toInputRef.current?.click();
-                  }
-                }}
-                className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
-              >
-                <span>{toDate || "To"}</span>
-                <CalendarDays size={15} />
-              </button>
-            </>
-
-            {/* Search Value */}
-            <div className="relative">
-              <input
-                type="text"
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-                placeholder="Search Value"
-                className="h-10 w-[170px] rounded-lg border border-[#E5E7EB] pl-3 pr-9 text-[12px] text-[#202224] outline-none placeholder:text-[#A6A6A6]"
-              />
-
-              <Search
-                size={15}
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#808080]"
-              />
-            </div>
-
-            {/* Add Role Access */}
-            <button
-              type="button"
-              onClick={() => setShowFormModal(true)}
-              className="flex h-10 items-center gap-2 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[13px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1]"
-            >
-              <span>Add Role Access</span>
-              <Plus size={16} strokeWidth={2.5} />
-            </button>
-
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              placeholder="Search"
+              className="h-[46px] w-full rounded-lg border border-[#E5E7EB] pl-11 pr-4 text-[14px] text-[#202224] outline-none placeholder:text-[#A6A6A6]"
+            />
           </div>
+
+          {/* Search Button */}
+          <button
+            type="button"
+            onClick={handleSearch}
+            className="h-[46px] rounded-lg bg-[#EB4A4A] px-8 text-[14px] font-semibold text-white transition-colors hover:bg-[#D93A3A]"
+          >
+            Search
+          </button>
+
+          {/* Add Role Access */}
+          <button
+            type="button"
+            onClick={() => setShowFormModal(true)}
+            className="flex h-[46px] items-center gap-2 whitespace-nowrap rounded-lg border border-[#FF0D0D] bg-white px-4 text-[13px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1]"
+          >
+            <span>Add Role Access</span>
+            <Plus size={16} strokeWidth={2.5} />
+          </button>
+
         </div>
 
-        {/* Table Card */}
-        <div className="overflow-hidden rounded-xl border border-[#ECECEC] bg-white">
+        {!hasSearched ? (
+          <EmptyState />
+        ) : (
+          <>
+            {/* Role Summary */}
+            <div className="mb-6 flex min-h-[92px] items-center rounded-lg border-l-4 border-[#FF0D0D] bg-white px-6 py-7 shadow-sm">
+              <div className="w-[300px]">
+                <p className="text-[14px] font-semibold text-[#202224]">Role</p>
+                <p className="mt-1 text-[15px] text-[#4B5563]">
+                  {matchedRole || "-"}
+                </p>
+              </div>
 
-          <div className="w-full overflow-x-auto">
+              <div>
+                <p className="text-[14px] font-semibold text-[#202224]">
+                  Total Access
+                </p>
+                <p className="mt-1 text-[15px] text-[#4B5563]">04</p>
+              </div>
+            </div>
 
-            <table className="w-full min-w-[1000px] border-collapse">
+            {/* Table Card */}
+            <div className="overflow-hidden rounded-xl border border-[#ECECEC] bg-white">
 
-              <thead className="bg-[#F8F9FB]">
-                <tr>
-                  {TABLE_COLUMNS.map((column) => (
-                    <th
-                      key={column}
-                      className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[12px] font-semibold text-[#5A5A5A]"
+              {/* Section Header */}
+              <div className="flex items-center justify-between px-6 py-4">
+                <h2 className="text-[16px] font-semibold text-[#202224]">
+                  All Access Details
+                </h2>
+
+                <div className="flex items-center gap-3">
+
+                  {/* From */}
+                  <>
+                    <input
+                      ref={fromInputRef}
+                      type="date"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (fromInputRef.current?.showPicker) {
+                          fromInputRef.current.showPicker();
+                        } else {
+                          fromInputRef.current?.click();
+                        }
+                      }}
+                      className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
                     >
-                      {column}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+                      <span>{fromDate || "From"}</span>
+                      <CalendarDays size={15} />
+                    </button>
+                  </>
 
-              <tbody>
-                {filteredData.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
-                  >
-                    <td className="px-4 py-4 font-medium">
-                      {item.id}
-                    </td>
+                  {/* To */}
+                  <>
+                    <input
+                      ref={toInputRef}
+                      type="date"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                      className="hidden"
+                    />
 
-                    <td className="whitespace-nowrap px-4 py-4">
-                      {item.role}
-                    </td>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (toInputRef.current?.showPicker) {
+                          toInputRef.current.showPicker();
+                        } else {
+                          toInputRef.current?.click();
+                        }
+                      }}
+                      className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
+                    >
+                      <span>{toDate || "To"}</span>
+                      <CalendarDays size={15} />
+                    </button>
+                  </>
 
-                    <td className="whitespace-nowrap px-4 py-4">
-                      {item.access}
-                    </td>
+                </div>
+              </div>
 
-                    <td className="whitespace-nowrap px-4 py-4">
-                      {item.createdBy}
-                    </td>
+              <div className="w-full overflow-x-auto">
 
-                    <td className="px-4 py-4">
-                      <div className="flex flex-col leading-5">
-                        <span className="font-medium text-[#2F80ED]">
-                          {item.createdDate}
-                        </span>
+                <table className="w-full min-w-[1000px] border-collapse">
 
-                        <span className="text-[#27AE60]">
-                          {item.createdTime}
-                        </span>
-                      </div>
-                    </td>
+                  <thead className="bg-[#F8F9FB]">
+                    <tr>
+                      {TABLE_COLUMNS.map((column) => (
+                        <th
+                          key={column}
+                          className="whitespace-nowrap border-b border-t border-[#ECECEC] px-6 py-4 text-left text-[12px] font-semibold text-[#5A5A5A]"
+                        >
+                          {column}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
 
-                    <td className="px-4 py-4">
-                      <div className="flex flex-col leading-5">
-                        <span className="font-medium text-[#2F80ED]">
-                          {item.updatedDate}
-                        </span>
-
-                        <span className="text-[#27AE60]">
-                          {item.updatedTime}
-                        </span>
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <span
-                        className={`font-semibold ${
-                          item.status === "Block"
-                            ? "text-[#EB5757]"
-                            : "text-[#27AE60]"
-                        }`}
+                  <tbody>
+                    {filteredData.map((item) => (
+                      <tr
+                        key={item.id}
+                        className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
                       >
-                        {item.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        <td className="px-6 py-4 font-medium">
+                          {item.id}
+                        </td>
 
-          {/* Bottom Bar */}
+                        <td className="whitespace-nowrap px-6 py-4">
+                          {item.access}
+                        </td>
 
-          <div className="flex items-center justify-between border-t border-[#ECECEC] bg-white px-6 py-4">
+                        <td className="whitespace-nowrap px-6 py-4">
+                          {item.createdBy}
+                        </td>
 
-            <p className="text-[12px] text-[#7A7A7A]">
-              Showing {filteredData.length} of 135 transactions
-            </p>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col leading-5">
+                            <span className="font-medium text-[#2F80ED]">
+                              {item.createdDate}
+                            </span>
 
-            <div className="flex items-center gap-2">
+                            <span className="text-[#27AE60]">
+                              {item.createdTime}
+                            </span>
+                          </div>
+                        </td>
 
-              <button className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50">
-                &lt;
-              </button>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col leading-5">
+                            <span className="font-medium text-[#2F80ED]">
+                              {item.updatedDate}
+                            </span>
 
-              {[1, 2, 3, 4, 5].map((page) => (
-                <button
-                  key={page}
-                  className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium transition ${
-                    page === 1
-                      ? "bg-[#F3F4F6] text-[#111827]"
-                      : "text-[#6B7280] hover:bg-[#F8F8F8]"
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
+                            <span className="text-[#27AE60]">
+                              {item.updatedTime}
+                            </span>
+                          </div>
+                        </td>
 
-              <button className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50">
-                &gt;
-              </button>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`font-semibold ${
+                              item.status === "Block"
+                                ? "text-[#EB5757]"
+                                : "text-[#27AE60]"
+                            }`}
+                          >
+                            {item.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Bottom Bar */}
+
+              <div className="flex items-center justify-between border-t border-[#ECECEC] bg-white px-6 py-4">
+
+                <p className="text-[12px] text-[#7A7A7A]">
+                  Showing {filteredData.length} of 135 transactions
+                </p>
+
+                <div className="flex items-center gap-2">
+
+                  <button className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50">
+                    &lt;
+                  </button>
+
+                  {[1, 2, 3, 4, 5].map((page) => (
+                    <button
+                      key={page}
+                      className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium transition ${
+                        page === 1
+                          ? "bg-[#F3F4F6] text-[#111827]"
+                          : "text-[#6B7280] hover:bg-[#F8F8F8]"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  <button className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50">
+                    &gt;
+                  </button>
+
+                </div>
+
+              </div>
 
             </div>
-
-          </div>
-
-        </div>
+          </>
+        )}
       </div>
       {/* Footer */}
       <footer className="mt-6 pb-5 text-center">
