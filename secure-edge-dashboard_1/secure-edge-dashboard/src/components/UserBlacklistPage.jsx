@@ -33,6 +33,23 @@ const UserBlacklistPage = () => {
   const [unblockTarget, setUnblockTarget] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  // Action-column Block/Unblock toggle state per row.
+  // Seeded so rows 1, 5, 7, 9 start "Block" (red); the rest start "Unblock" (green),
+  // matching the reference design — independent of the Status text column.
+  const blockedSeedIds = [1, 5, 7, 9];
+  const [blockMap, setBlockMap] = useState(() =>
+    Object.fromEntries(
+      userBlacklistData.map((item) => [
+        item.id,
+        blockedSeedIds.includes(item.id),
+      ])
+    )
+  );
+
+  const toggleBlock = (id) => {
+    setBlockMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const rowsPerPage = 10;
 
   const filteredData = useMemo(() => {
@@ -227,17 +244,6 @@ const UserBlacklistPage = () => {
 
     createdTime: {
       color: "#2E7D32",
-      fontWeight: 500,
-    },
-
-    removeButton: {
-      padding: "7px 14px",
-      border: "none",
-      borderRadius: "20px",
-      background: "#EFEFEF",
-      color: "#666",
-      cursor: "pointer",
-      fontSize: "12px",
       fontWeight: 500,
     },
 
@@ -571,14 +577,17 @@ const UserBlacklistPage = () => {
                 <th style={styles.th}>Risk Type</th>
                 <th style={styles.th}>Created By</th>
                 <th style={styles.th}>Created At</th>
-                <th style={styles.th}>Unblock</th>
+                <th style={styles.th}>Action</th>
 
               </tr>
             </thead>
 
             <tbody>
 
-              {currentData.map((item, index) => (
+              {currentData.map((item, index) => {
+                const isBlocked = blockMap[item.id];
+
+                return (
 
                 <tr key={item.id} style={styles.tr}>
 
@@ -628,15 +637,48 @@ const UserBlacklistPage = () => {
 
                   <td style={styles.td}>
                     <button
-                      style={styles.removeButton}
-                      onClick={() => handleRemoveClick(item)}
+                      type="button"
+                      onClick={() => toggleBlock(item.id)}
+                      style={{
+                        position: "relative",
+                        display: "flex",
+                        alignItems: "center",
+                        height: "28px",
+                        width: "92px",
+                        borderRadius: "20px",
+                        border: "none",
+                        padding: "0 4px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: "#FFFFFF",
+                        cursor: "pointer",
+                        background: isBlocked ? "#EB5757" : "#27AE60",
+                        justifyContent: isBlocked ? "flex-start" : "flex-end",
+                      }}
                     >
-                      Remove
+                      <span>{isBlocked ? "Block" : "Unblock"}</span>
+
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          height: "20px",
+                          width: "20px",
+                          borderRadius: "50%",
+                          background: "#FFFFFF",
+                          boxShadow: "0 1px 2px rgba(0,0,0,.2)",
+                          transition: "all 0.2s",
+                          right: isBlocked ? "4px" : undefined,
+                          left: isBlocked ? undefined : "4px",
+                        }}
+                      />
                     </button>
                   </td>
 
                 </tr>
-                              ))}
+                );
+              })}
 
             </tbody>
 

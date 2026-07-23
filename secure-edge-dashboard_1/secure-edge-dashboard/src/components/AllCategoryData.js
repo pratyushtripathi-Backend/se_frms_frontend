@@ -7,7 +7,7 @@ export const allCategoryData = [
     createdBy: "Admin",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Success",
+    status: "Active",
   },
   {
     id: 2,
@@ -17,7 +17,7 @@ export const allCategoryData = [
     createdBy: "Admin",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Success",
+    status: "Inactive",
   },
   {
     id: 3,
@@ -27,7 +27,7 @@ export const allCategoryData = [
     createdBy: "Admin",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Failed",
+    status: "Inactive",
   },
   {
     id: 4,
@@ -37,7 +37,7 @@ export const allCategoryData = [
     createdBy: "Admin",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Success",
+    status: "Active",
   },
   {
     id: 5,
@@ -47,7 +47,7 @@ export const allCategoryData = [
     createdBy: "Admin",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Success",
+    status: "Active",
   },
   {
     id: 6,
@@ -57,7 +57,7 @@ export const allCategoryData = [
     createdBy: "Admin",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Pending",
+    status: "Active",
   },
   {
     id: 7,
@@ -67,7 +67,7 @@ export const allCategoryData = [
     createdBy: "Admin",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Failed",
+    status: "Inactive",
   },
   {
     id: 8,
@@ -77,7 +77,7 @@ export const allCategoryData = [
     createdBy: "Admin",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Pending",
+    status: "Active",
   },
   {
     id: 9,
@@ -87,7 +87,7 @@ export const allCategoryData = [
     createdBy: "Admin",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Success",
+    status: "Inactive",
   },
   {
     id: 10,
@@ -97,6 +97,6 @@ export const allCategoryData = [
     createdBy: "Admin",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Success",
+    status: "Active",
   },
 ];

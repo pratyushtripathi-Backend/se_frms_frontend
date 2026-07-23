@@ -23,6 +23,18 @@ export default function AllFraudRulesPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
+  // Track toggle state per row, seeded from the source data's status field
+  // ("Pending" = on/right, "Failed" = off/left)
+  const [statusMap, setStatusMap] = useState(() =>
+    Object.fromEntries(
+      allFraudRulesData.map((item) => [item.id, item.status === "Pending"])
+    )
+  );
+
+  const toggleStatus = (id) => {
+    setStatusMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
 
@@ -154,74 +166,84 @@ export default function AllFraudRulesPage() {
               </thead>
 
               <tbody>
-                {filteredData.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
-                  >
-                    <td className="px-4 py-4 font-medium">
-                      {item.id}
-                    </td>
+                {filteredData.map((item) => {
+                  const isActive = statusMap[item.id];
 
-                    <td className="whitespace-nowrap px-4 py-4">
-                      {item.categoryId}
-                    </td>
+                  return (
+                    <tr
+                      key={item.id}
+                      className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
+                    >
+                      <td className="px-4 py-4 font-medium">
+                        {item.id}
+                      </td>
 
-                    <td className="px-4 py-4">
-                      <div className="flex flex-col leading-5">
-                        <span className="font-medium text-[#2F80ED]">
-                          {item.createdDate}
-                        </span>
+                      <td className="whitespace-nowrap px-4 py-4">
+                        {item.categoryId}
+                      </td>
 
-                        <span className="text-[#27AE60]">
-                          {item.createdTime}
-                        </span>
-                      </div>
-                    </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-col leading-5">
+                          <span className="font-medium text-[#2F80ED]">
+                            {item.createdDate}
+                          </span>
 
-                    <td className="whitespace-nowrap px-4 py-4">
-                      {item.ruleCode}
-                    </td>
+                          <span className="text-[#27AE60]">
+                            {item.createdTime}
+                          </span>
+                        </div>
+                      </td>
 
-                    <td className="whitespace-nowrap px-4 py-4">
-                      {item.ruleName}
-                    </td>
+                      <td className="whitespace-nowrap px-4 py-4">
+                        {item.ruleCode}
+                      </td>
 
-                    <td className="max-w-[320px] px-4 py-4">
-                      {item.ruleDescription}
-                    </td>
+                      <td className="whitespace-nowrap px-4 py-4">
+                        {item.ruleName}
+                      </td>
 
-                    <td className="whitespace-nowrap px-4 py-4">
-                      {item.createdBy}
-                    </td>
+                      <td className="max-w-[320px] px-4 py-4">
+                        {item.ruleDescription}
+                      </td>
 
-                    <td className="px-4 py-4">
-                      <div className="flex flex-col leading-5">
-                        <span className="font-medium text-[#2F80ED]">
-                          {item.updatedDate}
-                        </span>
+                      <td className="whitespace-nowrap px-4 py-4">
+                        {item.createdBy}
+                      </td>
 
-                        <span className="text-[#27AE60]">
-                          {item.updatedTime}
-                        </span>
-                      </div>
-                    </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-col leading-5">
+                          <span className="font-medium text-[#2F80ED]">
+                            {item.updatedDate}
+                          </span>
 
-                    <td className="px-4 py-4">
-                      <span
-                        className={`font-semibold ${
-                          item.status === "Pending"
-                            ? "text-[#F2994A]"
-                            : item.status === "Failed"
-                            ? "text-[#EB5757]"
-                            : "text-[#27AE60]"
-                        }`}
-                      >
-                        {item.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                          <span className="text-[#27AE60]">
+                            {item.updatedTime}
+                          </span>
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-4">
+                        <button
+                          type="button"
+                          onClick={() => toggleStatus(item.id)}
+                          className={`relative flex h-7 w-[92px] items-center rounded-full px-1 text-[12px] font-semibold text-white transition-colors ${
+                            isActive
+                              ? "justify-start bg-[#27AE60]"
+                              : "justify-end bg-[#BDBDBD]"
+                          }`}
+                        >
+                          <span>{isActive ? "Active" : "Inactive"}</span>
+
+                          <span
+                            className={`absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-white shadow transition-all duration-200 ${
+                              isActive ? "right-1" : "left-1"
+                            }`}
+                          />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

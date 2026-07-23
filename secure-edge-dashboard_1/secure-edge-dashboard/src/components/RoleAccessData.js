@@ -8,7 +8,7 @@ export const roleAccessData = [
     createdTime: "11:30 AM",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Success",
+    status: "Active",
   },
   {
     id: 2,
@@ -19,7 +19,7 @@ export const roleAccessData = [
     createdTime: "11:30 AM",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Success",
+    status: "Inactive",
   },
   {
     id: 3,
@@ -30,7 +30,7 @@ export const roleAccessData = [
     createdTime: "11:30 AM",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Block",
+    status: "Inactive",
   },
   {
     id: 4,
@@ -41,7 +41,7 @@ export const roleAccessData = [
     createdTime: "11:30 AM",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Success",
+    status: "Active",
   },
   {
     id: 5,
@@ -52,7 +52,7 @@ export const roleAccessData = [
     createdTime: "11:30 AM",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Block",
+    status: "Active",
   },
   {
     id: 6,
@@ -63,7 +63,7 @@ export const roleAccessData = [
     createdTime: "11:30 AM",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Success",
+    status: "Active",
   },
   {
     id: 7,
@@ -74,7 +74,7 @@ export const roleAccessData = [
     createdTime: "11:30 AM",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Block",
+    status: "Inactive",
   },
   {
     id: 8,
@@ -85,7 +85,7 @@ export const roleAccessData = [
     createdTime: "11:30 AM",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Success",
+    status: "Active",
   },
   {
     id: 9,
@@ -96,7 +96,7 @@ export const roleAccessData = [
     createdTime: "11:30 AM",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Success",
+    status: "Active",
   },
   {
     id: 10,
@@ -107,6 +107,6 @@ export const roleAccessData = [
     createdTime: "11:30 AM",
     updatedDate: "12-05-2025",
     updatedTime: "11:30 AM",
-    status: "Block",
+    status: "Inactive",
   },
 ];
