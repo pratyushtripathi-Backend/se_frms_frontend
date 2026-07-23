@@ -7,12 +7,13 @@ import {
   FiTrash2,
 } from "react-icons/fi";
 
-import { allEmployeeData } from "./AllEmployeeData";
+import { allUserData } from "./AllUserData";
 
-const AllEmployeePage = () => {
+const AllUserPage = () => {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [openMenu, setOpenMenu] = useState(null);
+  const [statusOverrides, setStatusOverrides] = useState({});
 
   // Delete flow state
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -20,25 +21,50 @@ const AllEmployeePage = () => {
 
   const rowsPerPage = 10;
 
-  const filteredEmployees = useMemo(() => {
-    return allEmployeeData.filter((emp) =>
-      Object.values(emp)
+  const filteredUsers = useMemo(() => {
+    return allUserData.filter((usr) =>
+      Object.values(usr)
         .join(" ")
         .toLowerCase()
         .includes(search.toLowerCase())
     );
   }, [search]);
 
-  const totalPages = Math.ceil(filteredEmployees.length / rowsPerPage);
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredUsers.length / rowsPerPage)
+  );
 
-  const currentEmployees = filteredEmployees.slice(
+  const currentUsers = filteredUsers.slice(
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
 
-  const handleDeleteClick = (employee) => {
+  // Sliding 5-button window for pagination, keeping the current page visible
+  const pageNumbers = useMemo(() => {
+    const windowSize = 5;
+    let start = Math.max(1, currentPage - Math.floor(windowSize / 2));
+    let end = Math.min(totalPages, start + windowSize - 1);
+    start = Math.max(1, end - windowSize + 1);
+
+    const pages = [];
+    for (let p = start; p <= end; p++) pages.push(p);
+    return pages;
+  }, [currentPage, totalPages]);
+
+  const isActive = (user) =>
+    statusOverrides[user.id] ?? user.status;
+
+  const toggleStatus = (user) => {
+    setStatusOverrides((prev) => ({
+      ...prev,
+      [user.id]: !isActive(user),
+    }));
+  };
+
+  const handleDeleteClick = (user) => {
     setOpenMenu(null);
-    setDeleteTarget(employee);
+    setDeleteTarget(user);
   };
 
   const handleCancelDelete = () => {
@@ -47,7 +73,7 @@ const AllEmployeePage = () => {
 
   const handleConfirmDelete = () => {
     // TODO: wire up to your actual delete API call using deleteTarget
-    console.log("Deleting employee:", deleteTarget);
+    console.log("Deleting user:", deleteTarget);
     setDeleteTarget(null);
     setShowSuccessModal(true);
   };
@@ -80,39 +106,43 @@ const AllEmployeePage = () => {
 
     headerRow: {
       display: "flex",
-      alignItems: "flex-start",
+      alignItems: "center",
       justifyContent: "space-between",
       marginBottom: "16px",
     },
 
     title: {
-      fontSize: "20px",
-      fontWeight: 700,
+      fontSize: "16px",
+      fontWeight: 600,
       color: "#202224",
     },
 
-    subTitle: {
-      fontSize: "13px",
-      color: "#7B7B7B",
-      marginTop: "6px",
-    },
-
     searchBox: {
-      width: "220px",
+      width: "240px",
       height: "38px",
       border: "1px solid #E5E7EB",
       borderRadius: "8px",
       display: "flex",
       alignItems: "center",
-      padding: "0 14px",
+      justifyContent: "space-between",
+      padding: "0 12px",
       background: "#fff",
       gap: "8px",
+    },
+
+    searchInput: {
+      border: "none",
+      outline: "none",
+      fontSize: "13px",
+      color: "#202224",
+      width: "100%",
+      background: "transparent",
     },
 
     tableContainer: {
       border: "1px solid #E5E7EB",
       borderRadius: "10px",
-      overflow: "hidden",
+      overflow: "auto",
       background: "#fff",
     },
 
@@ -130,32 +160,35 @@ const AllEmployeePage = () => {
     th: {
       textAlign: "left",
       padding: "10px 18px",
-      fontSize: "13px",
+      fontSize: "12px",
       fontWeight: 600,
-      color: "#555",
+      color: "#6B7280",
       whiteSpace: "nowrap",
     },
 
     tr: {
-      height: "40px",
+      height: "56px",
       borderBottom: "1px solid #F1F1F1",
     },
 
     td: {
       padding: "10px 18px",
       fontSize: "13px",
-      color: "#555",
+      color: "#3A3A3A",
       whiteSpace: "nowrap",
+      verticalAlign: "middle",
     },
 
-    badge: {
-      padding: "6px 12px",
-      borderRadius: "20px",
+    stampDate: {
+      color: "#2F80ED",
+      fontWeight: 500,
+      fontSize: "13px",
+    },
+
+    stampTime: {
+      color: "#9AA0A6",
       fontSize: "12px",
-      fontWeight: 600,
-      background: "#EEF8FF",
-      color: "#0A84FF",
-      display: "inline-block",
+      marginTop: "2px",
     },
 
     actionBtn: {
@@ -305,21 +338,94 @@ const AllEmployeePage = () => {
     },
   };
 
+  // Labeled status pill — "Active"/"Inactive" text plus a sliding knob,
+  // matching the design (green filled pill when active, outlined gray pill
+  // with the knob on the left when inactive).
+  const StatusToggle = ({ active, onClick }) => (
+    <button
+      onClick={onClick}
+      style={{
+        width: "88px",
+        height: "26px",
+        borderRadius: "999px",
+        border: active ? "none" : "1px solid #D1D5DB",
+        cursor: "pointer",
+        padding: "3px 8px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: active ? "space-between" : "flex-start",
+        gap: "6px",
+        background: active ? "#22C55E" : "#F3F4F6",
+        transition: "background .15s ease",
+      }}
+      aria-label={active ? "Active" : "Inactive"}
+    >
+      {active ? (
+        <>
+          <span
+            style={{
+              fontSize: "11px",
+              fontWeight: 600,
+              color: "#fff",
+              lineHeight: 1,
+            }}
+          >
+            Active
+          </span>
+          <span
+            style={{
+              width: "18px",
+              height: "18px",
+              borderRadius: "50%",
+              background: "#fff",
+              boxShadow: "0 1px 2px rgba(0,0,0,.25)",
+              flexShrink: 0,
+            }}
+          />
+        </>
+      ) : (
+        <>
+          <span
+            style={{
+              width: "18px",
+              height: "18px",
+              borderRadius: "50%",
+              background: "#9CA3AF",
+              flexShrink: 0,
+            }}
+          />
+          <span
+            style={{
+              fontSize: "11px",
+              fontWeight: 600,
+              color: "#6B7280",
+              lineHeight: 1,
+            }}
+          >
+            Inactive
+          </span>
+        </>
+      )}
+    </button>
+  );
+
   return (
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={styles.headerRow}>
-          <div style={styles.title}>All Employee Details Here</div>
+          <div style={styles.title}>All Users Details Here</div>
 
           <div style={styles.searchBox}>
-            <FiSearch color="#8B8B8B" />
-
             <input
               style={styles.searchInput}
-              placeholder="Search Employee..."
+              placeholder="Search Value"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
             />
+            <FiSearch color="#8B8B8B" />
           </div>
         </div>
 
@@ -327,41 +433,62 @@ const AllEmployeePage = () => {
           <table style={styles.table}>
             <thead style={styles.header}>
               <tr>
-                <th style={styles.th}>Sr No</th>
-                <th style={styles.th}>Employee ID</th>
-                <th style={styles.th}>Employee Name</th>
+                <th style={styles.th}>Sr no</th>
+                <th style={styles.th}>ID</th>
+                <th style={styles.th}>Name</th>
                 <th style={styles.th}>Email</th>
                 <th style={styles.th}>Mobile</th>
                 <th style={styles.th}>Department</th>
                 <th style={styles.th}>Designation</th>
-                <th style={styles.th}>Permission</th>
+                <th style={styles.th}>Role</th>
+                <th style={styles.th}>Created Date</th>
+                <th style={styles.th}>Created By</th>
+                <th style={styles.th}>Updated At</th>
+                <th style={styles.th}>Status</th>
                 <th style={styles.th}>Action</th>
               </tr>
             </thead>
 
             <tbody>
-              {currentEmployees.map((employee, index) => (
-                <tr key={employee.id} style={styles.tr}>
+              {currentUsers.map((user, index) => (
+                <tr key={user.id} style={styles.tr}>
                   <td style={styles.td}>
                     {(currentPage - 1) * rowsPerPage + index + 1}
                   </td>
 
-                  <td style={styles.td}>{employee.employeeId}</td>
+                  <td style={styles.td}>
+                    #{user.userId.replace(/^USR0*/, "")}
+                  </td>
 
-                  <td style={styles.td}>{employee.name}</td>
+                  <td style={styles.td}>{user.name}</td>
 
-                  <td style={styles.td}>{employee.email}</td>
+                  <td style={styles.td}>{user.email}</td>
 
-                  <td style={styles.td}>{employee.mobile}</td>
+                  <td style={styles.td}>{user.mobile}</td>
 
-                  <td style={styles.td}>{employee.department}</td>
+                  <td style={styles.td}>{user.department}</td>
 
-                  <td style={styles.td}>{employee.designation}</td>
+                  <td style={styles.td}>{user.designation}</td>
+
+                  <td style={styles.td}>{user.role}</td>
 
                   <td style={styles.td}>
-                    <span style={styles.badge}>
-                      {employee.permission}
-                    </span>
+                    <div style={styles.stampDate}>{user.createdDate}</div>
+                    <div style={styles.stampTime}>{user.createdTime}</div>
+                  </td>
+
+                  <td style={styles.td}>{user.createdBy}</td>
+
+                  <td style={styles.td}>
+                    <div style={styles.stampDate}>{user.updatedDate}</div>
+                    <div style={styles.stampTime}>{user.updatedTime}</div>
+                  </td>
+
+                  <td style={styles.td}>
+                    <StatusToggle
+                      active={isActive(user)}
+                      onClick={() => toggleStatus(user)}
+                    />
                   </td>
 
                   <td
@@ -374,19 +501,19 @@ const AllEmployeePage = () => {
                       style={styles.actionBtn}
                       onClick={() =>
                         setOpenMenu(
-                          openMenu === employee.id ? null : employee.id
+                          openMenu === user.id ? null : user.id
                         )
                       }
                     >
                       Select
                       <FiChevronDown size={14} />
                     </button>
-                    {openMenu === employee.id && (
+                    {openMenu === user.id && (
                       <div style={styles.menu}>
                         <div
                           style={styles.menuItem}
                           onClick={() => {
-                            console.log("Permission", employee);
+                            console.log("Permission", user);
                             setOpenMenu(null);
                           }}
                         >
@@ -396,7 +523,7 @@ const AllEmployeePage = () => {
                         <div
                           style={{ ...styles.menuItem, color: "#0A84FF" }}
                           onClick={() => {
-                            console.log("Edit", employee);
+                            console.log("Edit", user);
                             setOpenMenu(null);
                           }}
                         >
@@ -405,7 +532,7 @@ const AllEmployeePage = () => {
 
                         <div
                           style={{ ...styles.menuItem, color: "#DC2626" }}
-                          onClick={() => handleDeleteClick(employee)}
+                          onClick={() => handleDeleteClick(user)}
                         >
                           Delete
                         </div>
@@ -414,6 +541,17 @@ const AllEmployeePage = () => {
                   </td>
                 </tr>
               ))}
+
+              {currentUsers.length === 0 && (
+                <tr>
+                  <td
+                    style={{ ...styles.td, textAlign: "center" }}
+                    colSpan={13}
+                  >
+                    No users match your search.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -424,7 +562,7 @@ const AllEmployeePage = () => {
           <div style={styles.footerText}>
             Showing{" "}
             <strong>
-              {filteredEmployees.length === 0
+              {filteredUsers.length === 0
                 ? 0
                 : (currentPage - 1) * rowsPerPage + 1}
             </strong>{" "}
@@ -433,10 +571,10 @@ const AllEmployeePage = () => {
               {" "}
               {Math.min(
                 currentPage * rowsPerPage,
-                filteredEmployees.length
+                filteredUsers.length
               )}
             </strong>{" "}
-            of <strong>{filteredEmployees.length}</strong> Employees
+            of <strong>{filteredUsers.length}</strong> Users
           </div>
 
           <div style={styles.pagination}>
@@ -444,13 +582,15 @@ const AllEmployeePage = () => {
               onClick={() =>
                 currentPage > 1 && setCurrentPage(currentPage - 1)
               }
+              disabled={currentPage === 1}
               style={{
                 width: "38px",
                 height: "38px",
                 border: "1px solid #E5E7EB",
                 background: "#fff",
                 borderRadius: "8px",
-                cursor: "pointer",
+                cursor: currentPage === 1 ? "default" : "pointer",
+                opacity: currentPage === 1 ? 0.4 : 1,
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
@@ -459,14 +599,21 @@ const AllEmployeePage = () => {
               <FiChevronLeft />
             </button>
 
-            {[1, 2, 3, 4, 5].map((page) => (
+            {pageNumbers.map((page) => (
               <button
                 key={page}
-                className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium transition ${
-                  page === 1
-                    ? "bg-[#F3F4F6] text-[#111827]"
-                    : "text-[#6B7280] hover:bg-[#F8F8F8]"
-                }`}
+                onClick={() => setCurrentPage(page)}
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  border: "none",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  background: page === currentPage ? "#F3F4F6" : "transparent",
+                  color: page === currentPage ? "#111827" : "#6B7280",
+                }}
               >
                 {page}
               </button>
@@ -477,13 +624,15 @@ const AllEmployeePage = () => {
                 currentPage < totalPages &&
                 setCurrentPage(currentPage + 1)
               }
+              disabled={currentPage === totalPages}
               style={{
                 width: "38px",
                 height: "38px",
                 border: "1px solid #E5E7EB",
                 background: "#fff",
                 borderRadius: "8px",
-                cursor: "pointer",
+                cursor: currentPage === totalPages ? "default" : "pointer",
+                opacity: currentPage === totalPages ? 0.4 : 1,
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
@@ -604,4 +753,4 @@ const AllEmployeePage = () => {
   );
 };
 
-export default AllEmployeePage;
+export default AllUserPage;
