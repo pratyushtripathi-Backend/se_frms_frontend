@@ -18,7 +18,7 @@ import LoginHistoryPage from "./components/LoginHistoryPage";
 import LoginAttemptPage from "./components/LoginAttemptPage";
 import LoginSessionPage from "./components/LoginSessionPage";
 
-import AllEmployeePage from "./components/AllEmployeePage";
+import AllUserPage from "./components/AllUserPage";
 import AddUserPage from "./components/AddUserPage";
 import ManageRolePage from "./components/ManageRolePage";
 import UserBlacklistPage from "./components/UserBlacklistPage";
@@ -49,7 +49,7 @@ export default function App() {
     "login-attempt": "Login Attempt",
     "login-session": "Login Session",
 
-    "all-employee": "All Employee",
+    "all-user": "All User",
     "add-user": "Add User",
     "manage-role": "Manage Role",
     "user-blacklist": "User Blacklist",
@@ -125,7 +125,7 @@ export default function App() {
         {currentPage === "login-session" && <LoginSessionPage />}
 
         {/* User Management */}
-        {currentPage === "all-employee" && <AllEmployeePage />}
+        {currentPage === "all-user" && <AllUserPage />}
 
         {currentPage === "add-user" && <AddUserPage />}
 

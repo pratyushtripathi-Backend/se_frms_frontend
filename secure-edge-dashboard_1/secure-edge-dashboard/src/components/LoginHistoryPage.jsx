@@ -23,16 +23,47 @@ const TABLE_COLUMNS = [
   "Updated At",
 ];
 
+/* ------------------------------------------------------------------ */
+/* Status toggle — pill switch matching the Figma "Active / Inactive" */
+/* ------------------------------------------------------------------ */
+function StatusToggle({ status, onToggle }) {
+  const isActive = status === "Active";
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isActive}
+      onClick={onToggle}
+      className={`relative inline-flex h-[26px] w-[86px] items-center rounded-full text-[11px] font-semibold transition-colors duration-200 ${
+        isActive
+          ? "justify-start bg-[#27AE60] text-white pl-3 pr-[3px]"
+          : "justify-end bg-[#D9D9D9] text-white pl-[3px] pr-3"
+      }`}
+    >
+      <span>{isActive ? "Active" : "Inactive"}</span>
+      <span
+        className={`absolute top-1/2 h-[20px] w-[20px] -translate-y-1/2 rounded-full bg-white shadow-sm transition-all duration-200 ${
+          isActive ? "right-[3px]" : "left-[3px]"
+        }`}
+      />
+    </button>
+  );
+}
+
 export default function LoginHistoryPage() {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
+  // Local, editable copy of the dataset so status toggles can be flipped
+  const [rows, setRows] = useState(loginHistoryData);
+
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
 
   const filteredData = useMemo(() => {
-    return loginHistoryData.filter((item) => {
+    return rows.filter((item) => {
       const [day, month, yearValue] = item.date.split("/");
       const itemDate = new Date(`${yearValue}-${month}-${day}`);
 
@@ -44,7 +75,17 @@ export default function LoginHistoryPage() {
 
       return true;
     });
-  }, [year, fromDate, toDate]);
+  }, [rows, year, fromDate, toDate]);
+
+  const handleToggleStatus = (id) => {
+    setRows((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, status: item.status === "Active" ? "Inactive" : "Active" }
+          : item
+      )
+    );
+  };
 
   return (
     <div className="flex min-h-full flex-col bg-[#F4F5F9] pl-6 pr-20 pt-6">
@@ -218,17 +259,10 @@ export default function LoginHistoryPage() {
                     </td>
 
                     <td className="px-4 py-4">
-                      <span
-                        className={`font-semibold ${
-                          item.status === "Progress"
-                            ? "text-[#F2994A]"
-                            : item.status === "Pending"
-                            ? "text-[#2F80ED]"
-                            : "text-[#27AE60]"
-                        }`}
-                      >
-                        {item.status}
-                      </span>
+                      <StatusToggle
+                        status={item.status}
+                        onToggle={() => handleToggleStatus(item.id)}
+                      />
                     </td>
 
                     <td className="px-4 py-4">

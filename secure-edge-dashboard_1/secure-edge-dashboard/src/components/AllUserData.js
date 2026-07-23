@@ -1,7 +1,6 @@
-export const allEmployeeData = [
+const rawUsers = [
   {
-    id: 1,
-    employeeId: "EMP001",
+    userId: "USR001",
     name: "John Smith",
     email: "john.smith@secureedge.com",
     mobile: "+91 9876543210",
@@ -10,8 +9,7 @@ export const allEmployeeData = [
     permission: "Admin",
   },
   {
-    id: 2,
-    employeeId: "EMP002",
+    userId: "USR002",
     name: "Emily Johnson",
     email: "emily.johnson@secureedge.com",
     mobile: "+91 9876543211",
@@ -20,8 +18,7 @@ export const allEmployeeData = [
     permission: "Manager",
   },
   {
-    id: 3,
-    employeeId: "EMP003",
+    userId: "USR003",
     name: "Michael Brown",
     email: "michael.brown@secureedge.com",
     mobile: "+91 9876543212",
@@ -30,8 +27,7 @@ export const allEmployeeData = [
     permission: "User",
   },
   {
-    id: 4,
-    employeeId: "EMP004",
+    userId: "USR004",
     name: "Sophia Davis",
     email: "sophia.davis@secureedge.com",
     mobile: "+91 9876543213",
@@ -40,8 +36,7 @@ export const allEmployeeData = [
     permission: "Admin",
   },
   {
-    id: 5,
-    employeeId: "EMP005",
+    userId: "USR005",
     name: "Daniel Wilson",
     email: "daniel.wilson@secureedge.com",
     mobile: "+91 9876543214",
@@ -50,8 +45,7 @@ export const allEmployeeData = [
     permission: "User",
   },
   {
-    id: 6,
-    employeeId: "EMP006",
+    userId: "USR006",
     name: "Olivia Taylor",
     email: "olivia.taylor@secureedge.com",
     mobile: "+91 9876543215",
@@ -60,8 +54,7 @@ export const allEmployeeData = [
     permission: "Manager",
   },
   {
-    id: 7,
-    employeeId: "EMP007",
+    userId: "USR007",
     name: "James Anderson",
     email: "james.anderson@secureedge.com",
     mobile: "+91 9876543216",
@@ -70,8 +63,7 @@ export const allEmployeeData = [
     permission: "User",
   },
   {
-    id: 8,
-    employeeId: "EMP008",
+    userId: "USR008",
     name: "Emma Thomas",
     email: "emma.thomas@secureedge.com",
     mobile: "+91 9876543217",
@@ -80,8 +72,7 @@ export const allEmployeeData = [
     permission: "Manager",
   },
   {
-    id: 9,
-    employeeId: "EMP009",
+    userId: "USR009",
     name: "William Martinez",
     email: "william.martinez@secureedge.com",
     mobile: "+91 9876543218",
@@ -90,8 +81,7 @@ export const allEmployeeData = [
     permission: "Admin",
   },
   {
-    id: 10,
-    employeeId: "EMP010",
+    userId: "USR010",
     name: "Ava Garcia",
     email: "ava.garcia@secureedge.com",
     mobile: "+91 9876543219",
@@ -100,8 +90,7 @@ export const allEmployeeData = [
     permission: "User",
   },
   {
-    id: 11,
-    employeeId: "EMP011",
+    userId: "USR011",
     name: "Benjamin Moore",
     email: "benjamin.moore@secureedge.com",
     mobile: "+91 9876543220",
@@ -110,8 +99,7 @@ export const allEmployeeData = [
     permission: "Admin",
   },
   {
-    id: 12,
-    employeeId: "EMP012",
+    userId: "USR012",
     name: "Charlotte White",
     email: "charlotte.white@secureedge.com",
     mobile: "+91 9876543221",
@@ -120,8 +108,7 @@ export const allEmployeeData = [
     permission: "Manager",
   },
   {
-    id: 13,
-    employeeId: "EMP013",
+    userId: "USR013",
     name: "Lucas Harris",
     email: "lucas.harris@secureedge.com",
     mobile: "+91 9876543222",
@@ -130,8 +117,7 @@ export const allEmployeeData = [
     permission: "Admin",
   },
   {
-    id: 14,
-    employeeId: "EMP014",
+    userId: "USR014",
     name: "Amelia Clark",
     email: "amelia.clark@secureedge.com",
     mobile: "+91 9876543223",
@@ -140,8 +126,7 @@ export const allEmployeeData = [
     permission: "User",
   },
   {
-    id: 15,
-    employeeId: "EMP015",
+    userId: "USR015",
     name: "Henry Lewis",
     email: "henry.lewis@secureedge.com",
     mobile: "+91 9876543224",
@@ -150,8 +135,7 @@ export const allEmployeeData = [
     permission: "Manager",
   },
   {
-    id: 16,
-    employeeId: "EMP016",
+    userId: "USR016",
     name: "Mia Walker",
     email: "mia.walker@secureedge.com",
     mobile: "+91 9876543225",
@@ -160,8 +144,7 @@ export const allEmployeeData = [
     permission: "User",
   },
   {
-    id: 17,
-    employeeId: "EMP017",
+    userId: "USR017",
     name: "Alexander Hall",
     email: "alexander.hall@secureedge.com",
     mobile: "+91 9876543226",
@@ -170,8 +153,7 @@ export const allEmployeeData = [
     permission: "Admin",
   },
   {
-    id: 18,
-    employeeId: "EMP018",
+    userId: "USR018",
     name: "Harper Allen",
     email: "harper.allen@secureedge.com",
     mobile: "+91 9876543227",
@@ -180,8 +162,7 @@ export const allEmployeeData = [
     permission: "Manager",
   },
   {
-    id: 19,
-    employeeId: "EMP019",
+    userId: "USR019",
     name: "Ethan Young",
     email: "ethan.young@secureedge.com",
     mobile: "+91 9876543228",
@@ -190,8 +171,7 @@ export const allEmployeeData = [
     permission: "Admin",
   },
   {
-    id: 20,
-    employeeId: "EMP020",
+    userId: "USR020",
     name: "Grace King",
     email: "grace.king@secureedge.com",
     mobile: "+91 9876543229",
@@ -200,3 +180,44 @@ export const allEmployeeData = [
     permission: "User",
   },
 ];
+
+// Maps the account-level permission to the role label shown in the table,
+// mirroring how the design distinguishes "Permission" (Admin/Manager/User)
+// from the account's day-to-day job "Role" (Employee).
+const roleByPermission = {
+  Admin: "Employee",
+  Manager: "Employee",
+  User: "Employee",
+};
+
+// Deterministic date/time generator so created/updated stamps are stable
+// across renders (no Math.random / Date.now — keeps SSR & CSR in sync).
+const pad2 = (n) => String(n).padStart(2, "0");
+
+const buildStamp = (dayOffset, hour, minute) => {
+  const base = new Date(2025, 4, 12); // 12-05-2025 anchor, matches the design
+  base.setDate(base.getDate() + dayOffset);
+  const date = `${pad2(base.getDate())}-${pad2(base.getMonth() + 1)}-${base.getFullYear()}`;
+  const period = hour >= 12 ? "PM" : "AM";
+  const hour12 = ((hour + 11) % 12) + 1;
+  const time = `${pad2(hour12)}:${pad2(minute)} ${period}`;
+  return { date, time };
+};
+
+export const allUserData = rawUsers.map((usr, index) => {
+  const created = buildStamp(0, 11, 30);
+  const updated = buildStamp(index % 5, 11, 30);
+  const isActive = index % 3 !== 1; // mix of Active / Inactive, matches design
+
+  return {
+    id: index + 1,
+    ...usr,
+    role: roleByPermission[usr.permission],
+    createdDate: created.date,
+    createdTime: created.time,
+    createdBy: "Admin",
+    updatedDate: updated.date,
+    updatedTime: updated.time,
+    status: isActive,
+  };
+});

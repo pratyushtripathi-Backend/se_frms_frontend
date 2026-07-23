@@ -20,6 +20,35 @@ const TABLE_COLUMNS = [
 const ROLE_OPTIONS = ["Admin", "Manager", "Employee", "Auditor"];
 const ACCESS_OPTIONS = ["Mohit Singh", "Priya Sharma", "Rahul Verma", "Anjali Mehta"];
 
+/* ------------------------------------------------------------------ */
+/* Status toggle — pill switch matching the Figma "Active / Inactive" */
+/* ------------------------------------------------------------------ */
+function StatusToggle({ status, onToggle }) {
+  const isActive = status === "Active";
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isActive}
+      onClick={onToggle}
+      className={`relative inline-flex h-[26px] w-[86px] items-center rounded-full pl-3 pr-[3px] text-[11px] font-semibold transition-colors duration-200 ${
+        isActive
+          ? "justify-start bg-[#27AE60] text-white"
+          : "justify-end bg-[#D9D9D9] text-white pl-[3px] pr-3"
+      }`}
+    >
+      <span>{isActive ? "Active" : "Inactive"}</span>
+
+      <span
+        className={`absolute top-1/2 h-[20px] w-[20px] -translate-y-1/2 rounded-full bg-white shadow-sm transition-all duration-200 ${
+          isActive ? "right-[3px]" : "left-[3px]"
+        }`}
+      />
+    </button>
+  );
+}
+
 function AddAccessModal({ onClose, onSave }) {
   const [role, setRole] = useState("");
   const [access, setAccess] = useState("");
@@ -219,13 +248,16 @@ export default function RoleAccessPage() {
   const [showFormModal, setShowFormModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  // Local, editable copy of the dataset so status toggles can be flipped
+  const [rows, setRows] = useState(roleAccessData);
+
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
 
   const filteredData = useMemo(() => {
     if (!hasSearched) return [];
 
-    return roleAccessData.filter((item) => {
+    return rows.filter((item) => {
       const [day, month, year] = item.createdDate.split("-");
       const itemDate = new Date(`${year}-${month}-${day}`);
 
@@ -243,7 +275,7 @@ export default function RoleAccessPage() {
 
       return true;
     });
-  }, [fromDate, toDate, searchValue, hasSearched]);
+  }, [rows, fromDate, toDate, searchValue, hasSearched]);
 
   const matchedRole = filteredData[0]?.role || searchValue;
 
@@ -255,6 +287,16 @@ export default function RoleAccessPage() {
   const handleSave = () => {
     setShowFormModal(false);
     setShowSuccessModal(true);
+  };
+
+  const handleToggleStatus = (id) => {
+    setRows((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, status: item.status === "Active" ? "Inactive" : "Active" }
+          : item
+      )
+    );
   };
 
   return (
@@ -451,15 +493,10 @@ export default function RoleAccessPage() {
                         </td>
 
                         <td className="px-6 py-4">
-                          <span
-                            className={`font-semibold ${
-                              item.status === "Block"
-                                ? "text-[#EB5757]"
-                                : "text-[#27AE60]"
-                            }`}
-                          >
-                            {item.status}
-                          </span>
+                          <StatusToggle
+                            status={item.status}
+                            onToggle={() => handleToggleStatus(item.id)}
+                          />
                         </td>
                       </tr>
                     ))}

@@ -33,6 +33,17 @@ export default function AllCategoryPage() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [showAddSuccessModal, setShowAddSuccessModal] = useState(false);
 
+  // Status toggle state, seeded straight from the data's Active/Inactive field
+  const [statusMap, setStatusMap] = useState(() =>
+    Object.fromEntries(
+      allCategoryData.map((item) => [item.id, item.status === "Active"])
+    )
+  );
+
+  const toggleStatus = (id) => {
+    setStatusMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
 
@@ -212,7 +223,10 @@ export default function AllCategoryPage() {
               </thead>
 
               <tbody>
-                {filteredData.map((item) => (
+                {filteredData.map((item) => {
+                  const isActive = statusMap[item.id];
+
+                  return (
                   <tr
                     key={item.id}
                     className="relative border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
@@ -254,17 +268,23 @@ export default function AllCategoryPage() {
                     </td>
 
                     <td className="px-4 py-4">
-                      <span
-                        className={`font-semibold ${
-                          item.status === "Pending"
-                            ? "text-[#F2994A]"
-                            : item.status === "Failed"
-                            ? "text-[#EB5757]"
-                            : "text-[#27AE60]"
+                      <button
+                        type="button"
+                        onClick={() => toggleStatus(item.id)}
+                        className={`relative flex h-7 w-[92px] items-center rounded-full px-1 text-[12px] font-semibold text-white transition-colors ${
+                          isActive
+                            ? "justify-start bg-[#27AE60]"
+                            : "justify-end bg-[#BDBDBD]"
                         }`}
                       >
-                        {item.status}
-                      </span>
+                        <span>{isActive ? "Active" : "Inactive"}</span>
+
+                        <span
+                          className={`absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-white shadow transition-all duration-200 ${
+                            isActive ? "right-1" : "left-1"
+                          }`}
+                        />
+                      </button>
                     </td>
 
                     <td className="relative px-4 py-4">
@@ -301,7 +321,8 @@ export default function AllCategoryPage() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

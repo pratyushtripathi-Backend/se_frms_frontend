@@ -67,8 +67,8 @@ const NAV_ITEMS = [
   icon: User,
   children: [
     {
-      label: "All Employee",
-      page: "all-employee",
+      label: "All User",
+      page: "all-user",
     },
     {
       label: "Add User",
@@ -133,7 +133,7 @@ export default function Sidebar({
 ];
 
 const userManagementPages = [
-  "all-employee",
+  "all-user",
   "add-user",
   "manage-role",
   "user-blacklist",

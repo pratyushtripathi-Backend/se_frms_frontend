@@ -9,6 +9,74 @@ import {
 
 import { userRoleData } from "./UserRoleData";
 
+/* ------------------------------------------------------------------ */
+/* Status toggle — pill switch matching the Figma "Active / Inactive" */
+/* ------------------------------------------------------------------ */
+const toggleStyles = {
+  base: {
+    position: "relative",
+    display: "inline-flex",
+    alignItems: "center",
+    height: "26px",
+    width: "86px",
+    borderRadius: "999px",
+    border: "none",
+    fontSize: "11px",
+    fontWeight: 600,
+    color: "#FFFFFF",
+    cursor: "pointer",
+    transition: "background-color 0.2s ease",
+  },
+  active: {
+    background: "#27AE60",
+    justifyContent: "flex-start",
+    paddingLeft: "12px",
+    paddingRight: "3px",
+  },
+  inactive: {
+    background: "#D9D9D9",
+    justifyContent: "flex-end",
+    paddingLeft: "3px",
+    paddingRight: "12px",
+  },
+  knob: {
+    position: "absolute",
+    top: "50%",
+    height: "20px",
+    width: "20px",
+    borderRadius: "50%",
+    background: "#FFFFFF",
+    boxShadow: "0 1px 2px rgba(0,0,0,.15)",
+    transform: "translateY(-50%)",
+    transition: "left 0.2s ease, right 0.2s ease",
+  },
+};
+
+const StatusToggle = ({ status, onToggle }) => {
+  const isActive = status === "Active";
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isActive}
+      onClick={onToggle}
+      style={{
+        ...toggleStyles.base,
+        ...(isActive ? toggleStyles.active : toggleStyles.inactive),
+      }}
+    >
+      <span>{isActive ? "Active" : "Inactive"}</span>
+      <span
+        style={{
+          ...toggleStyles.knob,
+          ...(isActive ? { right: "3px" } : { left: "3px" }),
+        }}
+      />
+    </button>
+  );
+};
+
 const UserRolePage = () => {
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -26,16 +94,19 @@ const UserRolePage = () => {
   // Add User Role success modal state
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  // Local, editable copy of the dataset so status toggles can be flipped
+  const [rows, setRows] = useState(userRoleData);
+
   const rowsPerPage = 10;
 
   const filteredData = useMemo(() => {
-    return userRoleData.filter((item) =>
+    return rows.filter((item) =>
       Object.values(item)
         .join(" ")
         .toLowerCase()
         .includes(search.toLowerCase())
     );
-  }, [search]);
+  }, [rows, search]);
 
   const totalPages = Math.ceil(filteredData.length / rowsPerPage);
 
@@ -64,6 +135,16 @@ const UserRolePage = () => {
 
   const handleBackToPage = () => {
     setShowSuccessModal(false);
+  };
+
+  const handleToggleStatus = (id) => {
+    setRows((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, status: item.status === "Active" ? "Inactive" : "Active" }
+          : item
+      )
+    );
   };
 
   const styles = {
@@ -382,17 +463,6 @@ const UserRolePage = () => {
     },
   };
 
-  const getStatusStyle = (status) => {
-    switch (status) {
-      case "Block":
-        return { color: "#EB5757", fontWeight: 600 };
-      case "Pending":
-        return { color: "#F2994A", fontWeight: 600 };
-      default:
-        return { color: "#27AE60", fontWeight: 600 };
-    }
-  };
-
   const renderDateTime = (datePart, timePart) => (
     <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
       <span style={styles.createdDate}>{datePart}</span>
@@ -493,9 +563,10 @@ const UserRolePage = () => {
                   </td>
 
                   <td style={styles.td}>
-                    <span style={getStatusStyle(item.status)}>
-                      {item.status}
-                    </span>
+                    <StatusToggle
+                      status={item.status}
+                      onToggle={() => handleToggleStatus(item.id)}
+                    />
                   </td>
 
                 </tr>

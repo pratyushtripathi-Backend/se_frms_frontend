@@ -1,16 +1,16 @@
 // Base row patterns pulled from the Figma reference (first 10 rows repeat
 // on a cycle to fill out the full 135-row mock dataset).
 const baseRows = [
-  { userName: "Ankit Tripathi", role: "Admin", status: "Success" },
-  { userName: "Ankit Tripathi", role: "Admin", status: "Success" },
-  { userName: "Ankit Tripathi", role: "Admin", status: "Block" },
-  { userName: "Ankit Tripathi", role: "Admin", status: "Success" },
-  { userName: "Mohit Verma", role: "Employee", status: "Block" },
-  { userName: "Mohit Verma", role: "Employee", status: "Block" },
-  { userName: "Mohit Verma", role: "Employee", status: "Success" },
-  { userName: "Mohit Verma", role: "Employee", status: "Block" },
-  { userName: "Mohit Verma", role: "Employee", status: "Block" },
-  { userName: "Mohit Verma", role: "Employee", status: "Block" },
+  { userName: "Ankit Tripathi", role: "Admin", status: "Active" },
+  { userName: "Ankit Tripathi", role: "Admin", status: "Inactive" },
+  { userName: "Ankit Tripathi", role: "Admin", status: "Inactive" },
+  { userName: "Ankit Tripathi", role: "Admin", status: "Active" },
+  { userName: "Mohit Verma", role: "Employee", status: "Active" },
+  { userName: "Mohit Verma", role: "Employee", status: "Active" },
+  { userName: "Mohit Verma", role: "Employee", status: "Inactive" },
+  { userName: "Mohit Verma", role: "Employee", status: "Active" },
+  { userName: "Mohit Verma", role: "Employee", status: "Inactive" },
+  { userName: "Mohit Verma", role: "Employee", status: "Active" },
 ];
 
 export const userRoleData = Array.from({ length: 135 }).map((_, index) => {
