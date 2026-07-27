@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import {
   CalendarDays,
   Search,
@@ -19,6 +19,7 @@ const TABLE_COLUMNS = [
 
 const ROLE_OPTIONS = ["Admin", "Manager", "Employee", "Auditor"];
 const ACCESS_OPTIONS = ["Mohit Singh", "Priya Sharma", "Rahul Verma", "Anjali Mehta"];
+const ROWS_PER_PAGE = 10;
 
 /* ------------------------------------------------------------------ */
 /* Status toggle — pill switch matching the Figma "Active / Inactive" */
@@ -248,6 +249,8 @@ export default function RoleAccessPage() {
   const [showFormModal, setShowFormModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(1);
+
   // Local, editable copy of the dataset so status toggles can be flipped
   const [rows, setRows] = useState(roleAccessData);
 
@@ -278,6 +281,56 @@ export default function RoleAccessPage() {
   }, [rows, fromDate, toDate, searchValue, hasSearched]);
 
   const matchedRole = filteredData[0]?.role || searchValue;
+
+  // Pagination is entirely data-driven. With <= ROWS_PER_PAGE items,
+  // totalPages is 1 and the pagination bar never renders at all.
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / ROWS_PER_PAGE));
+  const hasPagination = filteredData.length > ROWS_PER_PAGE;
+
+  // Reset back to page 1 whenever the filtered dataset changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [fromDate, toDate, searchValue, hasSearched]);
+
+  // Clamp currentPage if filtering/toggling shrinks the result set below it
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const paginatedData = useMemo(() => {
+    if (!hasPagination) return filteredData;
+    const start = (currentPage - 1) * ROWS_PER_PAGE;
+    return filteredData.slice(start, start + ROWS_PER_PAGE);
+  }, [filteredData, currentPage, hasPagination]);
+
+  // Windowed page numbers (with ellipses) so it stays compact even if the
+  // dataset grows to hundreds of pages later.
+  const pageNumbers = useMemo(() => {
+    if (!hasPagination) return [];
+
+    const pages = [];
+    const windowSize = 1;
+
+    for (let p = 1; p <= totalPages; p++) {
+      const isEdge = p === 1 || p === totalPages;
+      const isWithinWindow = Math.abs(p - currentPage) <= windowSize;
+
+      if (isEdge || isWithinWindow) {
+        pages.push(p);
+      } else if (pages[pages.length - 1] !== "...") {
+        pages.push("...");
+      }
+    }
+
+    return pages;
+  }, [totalPages, currentPage, hasPagination]);
+
+  const goToPage = (page) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+  };
 
   const handleSearch = () => {
     setSearchValue(searchInput);
@@ -363,7 +416,9 @@ export default function RoleAccessPage() {
                 <p className="text-[14px] font-semibold text-[#202224]">
                   Total Access
                 </p>
-                <p className="mt-1 text-[15px] text-[#4B5563]">04</p>
+                <p className="mt-1 text-[15px] text-[#4B5563]">
+                  {String(filteredData.length).padStart(2, "0")}
+                </p>
               </div>
             </div>
 
@@ -451,7 +506,18 @@ export default function RoleAccessPage() {
                   </thead>
 
                   <tbody>
-                    {filteredData.map((item) => (
+                    {paginatedData.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={TABLE_COLUMNS.length}
+                          className="px-6 py-10 text-center text-[12px] text-[#9CA3AF]"
+                        >
+                          No matching access entries found.
+                        </td>
+                      </tr>
+                    )}
+
+                    {paginatedData.map((item) => (
                       <tr
                         key={item.id}
                         className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
@@ -509,33 +575,63 @@ export default function RoleAccessPage() {
               <div className="flex items-center justify-between border-t border-[#ECECEC] bg-white px-6 py-4">
 
                 <p className="text-[12px] text-[#7A7A7A]">
-                  Showing {filteredData.length} of 135 transactions
+                  {filteredData.length === 0
+                    ? "Showing 0 of 0 transactions"
+                    : hasPagination
+                    ? `Showing ${(currentPage - 1) * ROWS_PER_PAGE + 1}-${Math.min(
+                        currentPage * ROWS_PER_PAGE,
+                        filteredData.length
+                      )} of ${filteredData.length} transactions`
+                    : `Showing ${filteredData.length} of ${filteredData.length} transactions`}
                 </p>
 
-                <div className="flex items-center gap-2">
+                {hasPagination && (
+                  <div className="flex items-center gap-2">
 
-                  <button className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50">
-                    &lt;
-                  </button>
-
-                  {[1, 2, 3, 4, 5].map((page) => (
                     <button
-                      key={page}
-                      className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium transition ${
-                        page === 1
-                          ? "bg-[#F3F4F6] text-[#111827]"
-                          : "text-[#6B7280] hover:bg-[#F8F8F8]"
-                      }`}
+                      type="button"
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      {page}
+                      &lt;
                     </button>
-                  ))}
 
-                  <button className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50">
-                    &gt;
-                  </button>
+                    {pageNumbers.map((page, idx) =>
+                      page === "..." ? (
+                        <span
+                          key={`ellipsis-${idx}`}
+                          className="flex h-8 w-8 items-center justify-center text-[12px] text-[#9CA3AF]"
+                        >
+                          &hellip;
+                        </span>
+                      ) : (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={() => goToPage(page)}
+                          className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium transition ${
+                            page === currentPage
+                              ? "bg-[#F3F4F6] text-[#111827]"
+                              : "text-[#6B7280] hover:bg-[#F8F8F8]"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      )
+                    )}
 
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      &gt;
+                    </button>
+
+                  </div>
+                )}
 
               </div>
 

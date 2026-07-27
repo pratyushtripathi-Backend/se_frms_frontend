@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   FiSearch,
   FiChevronLeft,
@@ -9,6 +9,8 @@ import {
 } from "react-icons/fi";
 
 import { userBlacklistData } from "./UserBlacklistData";
+
+const ROWS_PER_PAGE = 10;
 
 const UserBlacklistPage = () => {
   const [search, setSearch] = useState("");
@@ -50,8 +52,6 @@ const UserBlacklistPage = () => {
     setBlockMap((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const rowsPerPage = 10;
-
   const filteredData = useMemo(() => {
     return userBlacklistData.filter((item) =>
       Object.values(item)
@@ -61,12 +61,55 @@ const UserBlacklistPage = () => {
     );
   }, [search]);
 
-  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+  // Pagination is entirely data-driven. With <= ROWS_PER_PAGE items,
+  // totalPages is 1 and the pagination controls never render at all.
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / ROWS_PER_PAGE));
+  const hasPagination = filteredData.length > ROWS_PER_PAGE;
 
-  const currentData = filteredData.slice(
-    (currentPage - 1) * rowsPerPage,
-    currentPage * rowsPerPage
-  );
+  // Reset back to page 1 whenever the search term changes the dataset
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  // Clamp currentPage if filtering shrinks the result set below it
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const currentData = useMemo(() => {
+    if (!hasPagination) return filteredData;
+    const start = (currentPage - 1) * ROWS_PER_PAGE;
+    return filteredData.slice(start, start + ROWS_PER_PAGE);
+  }, [filteredData, currentPage, hasPagination]);
+
+  // Windowed page numbers (with ellipses) so it stays compact even if the
+  // dataset grows to hundreds of pages later.
+  const pageNumbers = useMemo(() => {
+    if (!hasPagination) return [];
+
+    const pages = [];
+    const windowSize = 1;
+
+    for (let p = 1; p <= totalPages; p++) {
+      const isEdge = p === 1 || p === totalPages;
+      const isWithinWindow = Math.abs(p - currentPage) <= windowSize;
+
+      if (isEdge || isWithinWindow) {
+        pages.push(p);
+      } else if (pages[pages.length - 1] !== "...") {
+        pages.push("...");
+      }
+    }
+
+    return pages;
+  }, [totalPages, currentPage, hasPagination]);
+
+  const goToPage = (page) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+  };
 
   const handleFormChange = (field) => (e) => {
     setFormData((prev) => ({ ...prev, [field]: e.target.value }));
@@ -232,6 +275,14 @@ const UserBlacklistPage = () => {
       whiteSpace: "nowrap",
     },
 
+    emptyTd: {
+      padding: "40px 16px",
+      fontSize: "12px",
+      color: "#9CA3AF",
+      textAlign: "center",
+      whiteSpace: "normal",
+    },
+
     status: {
       color: "#FF3B30",
       fontWeight: 600,
@@ -263,6 +314,53 @@ const UserBlacklistPage = () => {
       display: "flex",
       alignItems: "center",
       gap: "8px",
+    },
+
+    pageButton: {
+      width: "32px",
+      height: "32px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: "6px",
+      border: "none",
+      background: "transparent",
+      color: "#6B7280",
+      fontSize: "12px",
+      fontWeight: 500,
+      cursor: "pointer",
+    },
+
+    pageButtonActive: {
+      background: "#F3F4F6",
+      color: "#111827",
+    },
+
+    pageEllipsis: {
+      width: "32px",
+      height: "32px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: "12px",
+      color: "#9CA3AF",
+    },
+
+    navButton: {
+      width: "36px",
+      height: "36px",
+      border: "1px solid #E5E7EB",
+      background: "#FFFFFF",
+      borderRadius: "6px",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    navButtonDisabled: {
+      cursor: "not-allowed",
+      opacity: 0.4,
     },
 
     // ---------- Add Blacklist Modal styles ----------
@@ -584,6 +682,14 @@ const UserBlacklistPage = () => {
 
             <tbody>
 
+              {currentData.length === 0 && (
+                <tr>
+                  <td style={styles.emptyTd} colSpan={11}>
+                    No matching blacklist entries found.
+                  </td>
+                </tr>
+              )}
+
               {currentData.map((item, index) => {
                 const isBlocked = blockMap[item.id];
 
@@ -592,7 +698,7 @@ const UserBlacklistPage = () => {
                 <tr key={item.id} style={styles.tr}>
 
                   <td style={styles.td}>
-                    {(currentPage - 1) * rowsPerPage + index + 1}
+                    {(currentPage - 1) * ROWS_PER_PAGE + index + 1}
                   </td>
 
                   <td style={styles.td}>{item.userId}</td>
@@ -695,67 +801,63 @@ const UserBlacklistPage = () => {
             <strong>
               {filteredData.length === 0
                 ? 0
-                : (currentPage - 1) * rowsPerPage + 1}
+                : (currentPage - 1) * ROWS_PER_PAGE + 1}
             </strong>{" "}
             -
             <strong>
               {" "}
               {Math.min(
-                currentPage * rowsPerPage,
+                currentPage * ROWS_PER_PAGE,
                 filteredData.length
               )}
             </strong>{" "}
             of <strong>{filteredData.length}</strong> transactions
           </div>
 
-          <div style={styles.pagination}>
-            <button
-              onClick={() =>
-                currentPage > 1 &&
-                setCurrentPage(currentPage - 1)
-              }
-              style={{
-                width: "36px",
-                height: "36px",
-                border: "1px solid #E5E7EB",
-                background: "#FFFFFF",
-                borderRadius: "6px",
-                cursor: "pointer",
-              }}
-            >
-              <FiChevronLeft />
-            </button>
+          {hasPagination && (
+            <div style={styles.pagination}>
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                style={{
+                  ...styles.navButton,
+                  ...(currentPage === 1 ? styles.navButtonDisabled : {}),
+                }}
+              >
+                <FiChevronLeft />
+              </button>
 
-            {[1, 2, 3, 4, 5].map((page) => (
+              {pageNumbers.map((page, idx) =>
+                page === "..." ? (
+                  <span key={`ellipsis-${idx}`} style={styles.pageEllipsis}>
+                    &hellip;
+                  </span>
+                ) : (
                   <button
                     key={page}
-                    className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium transition ${
-                      page === 1
-                        ? "bg-[#F3F4F6] text-[#111827]"
-                        : "text-[#6B7280] hover:bg-[#F8F8F8]"
-                    }`}
+                    onClick={() => goToPage(page)}
+                    style={{
+                      ...styles.pageButton,
+                      ...(page === currentPage ? styles.pageButtonActive : {}),
+                    }}
                   >
                     {page}
                   </button>
-                ))}
+                )
+              )}
 
-            <button
-              onClick={() =>
-                currentPage < totalPages &&
-                setCurrentPage(currentPage + 1)
-              }
-              style={{
-                width: "36px",
-                height: "36px",
-                border: "1px solid #E5E7EB",
-                background: "#FFFFFF",
-                borderRadius: "6px",
-                cursor: "pointer",
-              }}
-            >
-              <FiChevronRight />
-            </button>
-          </div>
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                style={{
+                  ...styles.navButton,
+                  ...(currentPage === totalPages ? styles.navButtonDisabled : {}),
+                }}
+              >
+                <FiChevronRight />
+              </button>
+            </div>
+          )}
 
         </div>
 
