@@ -156,7 +156,7 @@ const [openMenu, setOpenMenu] = useState(() => {
 });
 
   return (
-    <aside className="relative flex h-screen w-[260px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-panel">
+    <aside className="relative flex h-[200vh] w-[260px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-panel">
 
       {/* Logo */}
       <div className="flex items-center px-7 pt-1 pb-3">
@@ -293,8 +293,9 @@ const [openMenu, setOpenMenu] = useState(() => {
           );
         })}
       </nav>
-            {/* Logout */}
-      <div className="absolute bottom-[72px] left-0 w-full px-6">
+
+      {/* Logout */}
+      <div className="w-full shrink-0 px-6 pb-[24px] pt-2">
         <button
           type="button"
           className="

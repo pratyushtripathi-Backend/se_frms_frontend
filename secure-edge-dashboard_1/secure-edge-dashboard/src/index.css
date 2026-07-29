@@ -2,14 +2,32 @@
 
 @tailwind base;
 @tailwind components;
-@tailwind utilities;@tailwind base;
-@tailwind components;
 @tailwind utilities;
 
 html,
 body,
 #root {
   height: 100%;
+}
+
+#root {
+  zoom: 0.5;
+}
+
+/*
+  IMPORTANT: vh units do NOT scale with CSS zoom — they always measure
+  against the real browser window, not the zoomed content. Since #root
+  is zoomed to 0.5, anything using 100vh only fills the top half of the
+  real window. This override corrects every Tailwind h-screen /
+  min-h-screen usage app-wide in one place, so pages don't need to be
+  edited individually.
+*/
+.h-screen {
+  height: 200vh !important;
+}
+
+.min-h-screen {
+  min-height: 200vh !important;
 }
 
 body {
