@@ -6,13 +6,13 @@ function BackgroundShapes({ showRight = true }) {
     <>
       <img
         alt=""
-        className="pointer-events-none absolute bottom-0 left-0 w-[min(70vw,430px)] sm:w-[min(38vw,520px)]"
+       className="pointer-events-none absolute bottom-[-199px] left-[-120px] hidden w-[315px]  rotate-[12deg] md:block lg:bottom-[-120px] lg:left- -3 lg:w-[415px]"
         src={leftShape}
       />
       {showRight && (
         <img
           alt=""
-          className="pointer-events-none absolute right-[-110px] top-[-20px] hidden w-[520px] md:block lg:right-0 lg:top-0 lg:w-[560px]"
+          className="pointer-events-none absolute right-[-120px] top-[-199px] hidden w-[315px] md:block lg:right-0 lg:top-[-30px] lg:w-[315px]"
           src={rightShape}
         />
       )}

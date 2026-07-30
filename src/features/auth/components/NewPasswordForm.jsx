@@ -1,7 +1,9 @@
 import { Eye, EyeOff, LockKeyhole } from 'lucide-react'
 import { useState } from 'react'
+import { getAuthErrorMessage } from '../services/authError'
+import { resetPassword } from '../services/authService'
 
-function NewPasswordForm({ onComplete }) {
+function NewPasswordForm({ onComplete, token }) {
   const [formValues, setFormValues] = useState({
     password: '',
     confirmPassword: '',
@@ -11,6 +13,7 @@ function NewPasswordForm({ onComplete }) {
     confirmPassword: false,
   })
   const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -27,16 +30,38 @@ function NewPasswordForm({ onComplete }) {
     }))
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
+
+    if (!token) {
+      setError('Reset token is missing. Please use the password reset link from your email.')
+      return
+    }
 
     if (formValues.password !== formValues.confirmPassword) {
       setError('Passwords do not match.')
       return
     }
 
-    onComplete?.()
+    setIsSubmitting(true)
+
+    try {
+      await resetPassword({
+        token,
+        newPassword: formValues.password,
+      })
+      onComplete?.()
+    } catch (resetPasswordError) {
+      setError(
+        getAuthErrorMessage(
+          resetPasswordError,
+          'Unable to reset password. Please try again.',
+        ),
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -77,10 +102,11 @@ function NewPasswordForm({ onComplete }) {
       )}
 
       <button
-        className="h-[58px] w-full rounded-xl bg-[#f50707] text-base font-bold text-white shadow-sm shadow-red-900/20 transition hover:bg-[#d90000] sm:h-[72px] sm:text-[22px]"
+        className="h-[58px] w-full rounded-xl bg-[#f50707] text-base font-bold text-white shadow-sm shadow-red-900/20 transition hover:bg-[#d90000] disabled:cursor-not-allowed disabled:opacity-70 sm:h-[72px] sm:text-[22px]"
+        disabled={isSubmitting}
         type="submit"
       >
-        Reset Password
+        {isSubmitting ? 'Resetting...' : 'Reset Password'}
       </button>
     </form>
   )

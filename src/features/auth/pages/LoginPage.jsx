@@ -12,23 +12,23 @@ function LoginPage({
   className="
     w-full
     max-w-[1290px]
-    min-h-[700px]
-    rounded-[40px]
+    rounded-[32px]
     border
     border-[#E8E8E8]
     bg-white
-    px-[80px]
-    py-[64px]
+    px-[58px]
+    py-[58px]
     shadow-[0_24px_70px_rgba(0,0,0,0.12)]
     flex
     flex-col
   "
 >
       <AuthHeader
+        compact
         content={AUTH_STEP_CONTENT[AUTH_STEPS.LOGIN]}
       />
 
-      <div className="mt-10">
+      <div className="mt-7">
         <LoginForm
           onForgotPassword={onForgotPassword}
           onLoginSuccess={onLoginSuccess}

@@ -3,7 +3,7 @@ import BackgroundShapes from '../../../components/BackgroundShapes'
 import forgotPasswordIllustration from '../../../assets/forgot-password-illustration.png'
 import ForgotPasswordForm from '../components/ForgotPasswordForm'
 
-function ForgotPasswordPage({ onBackToLogin, onContinue }) {
+function ForgotPasswordPage({ onBackToLogin }) {
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#f3f3f3] px-5 py-8 text-black sm:px-10 lg:px-0 lg:py-0">
       <BackgroundShapes />
@@ -29,7 +29,7 @@ function ForgotPasswordPage({ onBackToLogin, onContinue }) {
           </p>
 
           <div className="mt-10">
-            <ForgotPasswordForm onCancel={onBackToLogin} onSuccess={onContinue} />
+            <ForgotPasswordForm onCancel={onBackToLogin} />
           </div>
         </div>
       </section>

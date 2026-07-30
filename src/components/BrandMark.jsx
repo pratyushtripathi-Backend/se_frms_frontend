@@ -6,8 +6,8 @@ function BrandMark({ compact = false }) {
       alt="Secure Edge Fintech Pvt. Ltd."
       className={
         compact
-          ? 'h-auto w-[210px] sm:w-[250px]'
-          : 'h-auto w-[240px] max-w-full sm:w-[320px] lg:w-[410px]'
+          ? 'h-auto w-[240px] max-w-90 sm:w-[220px] -mt-4'
+          : 'h-auto w-[240px] max-w-90 sm:w-[320px] lg:w-[240px] -mt-4'
       }
       src={secureLogo}
     />

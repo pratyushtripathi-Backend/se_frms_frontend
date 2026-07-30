@@ -3,6 +3,8 @@ import BackgroundShapes from '../../../components/BackgroundShapes'
 import NewPasswordForm from '../components/NewPasswordForm'
 
 function NewPasswordPage({ onComplete }) {
+  const resetToken = new URLSearchParams(window.location.search).get('token')
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#f3f3f3] px-5 py-8 text-black sm:px-10 lg:px-0 lg:py-0">
       <BackgroundShapes />
@@ -20,7 +22,7 @@ function NewPasswordPage({ onComplete }) {
         </p>
 
         <div className="mt-16">
-          <NewPasswordForm onComplete={onComplete} />
+          <NewPasswordForm onComplete={onComplete} token={resetToken} />
         </div>
       </section>
     </main>

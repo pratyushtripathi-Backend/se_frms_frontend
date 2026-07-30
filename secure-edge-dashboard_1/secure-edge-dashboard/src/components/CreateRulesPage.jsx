@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { FiPlus } from "react-icons/fi";
 
 const CreateRulesPage = () => {
@@ -63,11 +63,6 @@ const CreateRulesPage = () => {
     setSelectedRuleId("");
     setRuleScore("");
   };
-
-  const selectedRule = useMemo(
-    () => fraudRules.find((r) => r.id === selectedRuleId),
-    [fraudRules, selectedRuleId]
-  );
 
   const styles = {
     page: {

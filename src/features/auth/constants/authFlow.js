@@ -2,7 +2,9 @@ export const AUTH_STEPS = {
   LOGIN: 'login',
   FORGOT_PASSWORD: 'forgotPassword',
   NEW_PASSWORD: 'newPassword',
+  PASSWORD_UPDATED: 'passwordUpdated',
   OTP_VERIFICATION: 'otpVerification',
+  DASHBOARD: 'dashboard',
   LOGOUT: 'logout',
 }
 

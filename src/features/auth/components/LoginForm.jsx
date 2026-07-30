@@ -2,7 +2,10 @@ import { Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react'
 import { useState } from 'react'
 import TextField from '../../../components/forms/TextField'
 import Button from '../../../components/ui/Button'
+import { getAuthErrorMessage } from '../services/authError'
 import { login } from '../services/authService'
+import { saveAuthUser } from '../services/authUserSession'
+import { getRequiredClientAuthMetadata } from '../services/clientAuthMetadata'
 
 function LoginForm({ onForgotPassword, onLoginSuccess }) {
   const [credentials, setCredentials] = useState({
@@ -27,33 +30,37 @@ function LoginForm({ onForgotPassword, onLoginSuccess }) {
     setIsSubmitting(true)
 
     try {
-      const response = await login(credentials)
+      const clientMetadata = await getRequiredClientAuthMetadata()
+      console.log('Login client metadata:', clientMetadata)
+      const response = await login({
+        ...credentials,
+        ...clientMetadata,
+      })
       console.log('Login success:', response.data)
+      saveAuthUser(response.data)
       onLoginSuccess(credentials.email)
     } catch (loginError) {
-      const message =
-        loginError.response?.data?.message ??
-        loginError.message ??
-        'Unable to login. Please try again.'
-      setError(message)
+      setError(getAuthErrorMessage(loginError, 'Unable to login. Please try again.'))
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <form className="space-y-6 sm:space-y-9 lg:space-y-11" onSubmit={handleSubmit}>
+    <form className="space-y-5 sm:space-y-6 lg:space-y-7" onSubmit={handleSubmit}>
       <TextField
+        compact
         icon={Mail}
         label="Email"
         name="email"
         onChange={handleChange}
-        placeholder="example@gmail.com"
+        placeholder="secureEdge.in"
         type="email"
         value={credentials.email}
       />
       <TextField
         actionIcon={isPasswordVisible ? Eye : EyeOff}
+        compact
         icon={LockKeyhole}
         label="Password"
         name="password"
@@ -64,16 +71,16 @@ function LoginForm({ onForgotPassword, onLoginSuccess }) {
         value={credentials.password}
       />
 
-      <div className="flex flex-col gap-4 sm:-mt-3 sm:flex-row sm:items-center sm:justify-between lg:-mt-5">
-        <label className="flex items-center gap-3 text-sm font-medium text-[#5f5f5f] sm:text-base">
+      <div className="flex flex-col gap-3 sm:-mt-2 sm:flex-row sm:items-center sm:justify-between">
+        <label className="flex items-center gap-2.5 text-sm font-medium text-[#5f5f5f] sm:text-[15px]">
           <input
-            className="h-5 w-5 rounded border-[#d8d8d8] text-[#f50707] focus:ring-[#f50707] sm:h-6 sm:w-6"
+            className="h-4 w-4 rounded border-[#d8d8d8] text-[#f50707] focus:ring-[#f50707] sm:h-5 sm:w-5"
             type="checkbox"
           />
           Remember me
         </label>
         <button
-          className="self-start text-sm font-semibold text-[#005dff] hover:text-[#0045bf] sm:self-auto sm:text-base"
+          className="self-start text-sm font-semibold text-[#005dff] hover:text-[#0045bf] sm:self-auto sm:text-[15px]"
           onClick={onForgotPassword}
           type="button"
         >
@@ -87,7 +94,7 @@ function LoginForm({ onForgotPassword, onLoginSuccess }) {
         </p>
       )}
 
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="h-[48px] text-[15px] leading-none sm:h-[48px] sm:text-[15px]" disabled={isSubmitting} type="submit">
         {isSubmitting ? 'Logging in...' : 'Continue to Login'}
       </Button>
     </form>

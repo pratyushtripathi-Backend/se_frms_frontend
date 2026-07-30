@@ -1,9 +1,10 @@
 import { Mail } from 'lucide-react'
 import { useState } from 'react'
 import TextField from '../../../components/forms/TextField'
+import { getAuthErrorMessage } from '../services/authError'
 import { forgotPassword } from '../services/authService'
 
-function ForgotPasswordForm({ onCancel, onSuccess }) {
+function ForgotPasswordForm({ onCancel }) {
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -20,13 +21,13 @@ function ForgotPasswordForm({ onCancel, onSuccess }) {
       setSuccessMessage(
         response.data?.message ?? 'Password reset link sent successfully.',
       )
-      onSuccess?.()
     } catch (forgotPasswordError) {
-      const message =
-        forgotPasswordError.response?.data?.message ??
-        forgotPasswordError.message ??
-        'Unable to send password reset link. Please try again.'
-      setError(message)
+      setError(
+        getAuthErrorMessage(
+          forgotPasswordError,
+          'Unable to send password reset link. Please try again.',
+        ),
+      )
     } finally {
       setIsSubmitting(false)
     }

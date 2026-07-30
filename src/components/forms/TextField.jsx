@@ -1,5 +1,6 @@
 function TextField({
   actionIcon: ActionIcon,
+  compact = false,
   icon: Icon,
   label,
   name,
@@ -9,15 +10,28 @@ function TextField({
   type = 'text',
   value,
 }) {
+  const fieldShellClass = compact
+    ? 'flex min-h-[44px] overflow-hidden rounded-xl border border-[#d8d8d8] bg-white transition focus-within:border-[#bdbdbd] focus-within:ring-4 focus-within:ring-red-100 sm:h-[62px] lg:h-[44px]'
+    : 'flex min-h-[48px] overflow-hidden rounded-xl border border-[#d8d8d8] bg-white transition focus-within:border-[#bdbdbd] focus-within:ring-4 focus-within:ring-red-100 sm:h-[72px]'
+  const labelClass = compact
+    ? 'flex w-[112px] shrink-0 items-center border-r border-[#d8d8d8] px-4 text-base font-semibold text-black sm:w-[150px] sm:px-5 sm:text-lg lg:w-[178px] lg:px-6 lg:text-[14px]'
+    : 'flex w-[118px] shrink-0 items-center border-r border-[#d8d8d8] px-4 text-base font-semibold text-black sm:w-[164px] sm:px-6 sm:text-xl lg:w-[202px] lg:px-8 lg:text-[20px]'
+  const inputClass = compact
+    ? 'min-w-0 flex-1 border-0 bg-transparent px-4 text-base font-small text-black outline-none placeholder:text-[#b7b7b7] sm:px-5 sm:text-medium'
+    : 'min-w-0 flex-1 border-0 bg-transparent px-4 text-base font-small text-black outline-none placeholder:text-[#b7b7b7] sm:px-6 sm:text-medium'
+  const actionClass = compact
+    ? 'flex w-11 shrink-0 items-center justify-center text-black transition hover:text-[#ef1414] sm:w-14'
+    : 'flex w-12 shrink-0 items-center justify-center text-black transition hover:text-[#ef1414] sm:w-16'
+
   return (
     <label className="block">
-      <span className="flex min-h-[58px] overflow-hidden rounded-xl border border-[#d8d8d8] bg-white transition focus-within:border-[#bdbdbd] focus-within:ring-4 focus-within:ring-red-100 sm:h-[72px]">
-        <span className="flex w-[118px] shrink-0 items-center border-r border-[#d8d8d8] px-4 text-base font-bold text-black sm:w-[164px] sm:px-6 sm:text-xl lg:w-[202px] lg:px-8 lg:text-[22px]">
-          <Icon className="mr-2 text-black sm:mr-3" size={22} strokeWidth={1.9} />
+      <span className={fieldShellClass}>
+        <span className={labelClass}>
+          <Icon className="mr-2 text-black sm:mr-3" size={compact ? 20 : 22} strokeWidth={1.9} />
           {label}
         </span>
         <input
-          className="min-w-0 flex-1 border-0 bg-transparent px-4 text-base font-medium text-black outline-none placeholder:text-[#b7b7b7] sm:px-6 sm:text-xl"
+          className={inputClass}
           name={name}
           onChange={onChange}
           placeholder={placeholder}
@@ -26,11 +40,11 @@ function TextField({
         />
         {ActionIcon && (
           <button
-            className="flex w-12 shrink-0 items-center justify-center text-black transition hover:text-[#ef1414] sm:w-16"
+            className={actionClass}
             onClick={onActionClick}
             type="button"
           >
-            <ActionIcon size={24} strokeWidth={1.8} />
+            <ActionIcon size={compact ? 22 : 24} strokeWidth={1.8} />
           </button>
         )}
       </span>

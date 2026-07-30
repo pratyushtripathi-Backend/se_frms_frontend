@@ -1,0 +1,35 @@
+export const transactionColumns = [
+  "Sr no",
+  "ID",
+  "User Name",
+  "Account no",
+  "Amount",
+  "Mode",
+  "Mobile no",
+  "Date",
+  "Time",
+  "Status",
+  "Priority",
+];
+
+export const recentTransactions = [
+  { status: "Success", priority: "Safe" },
+  { status: "Success", priority: "Safe" },
+  { status: "Failed", priority: "Risk" },
+  { status: "Success", priority: "Safe" },
+  { status: "Pending", priority: "Safe" },
+  { status: "Success", priority: "Safe" },
+  { status: "Pending", priority: "Risk" },
+  { status: "Success", priority: "Safe" },
+].map((r, i) => ({
+  sr: i + 1,
+  id: "T985493223",
+  user: "Mohit Singh",
+  account: "8796879645342",
+  amount: "25,000",
+  mode: "UPI",
+  mobile: "+91 8976896545",
+  date: "12-05-2025",
+  time: "11:30",
+  ...r,
+}));

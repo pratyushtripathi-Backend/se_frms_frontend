@@ -151,7 +151,7 @@ export default function AccessMasterPage() {
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
                 placeholder="Search Value"
-                className="h-10 w-[170px] rounded-lg border border-[#E5E7EB] pl-3 pr-9 text-[12px] text-[#202224] outline-none placeholder:text-[#A6A6A6]"
+                className="h-10 w-[170px] rounded-lg border border-[#E5E7EB] pl-3 pr-9 text-[12px] text-[#FFFFFF] outline-none placeholder:text-[#A6A6A6]"
               />
 
               <Search

@@ -30,10 +30,9 @@ const AllUserPage = () => {
     );
   }, [search]);
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredUsers.length / rowsPerPage)
-  );
+  console.log(filteredEmployees);
+
+  const totalPages = Math.ceil(filteredEmployees.length / rowsPerPage);
 
   const currentUsers = filteredUsers.slice(
     (currentPage - 1) * rowsPerPage,
@@ -433,102 +432,101 @@ const AllUserPage = () => {
           <table style={styles.table}>
             <thead style={styles.header}>
               <tr>
-                <th style={styles.th}>Sr no</th>
-                <th style={styles.th}>ID</th>
-                <th style={styles.th}>Name</th>
-                <th style={styles.th}>Email</th>
-                <th style={styles.th}>Mobile</th>
-                <th style={styles.th}>Department</th>
-                <th style={styles.th}>Designation</th>
-                <th style={styles.th}>Role</th>
-                <th style={styles.th}>Created Date</th>
-                <th style={styles.th}>Created By</th>
-                <th style={styles.th}>Updated At</th>
-                <th style={styles.th}>Status</th>
-                <th style={styles.th}>Action</th>
+                <th style={styles.th}>Employee ID</th>
+<th style={styles.th}>Employee Name</th>
+<th style={styles.th}>Email</th>
+<th style={styles.th}>Phone Number</th>
+<th style={styles.th}>Status</th>
+<th style={styles.th}>Created By</th>
+<th style={styles.th}>Role</th>
+<th style={styles.th}>Created Date</th>
+<th style={styles.th}>Updated At</th>
+<th style={styles.th}>Action</th>
               </tr>
             </thead>
 
-            <tbody>
-              {currentUsers.map((user, index) => (
-                <tr key={user.id} style={styles.tr}>
-                  <td style={styles.td}>
-                    {(currentPage - 1) * rowsPerPage + index + 1}
-                  </td>
+           <tbody>
+  {currentEmployees.map((employee, index) => (
+    <tr key={employee.id} style={styles.tr}>
+      {/* Sr No */}
+      <td style={styles.td}>
+        {(currentPage - 1) * rowsPerPage + index + 1}
+      </td>
 
-                  <td style={styles.td}>
-                    #{user.userId.replace(/^USR0*/, "")}
-                  </td>
+      {/* Employee ID */}
+      <td style={styles.td}>{employee.id}</td>
 
-                  <td style={styles.td}>{user.name}</td>
+      {/* Employee Name */}
+      <td style={styles.td}>
+        {employee.firstName} {employee.lastName}
+      </td>
 
-                  <td style={styles.td}>{user.email}</td>
+      {/* Email */}
+      <td style={styles.td}>{employee.email}</td>
 
-                  <td style={styles.td}>{user.mobile}</td>
+      {/* Mobile */}
+      <td style={styles.td}>{employee.phoneNumber}</td>
 
-                  <td style={styles.td}>{user.department}</td>
+      {/* Status */}
+      <td style={styles.td}>
+        {employee.status ? "Active" : "Inactive"}
+      </td>
 
-                  <td style={styles.td}>{user.designation}</td>
+      {/* Created By */}
+      <td style={styles.td}>
+        {employee.createdBy ?? "-"}
+      </td>
 
-                  <td style={styles.td}>{user.role}</td>
+      {/* Role */}
+      <td style={styles.td}>{employee.role}</td>
 
-                  <td style={styles.td}>
-                    <div style={styles.stampDate}>{user.createdDate}</div>
-                    <div style={styles.stampTime}>{user.createdTime}</div>
-                  </td>
+      {/* Created Date */}
+      <td style={styles.td}>
+        {new Date(employee.createdDate).toLocaleDateString()}
+      </td>
 
-                  <td style={styles.td}>{user.createdBy}</td>
+      {/* Updated At */}
+      <td style={styles.td}>
+        {new Date(employee.updatedAt).toLocaleDateString()}
+      </td>
 
-                  <td style={styles.td}>
-                    <div style={styles.stampDate}>{user.updatedDate}</div>
-                    <div style={styles.stampTime}>{user.updatedTime}</div>
-                  </td>
+      {/* Action */}
+      <td
+        style={{
+          ...styles.td,
+          position: "relative",
+        }}
+      >
+        <button
+          style={styles.actionBtn}
+          onClick={() =>
+            setOpenMenu(openMenu === employee.id ? null : employee.id)
+          }
+        >
+          Select <FiChevronDown size={14} />
+        </button>
 
-                  <td style={styles.td}>
-                    <StatusToggle
-                      active={isActive(user)}
-                      onClick={() => toggleStatus(user)}
-                    />
-                  </td>
+        {openMenu === employee.id && (
+          <div style={styles.menu}>
+            <div
+              style={styles.menuItem}
+              onClick={() => {
+                console.log("Permission", employee);
+                setOpenMenu(null);
+              }}
+            >
+              Permission
+            </div>
 
-                  <td
-                    style={{
-                      ...styles.td,
-                      position: "relative",
-                    }}
-                  >
-                    <button
-                      style={styles.actionBtn}
-                      onClick={() =>
-                        setOpenMenu(
-                          openMenu === user.id ? null : user.id
-                        )
-                      }
-                    >
-                      Select
-                      <FiChevronDown size={14} />
-                    </button>
-                    {openMenu === user.id && (
-                      <div style={styles.menu}>
-                        <div
-                          style={styles.menuItem}
-                          onClick={() => {
-                            console.log("Permission", user);
-                            setOpenMenu(null);
-                          }}
-                        >
-                          Permission
-                        </div>
-
-                        <div
-                          style={{ ...styles.menuItem, color: "#0A84FF" }}
-                          onClick={() => {
-                            console.log("Edit", user);
-                            setOpenMenu(null);
-                          }}
-                        >
-                          Edit
-                        </div>
+            <div
+              style={{ ...styles.menuItem, color: "#0A84FF" }}
+              onClick={() => {
+                console.log("Edit", employee);
+                setOpenMenu(null);
+              }}
+            >
+              Edit
+            </div>
 
                         <div
                           style={{ ...styles.menuItem, color: "#DC2626" }}
@@ -753,4 +751,4 @@ const AllUserPage = () => {
   );
 };
 
-export default AllUserPage;
+export default AllEmployeePage;
