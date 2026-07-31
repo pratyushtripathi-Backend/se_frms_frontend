@@ -430,10 +430,9 @@ export default function ProfilePage() {
 
       {successModalMessage && (
         <DashboardSuccessModal
-          message={successModalMessage}
-          onClose={() => setSuccessModalMessage("")}
-          title="Edit Successful"
-        />
+  onClose={() => setSuccessModalMessage("")}
+  title="Updated Successfully"
+/>
       )}
     </div>
   );
