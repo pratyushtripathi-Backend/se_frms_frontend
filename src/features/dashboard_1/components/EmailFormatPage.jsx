@@ -13,18 +13,20 @@ import {
   updateEmailNotificationTemplate,
   updateEmailNotificationTemplateStatus,
 } from "../services/adminEmployeeService";
+import DashboardEditButton from "./DashboardEditButton";
 import DashboardStatusToggle from "./DashboardStatusToggle";
 
+import { openDashboardDatePicker } from "./dashboardDatePicker";
 const TABLE_COLUMNS = [
   "Sr No",
   "Body Text",
   "Subject",
   "Template Code",
   "Channel",
+  "Status",
   "Created By",
   "Created Date",
   "Updated At",
-  "Status",
   "Action",
 ];
 
@@ -210,9 +212,13 @@ function CreateEmailFormatModal({ initialValues, isSaving, onClose, onSubmit }) 
   );
 }
 
-function SuccessModal({ onClose }) {
+function SuccessModal({ message, onClose }) {
+  const displayMessage = String(
+    message || "Email template saved successfully.",
+  ).toUpperCase();
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 px-4">
       <div className="w-[90%] max-w-[900px] rounded-[20px] bg-white px-10 py-20 text-center shadow-2xl">
 
         {/* Animated checkmark */}
@@ -249,13 +255,9 @@ function SuccessModal({ onClose }) {
           </svg>
         </div>
 
-        <h3 className="text-[24px] font-semibold text-[#202224]">
-          Created Successfully
+        <h3 className="mx-auto max-w-[520px] text-[24px] font-bold uppercase leading-8 text-[#202224]">
+          {displayMessage}
         </h3>
-
-        <p className="mt-2 text-[15px] text-[#7A7A7A]">
-          The Email Format created successfully
-        </p>
 
         <button
           type="button"
@@ -282,7 +284,7 @@ function SuccessModal({ onClose }) {
 
 function DeleteConfirmModal({ isSaving, onCancel, onConfirm, template }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 px-4">
       <div className="w-[90%] max-w-[520px] rounded-[18px] bg-white px-8 py-8 shadow-2xl">
         <div className="mb-5 flex items-start justify-between gap-5">
           <div>
@@ -348,6 +350,7 @@ export default function EmailFormatPage() {
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
+  const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   async function loadEmailTemplates() {
     setIsLoading(true);
@@ -412,15 +415,21 @@ export default function EmailFormatPage() {
 
       if (year && yr !== year) return false;
 
-      if (fromDate && itemDate < new Date(fromDate)) return false;
+      if (fromDate && itemDate < parseDateOnly(fromDate)) return false;
 
-      if (toDate && itemDate > new Date(toDate)) return false;
+      if (toDate && itemDate > parseDateOnly(toDate, true)) return false;
 
       return true;
     });
   }, [emailTemplates, year, fromDate, toDate]);
 
   const visibleData = filteredData.slice(0, 10);
+
+  const handleResetFilters = () => {
+    setYear("");
+    setFromDate("");
+    setToDate("");
+  };
 
   const handleSubmit = async (formValues) => {
     setErrorMessage("");
@@ -594,13 +603,7 @@ export default function EmailFormatPage() {
 
               <button
                 type="button"
-                onClick={() => {
-                  if (fromInputRef.current?.showPicker) {
-                    fromInputRef.current.showPicker();
-                  } else {
-                    fromInputRef.current?.click();
-                  }
-                }}
+                onClick={(event) => openDashboardDatePicker(fromInputRef.current, event.currentTarget)}
                 className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[13px] text-[#808080]"
               >
                 <span>{fromDate || "From"}</span>
@@ -620,19 +623,22 @@ export default function EmailFormatPage() {
 
               <button
                 type="button"
-                onClick={() => {
-                  if (toInputRef.current?.showPicker) {
-                    toInputRef.current.showPicker();
-                  } else {
-                    toInputRef.current?.click();
-                  }
-                }}
+                onClick={(event) => openDashboardDatePicker(toInputRef.current, event.currentTarget)}
                 className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[13px] text-[#808080]"
               >
                 <span>{toDate || "To"}</span>
                 <CalendarDays size={15} />
               </button>
             </>
+
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              disabled={!isLocalFilterActive}
+              className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+            >
+              Reset
+            </button>
 
             {/* Create format */}
             <button
@@ -669,7 +675,7 @@ export default function EmailFormatPage() {
                 {TABLE_COLUMNS.map((column) => (
                   <th
                     key={column}
-                    className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[13px] font-semibold text-[#5A5A5A]"
+                    className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[12px] font-semibold text-[#5A5A5A]"
                   >
                     {column}
                   </th>
@@ -679,7 +685,7 @@ export default function EmailFormatPage() {
 
             <tbody>
               {isLoading && (
-                <tr className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563]">
+                <tr className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563]">
                   <td colSpan={TABLE_COLUMNS.length} className="px-4 py-6 text-center">
                     Loading email templates...
                   </td>
@@ -687,7 +693,7 @@ export default function EmailFormatPage() {
               )}
 
               {!isLoading && visibleData.length === 0 && (
-                <tr className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563]">
+                <tr className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563]">
                   <td colSpan={TABLE_COLUMNS.length} className="px-4 py-6 text-center">
                     No email templates found.
                   </td>
@@ -697,7 +703,7 @@ export default function EmailFormatPage() {
               {!isLoading && visibleData.map((item, index) => (
                 <tr
                   key={item.id}
-                  className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
+                  className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
                 >
                   <td className="px-4 py-4 font-medium align-top">
                     {index + 1}
@@ -717,6 +723,18 @@ export default function EmailFormatPage() {
 
                   <td className="whitespace-nowrap px-4 py-4 align-top">
                     {item.channel}
+                  </td>
+
+                  <td className="px-4 py-4 align-top">
+                    <DashboardStatusToggle
+                      onToggle={(nextStatus) =>
+                        updateEmailNotificationTemplateStatus(
+                          item.templateCode,
+                          nextStatus,
+                        )
+                      }
+                      status={item.status}
+                    />
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-4 align-top">
@@ -747,26 +765,12 @@ export default function EmailFormatPage() {
                     </div>
                   </td>
 
-                  <td className="px-4 py-4 align-top">
-                    <DashboardStatusToggle
-                      onToggle={(nextStatus) =>
-                        updateEmailNotificationTemplateStatus(
-                          item.templateCode,
-                          nextStatus,
-                        )
-                      }
-                      status={item.status}
-                    />
-                  </td>
-
                   <td className="relative px-4 py-4 align-top">
-                    <button
-                      className="flex items-center justify-center gap-2 rounded-md border border-[#E5E7EB] bg-[#EDEDED] px-3 py-1.5 text-[12px] font-medium text-[#4B4B4B]"
+                    <DashboardEditButton
                       onClick={() => handleEditTemplate(item)}
-                      type="button"
                     >
                       Edit
-                    </button>
+                    </DashboardEditButton>
                   </td>
                 </tr>
               ))}
@@ -821,7 +825,10 @@ export default function EmailFormatPage() {
       )}
 
       {showSuccessModal && (
-        <SuccessModal onClose={() => setShowSuccessModal(false)} />
+        <SuccessModal
+          message={successMessage}
+          onClose={() => setShowSuccessModal(false)}
+        />
       )}
 
       {deleteTarget && (
@@ -936,6 +943,12 @@ function parseEmailTemplateDate(value) {
   }
 
   return new Date(stringValue);
+}
+
+function parseDateOnly(dateValue, endOfDay = false) {
+  const date = new Date(`${dateValue}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
+
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function getEmailTemplateYear(value) {

@@ -1,6 +1,7 @@
 const AUTH_USER_KEY = 'frmsAuthUser'
 const AUTH_TOKEN_KEY = 'frmsAuthToken'
 const AUTH_TOKEN_EXPIRY_KEY = 'frmsAuthTokenExpiresAt'
+const AUTH_REDIRECT_MESSAGE_KEY = 'frmsAuthRedirectMessage'
 export const AUTH_SESSION_EXPIRED_EVENT = 'frms-auth-session-expired'
 
 export function saveAuthUser(loginResponseData) {
@@ -102,11 +103,40 @@ export function clearAuthSession() {
   window.sessionStorage.removeItem(AUTH_TOKEN_EXPIRY_KEY)
   window.sessionStorage.removeItem(AUTH_USER_KEY)
   window.sessionStorage.removeItem('frmsLoginEmail')
+  window.localStorage.removeItem(AUTH_TOKEN_KEY)
+  window.localStorage.removeItem(AUTH_TOKEN_EXPIRY_KEY)
+  window.localStorage.removeItem(AUTH_USER_KEY)
 }
 
 export function expireAuthSession() {
   clearAuthSession()
   window.dispatchEvent(new Event(AUTH_SESSION_EXPIRED_EVENT))
+}
+
+export function forceAuthLogout(message = '', options = {}) {
+  const { showLoginNotice = true } = options
+
+  clearAuthSession()
+
+  if (message && showLoginNotice) {
+    window.sessionStorage.setItem(AUTH_REDIRECT_MESSAGE_KEY, message)
+  } else {
+    window.sessionStorage.removeItem(AUTH_REDIRECT_MESSAGE_KEY)
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(AUTH_SESSION_EXPIRED_EVENT, {
+      detail: {
+        message: showLoginNotice ? message : '',
+      },
+    }),
+  )
+}
+
+export function consumeAuthRedirectMessage() {
+  const message = window.sessionStorage.getItem(AUTH_REDIRECT_MESSAGE_KEY) ?? ''
+  window.sessionStorage.removeItem(AUTH_REDIRECT_MESSAGE_KEY)
+  return message
 }
 
 function findAuthToken(value, visited = new Set()) {

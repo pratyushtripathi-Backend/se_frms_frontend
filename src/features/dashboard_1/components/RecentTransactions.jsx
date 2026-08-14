@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import ExportFile from "./ExportFile";
 import { useRef, useState } from "react";
+import { openDashboardDatePicker } from "./dashboardDatePicker";
 import {
   transactionColumns,
   recentTransactions,
@@ -47,13 +48,7 @@ export default function RecentTransactions() {
 
             <button
               type="button"
-              onClick={() => {
-                if (fromInputRef.current?.showPicker) {
-                  fromInputRef.current.showPicker();
-                } else {
-                  fromInputRef.current?.click();
-                }
-              }}
+              onClick={(event) => openDashboardDatePicker(fromInputRef.current, event.currentTarget)}
               className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-2 text-[12.5px] text-brand-dim"
             >
               {fromDate || "From"}
@@ -72,13 +67,7 @@ export default function RecentTransactions() {
 
             <button
               type="button"
-              onClick={() => {
-                if (toInputRef.current?.showPicker) {
-                  toInputRef.current.showPicker();
-                } else {
-                  toInputRef.current?.click();
-                }
-              }}
+              onClick={(event) => openDashboardDatePicker(toInputRef.current, event.currentTarget)}
               className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-2 text-[12.5px] text-brand-dim"
             >
               {toDate || "To"}

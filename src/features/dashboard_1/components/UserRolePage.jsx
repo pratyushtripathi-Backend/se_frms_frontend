@@ -13,8 +13,10 @@ import {
   getAdminUserRoles,
   updateAdminUserRoleStatus,
 } from "../services/adminEmployeeService";
+import DashboardEditButton from "./DashboardEditButton";
 import DashboardStatusToggle from "./DashboardStatusToggle";
 
+import { openDashboardDatePicker } from "./dashboardDatePicker";
 const rowsPerPage = 10;
 
 export default function UserRolePage({ searchQuery = "" }) {
@@ -36,6 +38,7 @@ export default function UserRolePage({ searchQuery = "" }) {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
+  const isLocalFilterActive = Boolean(searchQuery.trim() || year || fromDate || toDate);
   const [formData, setFormData] = useState({
     roleName: "",
     userId: "",
@@ -63,12 +66,28 @@ export default function UserRolePage({ searchQuery = "" }) {
 
     try {
       const response = await getAdminUserRoles({
-        page: currentPage - 1,
+        page: isLocalFilterActive ? 0 : currentPage - 1,
         size: rowsPerPage,
       });
       const normalizedResponse = normalizeUserRoleResponse(response.data);
+      const normalizedRows = [...normalizedResponse.rows];
 
-      setUserRoles(normalizedResponse.rows);
+      if (isLocalFilterActive && normalizedResponse.totalPages > 1) {
+        const remainingResponses = await Promise.all(
+          Array.from({ length: normalizedResponse.totalPages - 1 }, (_, index) =>
+            getAdminUserRoles({
+              page: index + 1,
+              size: rowsPerPage,
+            }),
+          ),
+        );
+
+        remainingResponses.forEach((pageResponse) => {
+          normalizedRows.push(...normalizeUserRoleResponse(pageResponse.data).rows);
+        });
+      }
+
+      setUserRoles(normalizedRows);
       setTotalRecords(normalizedResponse.totalRecords);
     } catch (error) {
       setUserRoles([]);
@@ -82,7 +101,7 @@ export default function UserRolePage({ searchQuery = "" }) {
     } finally {
       if (showLoader) setIsLoading(false);
     }
-  }, [currentPage]);
+  }, [currentPage, isLocalFilterActive]);
 
   useEffect(() => {
     let isActive = true;
@@ -118,8 +137,11 @@ export default function UserRolePage({ searchQuery = "" }) {
     });
   }, [fromDate, searchQuery, toDate, userRoles, year]);
 
-  const totalPages = Math.max(1, Math.ceil(totalRecords / rowsPerPage));
-  const currentData = filteredData;
+  const effectiveTotalRecords = isLocalFilterActive ? filteredData.length : totalRecords;
+  const totalPages = Math.max(1, Math.ceil(effectiveTotalRecords / rowsPerPage));
+  const currentData = isLocalFilterActive
+    ? filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+    : filteredData;
   const visiblePageNumbers = useMemo(() => {
     const pageCount = Math.max(totalPages, 1);
     const startPage = Math.max(Math.min(currentPage - 2, pageCount - 4), 1);
@@ -130,8 +152,30 @@ export default function UserRolePage({ searchQuery = "" }) {
       (_, index) => startPage + index,
     );
   }, [currentPage, totalPages]);
-  const showingFrom = totalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
-  const showingTo = Math.min(currentPage * rowsPerPage, totalRecords);
+  const showingFrom = effectiveTotalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const showingTo = Math.min(currentPage * rowsPerPage, effectiveTotalRecords);
+
+  const handleYearChange = (value) => {
+    setYear(value);
+    setCurrentPage(1);
+  };
+
+  const handleFromDateChange = (value) => {
+    setFromDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleToDateChange = (value) => {
+    setToDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setYear("");
+    setFromDate("");
+    setToDate("");
+    setCurrentPage(1);
+  };
 
   const handleFormChange = (field) => (event) => {
     setFormData((prev) => ({ ...prev, [field]: event.target.value }));
@@ -242,7 +286,7 @@ export default function UserRolePage({ searchQuery = "" }) {
             <div className="relative">
               <select
                 className="h-[38px] w-[110px] appearance-none rounded-md border border-[#E5E7EB] bg-white px-3 pr-8 text-[13px] text-[#202224] outline-none"
-                onChange={(event) => setYear(event.target.value)}
+                onChange={(event) => handleYearChange(event.target.value)}
                 value={year}
               >
                 <option value="">Year</option>
@@ -255,7 +299,7 @@ export default function UserRolePage({ searchQuery = "" }) {
 
             <input
               className="hidden"
-              onChange={(event) => setFromDate(event.target.value)}
+              onChange={(event) => handleFromDateChange(event.target.value)}
               ref={fromInputRef}
               type="date"
               value={fromDate}
@@ -263,13 +307,7 @@ export default function UserRolePage({ searchQuery = "" }) {
 
             <button
               className="flex h-[38px] w-[110px] items-center justify-between rounded-md border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#808080] outline-none"
-              onClick={() => {
-                if (fromInputRef.current?.showPicker) {
-                  fromInputRef.current.showPicker();
-                } else {
-                  fromInputRef.current?.click();
-                }
-              }}
+              onClick={(event) => openDashboardDatePicker(fromInputRef.current, event.currentTarget)}
               type="button"
             >
               <span>{fromDate || "From"}</span>
@@ -278,7 +316,7 @@ export default function UserRolePage({ searchQuery = "" }) {
 
             <input
               className="hidden"
-              onChange={(event) => setToDate(event.target.value)}
+              onChange={(event) => handleToDateChange(event.target.value)}
               ref={toInputRef}
               type="date"
               value={toDate}
@@ -286,17 +324,20 @@ export default function UserRolePage({ searchQuery = "" }) {
 
             <button
               className="flex h-[38px] w-[110px] items-center justify-between rounded-md border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#808080] outline-none"
-              onClick={() => {
-                if (toInputRef.current?.showPicker) {
-                  toInputRef.current.showPicker();
-                } else {
-                  toInputRef.current?.click();
-                }
-              }}
+              onClick={(event) => openDashboardDatePicker(toInputRef.current, event.currentTarget)}
               type="button"
             >
               <span>{toDate || "To"}</span>
               <CalendarDays size={15} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              disabled={!year && !fromDate && !toDate}
+              className="h-[38px] rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+            >
+              Reset
             </button>
 
             <button
@@ -329,10 +370,10 @@ export default function UserRolePage({ searchQuery = "" }) {
                   "Sr No",
                   "User Name",
                   "Role",
+                  "Status",
                   "Created by",
                   "Created at",
                   "Update at",
-                  "Status",
                   "Action",
                 ].map((column) => (
                   <th
@@ -379,6 +420,14 @@ export default function UserRolePage({ searchQuery = "" }) {
                   <td className="whitespace-nowrap px-4 py-2.5 text-[12px] text-[#555555]">
                     {item.role}
                   </td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-[12px]">
+                    <DashboardStatusToggle
+                      onToggle={(nextStatus) =>
+                        updateAdminUserRoleStatus(item.id, { status: nextStatus })
+                      }
+                      status={item.status}
+                    />
+                  </td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-[12px] text-[#555555]">
                     {item.createdBy}
                   </td>
@@ -389,23 +438,13 @@ export default function UserRolePage({ searchQuery = "" }) {
                     <DateTime date={item.updatedDate} time={item.updatedTime} />
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-[12px]">
-                    <DashboardStatusToggle
-                      onToggle={(nextStatus) =>
-                        updateAdminUserRoleStatus(item.id, { status: nextStatus })
-                      }
-                      status={item.status}
-                    />
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-[12px]">
                     <div className="relative">
-                      <button
-                        className="flex h-8 w-[92px] items-center justify-between rounded-md border border-[#E5E7EB] bg-white px-3 text-[12px] font-medium text-[#4B5563] disabled:cursor-not-allowed disabled:opacity-70"
+                      <DashboardEditButton
                         disabled={updatingRoleId === item.id}
                         onClick={() => handleEditStatus(item)}
-                        type="button"
                       >
                         {updatingRoleId === item.id ? "Updating..." : "Edit"}
-                      </button>
+                      </DashboardEditButton>
                     </div>
                   </td>
                 </tr>
@@ -417,7 +456,7 @@ export default function UserRolePage({ searchQuery = "" }) {
         <div className="flex items-center justify-between px-5 pt-4">
           <p className="text-[12px] text-[#666666]">
             Showing <strong>{showingFrom}</strong> - <strong>{showingTo}</strong>{" "}
-            of <strong>{totalRecords}</strong> transactions
+            of <strong>{effectiveTotalRecords}</strong> transactions
           </p>
 
           <div className="flex items-center gap-2">
@@ -543,7 +582,7 @@ export default function UserRolePage({ searchQuery = "" }) {
       )}
 
       {showSuccessModal && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/55">
           <div className="w-[640px] max-w-[92vw] rounded-2xl bg-white px-12 py-14 text-center shadow-2xl">
             <div className="mb-2 flex justify-center">
               <svg
@@ -589,12 +628,9 @@ export default function UserRolePage({ searchQuery = "" }) {
               }
             `}</style>
 
-            <h3 className="mb-4 mt-6 text-[20px] font-bold text-[#202224]">
-              {successMessage || "User Role Assign Successfully"}
+            <h3 className="mb-8 mt-6 text-[20px] font-bold uppercase text-[#202224]">
+              {(successMessage || "User Role Assign Successfully").toUpperCase()}
             </h3>
-            <p className="mx-auto mb-8 max-w-[440px] text-[14px] leading-[22px] text-[#7A7A7A]">
-              {successMessage || "User Role Assign successfully."}
-            </p>
             <button
               className="h-[46px] w-[160px] rounded-lg bg-[#4B4B4B] text-[14px] font-semibold text-white"
               onClick={() => setShowSuccessModal(false)}
@@ -653,8 +689,11 @@ function normalizeUserRoleResponse(responseData) {
       "total",
       "count",
     ]) ?? rows.length;
+  const totalPages =
+    findFirstNumber(payload, ["totalPages", "pages"]) ??
+    Math.max(Math.ceil(totalRecords / rowsPerPage), 1);
 
-  return { rows, totalRecords };
+  return { rows, totalRecords, totalPages: Math.max(totalPages, 1) };
 }
 
 function normalizeRoleOptions(responseData) {

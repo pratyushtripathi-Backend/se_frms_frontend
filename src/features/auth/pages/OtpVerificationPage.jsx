@@ -3,7 +3,7 @@ import BackgroundShapes from '../../../components/BackgroundShapes'
 import otpIllustrator from '../../../assets/otp-illustrator.png'
 import OtpVerificationForm from '../components/OtpVerificationForm'
 
-function OtpVerificationPage({ email, onVerified }) {
+function OtpVerificationPage({ email, loginCredentials, onVerified }) {
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#f3f3f3] px-5 py-8 text-black sm:px-10 lg:px-0 lg:py-0">
       <BackgroundShapes />
@@ -27,7 +27,11 @@ function OtpVerificationPage({ email, onVerified }) {
           </p>
 
           <div className="mt-7 w-full">
-            <OtpVerificationForm email={email} onVerified={onVerified} />
+            <OtpVerificationForm
+              email={email}
+              loginCredentials={loginCredentials}
+              onVerified={onVerified}
+            />
           </div>
         </div>
       </section>

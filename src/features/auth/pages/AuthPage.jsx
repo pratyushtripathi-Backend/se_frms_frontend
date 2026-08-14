@@ -7,6 +7,7 @@ import { logout } from '../services/authService'
 import {
   AUTH_SESSION_EXPIRED_EVENT,
   clearAuthSession,
+  consumeAuthRedirectMessage,
   expireAuthSession,
   getAuthToken,
   getAuthTokenExpiresAt,
@@ -39,9 +40,13 @@ const ROUTE_STEPS = {
 }
 
 function getStepFromPathname() {
-  if (window.location.pathname === '/dashboard' && !getAuthToken()) {
+  if (window.location.pathname.startsWith('/dashboard') && !getAuthToken()) {
     window.history.replaceState({}, '', '/')
     return AUTH_STEPS.LOGIN
+  }
+
+  if (window.location.pathname.startsWith('/dashboard')) {
+    return AUTH_STEPS.DASHBOARD
   }
 
   return ROUTE_STEPS[window.location.pathname] ?? AUTH_STEPS.LOGIN
@@ -52,6 +57,8 @@ function AuthPage() {
   const [loginEmail, setLoginEmail] = useState(
     () => window.sessionStorage.getItem('frmsLoginEmail') ?? '',
   )
+  const [loginCredentials, setLoginCredentials] = useState(null)
+  const [loginNotice, setLoginNotice] = useState(consumeAuthRedirectMessage)
 
   useEffect(() => {
     const handlePopState = () => setStep(getStepFromPathname())
@@ -61,8 +68,9 @@ function AuthPage() {
   }, [])
 
   useEffect(() => {
-    const handleSessionExpired = () => {
+    const handleSessionExpired = (event) => {
       setLoginEmail('')
+      setLoginNotice(event.detail?.message || consumeAuthRedirectMessage())
       window.history.replaceState({}, '', '/')
       setStep(AUTH_STEPS.LOGIN)
     }
@@ -104,12 +112,16 @@ function AuthPage() {
     setStep(nextStep)
   }
 
-  const goToLogin = () => navigateToStep(AUTH_STEPS.LOGIN)
+  const goToLogin = () => {
+    setLoginNotice('')
+    navigateToStep(AUTH_STEPS.LOGIN)
+  }
   const goToForgotPassword = () => navigateToStep(AUTH_STEPS.FORGOT_PASSWORD)
   const goToPasswordUpdated = () => navigateToStep(AUTH_STEPS.PASSWORD_UPDATED)
   const goToDashboard = () => navigateToStep(AUTH_STEPS.DASHBOARD)
-  const goToOtpVerification = (email = loginEmail) => {
+  const goToOtpVerification = (email = loginEmail, credentials = null) => {
     setLoginEmail(email)
+    setLoginCredentials(credentials)
     window.sessionStorage.setItem('frmsLoginEmail', email)
     navigateToStep(AUTH_STEPS.OTP_VERIFICATION)
   }
@@ -127,6 +139,7 @@ function AuthPage() {
     return (
       <OtpVerificationPage
         email={loginEmail}
+        loginCredentials={loginCredentials}
         onBackToLogin={goToLogin}
         onVerified={goToDashboard}
       />
@@ -162,6 +175,7 @@ function AuthPage() {
 
         {step === AUTH_STEPS.LOGIN && (
           <LoginPage
+            notice={loginNotice}
             onForgotPassword={goToForgotPassword}
             onLoginSuccess={goToOtpVerification}
             onLogout={goToLogout}

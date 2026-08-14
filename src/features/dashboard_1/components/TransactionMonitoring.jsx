@@ -11,6 +11,7 @@ import {
 import { useRef, useState } from "react";
 import { CalendarDays } from "lucide-react";
 import { transactionMonitoringData } from "./TransactionMonitoringData";
+import { openDashboardDatePicker } from "./dashboardDatePicker";
 
 const LINE = "#2582DA";
 const FLAG = "#FF3F2F";
@@ -106,14 +107,9 @@ export default function TransactionMonitoring() {
 
           <button
             type="button"
-            onClick={() => {
-              if (dateInputRef.current?.showPicker) {
-                dateInputRef.current.showPicker();
-              } else {
-                dateInputRef.current?.focus();
-                dateInputRef.current?.click();
-              }
-            }}
+            onClick={(event) =>
+              openDashboardDatePicker(dateInputRef.current, event.currentTarget)
+            }
             className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[12.5px]"
             style={{
               borderColor: "#D9D9D9",

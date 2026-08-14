@@ -3,6 +3,7 @@ import { Pencil } from "lucide-react";
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import { getAuthUser, saveAuthUser } from "../../auth/services/authUserSession";
 import { getUserProfile, updateUserProfile } from "../services/userProfileService";
+import DashboardEditButton from "./DashboardEditButton";
 import DashboardSuccessModal from "./DashboardSuccessModal";
 
 export default function ProfilePage() {
@@ -153,6 +154,12 @@ export default function ProfilePage() {
         email: profileForm.email.trim(),
         phoneNumber: profileForm.phoneNumber.trim(),
       });
+
+      if (document.getElementById("frms-logout-required-popup")) {
+        setIsEditingProfile(false);
+        return;
+      }
+
       const updatedProfile =
         response.data?.responseData ?? response.data?.data ?? response.data;
 
@@ -281,29 +288,14 @@ export default function ProfilePage() {
               Profile details &amp; Settings
             </h2>
 
-            <button
-              type="button"
+            <DashboardEditButton
               onClick={handleEditProfile}
               disabled={isSavingProfile}
-              className="
-                flex
-                h-[34px]
-                items-center
-                gap-2
-                rounded-[8px]
-                bg-[#313646]
-                px-5
-                text-[12px]
-                font-medium
-                text-white
-                hover:bg-[#262B38]
-                disabled:cursor-not-allowed
-                disabled:opacity-70
-              "
+              className="h-[34px] gap-2 rounded-[8px]"
             >
               <Pencil size={12} />
               Edit
-            </button>
+            </DashboardEditButton>
           </div>
 
           <div className="px-7 py-7">

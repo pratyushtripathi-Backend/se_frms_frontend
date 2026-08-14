@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import { changePassword } from "../../auth/services/authService";
 
@@ -10,6 +11,18 @@ export default function ChangePasswordPage({ setCurrentPage }) {
   const [reEnterPassword, setReEnterPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState("");
+  const [visibleFields, setVisibleFields] = useState({
+    current: false,
+    new: false,
+    reEnter: false,
+  });
+
+  const togglePasswordVisibility = (field) => {
+    setVisibleFields((currentFields) => ({
+      ...currentFields,
+      [field]: !currentFields[field],
+    }));
+  };
 
   const handleChangePassword = async () => {
     setPasswordError("");
@@ -27,10 +40,14 @@ export default function ChangePasswordPage({ setCurrentPage }) {
     setIsChangingPassword(true);
 
     try {
-      await changePassword({
+      const response = await changePassword({
         oldPassword: currentPassword,
         newPassword,
       });
+
+      if (document.getElementById("frms-logout-required-popup")) {
+        return;
+      }
 
       setCurrentPassword("");
       setNewPassword("");
@@ -84,26 +101,12 @@ export default function ChangePasswordPage({ setCurrentPage }) {
                     Current Password
                   </label>
 
-                  <input
-                    type="password"
-                    value={currentPassword}
+                  <PasswordInput
+                    isVisible={visibleFields.current}
                     onChange={(e) => setCurrentPassword(e.target.value)}
+                    onToggleVisibility={() => togglePasswordVisibility("current")}
                     placeholder="Enter Your Current Password"
-                    className="
-                      h-[50px]
-                      w-full
-                      rounded-[10px]
-                      border
-                      border-[#E5E7EB]
-                      bg-white
-                      px-4
-                      text-[14px]
-                      text-[#202224]
-                      outline-none
-                      transition-colors
-                      placeholder:text-[#A3A3A3]
-                      focus:border-[#BFC7D5]
-                    "
+                    value={currentPassword}
                   />
                 </div>
 
@@ -113,26 +116,12 @@ export default function ChangePasswordPage({ setCurrentPage }) {
                     New Password
                   </label>
 
-                  <input
-                    type="password"
-                    value={newPassword}
+                  <PasswordInput
+                    isVisible={visibleFields.new}
                     onChange={(e) => setNewPassword(e.target.value)}
+                    onToggleVisibility={() => togglePasswordVisibility("new")}
                     placeholder="Enter New Password"
-                    className="
-                      h-[50px]
-                      w-full
-                      rounded-[10px]
-                      border
-                      border-[#E5E7EB]
-                      bg-white
-                      px-4
-                      text-[14px]
-                      text-[#202224]
-                      outline-none
-                      transition-colors
-                      placeholder:text-[#A3A3A3]
-                      focus:border-[#BFC7D5]
-                    "
+                    value={newPassword}
                   />
                 </div>
 
@@ -142,26 +131,12 @@ export default function ChangePasswordPage({ setCurrentPage }) {
                     Re-enter Password
                   </label>
 
-                  <input
-                    type="password"
-                    value={reEnterPassword}
+                  <PasswordInput
+                    isVisible={visibleFields.reEnter}
                     onChange={(e) => setReEnterPassword(e.target.value)}
+                    onToggleVisibility={() => togglePasswordVisibility("reEnter")}
                     placeholder="Re-enter Password"
-                    className="
-                      h-[50px]
-                      w-full
-                      rounded-[10px]
-                      border
-                      border-[#E5E7EB]
-                      bg-white
-                      px-4
-                      text-[14px]
-                      text-[#202224]
-                      outline-none
-                      transition-colors
-                      placeholder:text-[#A3A3A3]
-                      focus:border-[#BFC7D5]
-                    "
+                    value={reEnterPassword}
                   />
                 </div>
 
@@ -213,7 +188,7 @@ export default function ChangePasswordPage({ setCurrentPage }) {
       </div>
       {/* Success Modal */}
       {showSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 px-4">
 
           <div className="w-[90%] max-w-[900px] rounded-[20px] bg-white px-10 py-10 text-center shadow-2xl">
 
@@ -259,6 +234,53 @@ export default function ChangePasswordPage({ setCurrentPage }) {
         </div>
       )}
     </>
+  );
+}
+
+function PasswordInput({
+  isVisible,
+  onChange,
+  onToggleVisibility,
+  placeholder,
+  value,
+}) {
+  const Icon = isVisible ? Eye : EyeOff;
+
+  return (
+    <div className="relative">
+      <input
+        type={isVisible ? "text" : "password"}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="
+          frms-password-input
+          h-[50px]
+          w-full
+          rounded-[10px]
+          border
+          border-[#E5E7EB]
+          bg-white
+          px-4
+          pr-12
+          text-[14px]
+          text-[#202224]
+          outline-none
+          transition-colors
+          placeholder:text-[#A3A3A3]
+          focus:border-[#BFC7D5]
+        "
+      />
+
+      <button
+        type="button"
+        aria-label={isVisible ? "Hide password" : "Show password"}
+        onClick={onToggleVisibility}
+        className="absolute right-4 top-1/2 -translate-y-1/2 text-[#4B5563] transition-colors hover:text-[#202224]"
+      >
+        <Icon size={18} strokeWidth={2} />
+      </button>
+    </div>
   );
 }
 

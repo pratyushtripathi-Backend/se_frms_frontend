@@ -70,10 +70,17 @@ const AddUserPage = () => {
       lastName: formData.lastName.trim(),
       email: formData.email.trim(),
       phoneNumber: formData.mobile.trim(),
+      roleName: formData.role.trim(),
     };
 
-    if (!payload.firstName || !payload.lastName || !payload.email || !payload.phoneNumber) {
-      setErrorMessage("First name, last name, email, and mobile are required.");
+    if (
+      !payload.firstName ||
+      !payload.lastName ||
+      !payload.email ||
+      !payload.phoneNumber ||
+      !payload.roleName
+    ) {
+      setErrorMessage("First name, last name, email, mobile, and role are required.");
       return;
     }
 

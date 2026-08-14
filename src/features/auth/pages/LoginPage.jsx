@@ -3,6 +3,7 @@ import LoginForm from "../components/LoginForm";
 import { AUTH_STEP_CONTENT, AUTH_STEPS } from "../constants/authFlow";
 
 function LoginPage({
+  notice = '',
   onForgotPassword,
   onLoginSuccess,
   onLogout,
@@ -29,6 +30,12 @@ function LoginPage({
       />
 
       <div className="mt-7">
+        {notice && (
+          <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-[#d90000]">
+            {notice}
+          </div>
+        )}
+
         <LoginForm
           onForgotPassword={onForgotPassword}
           onLoginSuccess={onLoginSuccess}

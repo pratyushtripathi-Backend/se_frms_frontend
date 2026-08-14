@@ -65,10 +65,65 @@ const PAGE_TITLES = {
   "all-category": "All Category",
 };
 
+const PAGE_ROUTES = {
+  dashboard: "/dashboard",
+  "login-history": "/dashboard/login-history",
+  "login-attempts": "/dashboard/login-attempts",
+  "login-session": "/dashboard/login-session",
+  profile: "/dashboard/profile",
+  "change-password": "/dashboard/change-password",
+  "email-format": "/dashboard/email-format",
+  "all-employee": "/dashboard/all-employee",
+  "all-users": "/dashboard/all-users",
+  "add-user": "/dashboard/add-user",
+  "manage-role": "/dashboard/manage-role",
+  "user-role": "/dashboard/user-role",
+  "access-master": "/dashboard/access-master",
+  "role-access": "/dashboard/role-access",
+  "user-blacklist": "/dashboard/user-blacklist",
+  "create-rule": "/dashboard/create-rule",
+  "all-fraud-rules": "/dashboard/all-fraud-rules",
+  "all-rule-score": "/dashboard/all-rule-score",
+  "all-category": "/dashboard/all-category",
+};
+
+const ROUTE_PAGES = Object.entries(PAGE_ROUTES).reduce(
+  (lookup, [page, route]) => ({
+    ...lookup,
+    [route]: page,
+  }),
+  {},
+);
+
+function getPageFromPathname(pathname = window.location.pathname) {
+  return ROUTE_PAGES[pathname] ?? "dashboard";
+}
+
 export default function App({ onLogout }) {
-  const [currentPage, setCurrentPage] = useState("dashboard");
+  const [currentPage, setCurrentPageState] = useState(getPageFromPathname);
   const [headerSearch, setHeaderSearch] = useState("");
   const [debouncedHeaderSearch, setDebouncedHeaderSearch] = useState("");
+
+  const setCurrentPage = (nextPage) => {
+    const page = PAGE_ROUTES[nextPage] ? nextPage : "dashboard";
+    const nextPath = PAGE_ROUTES[page];
+
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, "", nextPath);
+    }
+
+    setCurrentPageState(page);
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPageState(getPageFromPathname());
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   useEffect(() => {
     setHeaderSearch("");
@@ -84,7 +139,10 @@ export default function App({ onLogout }) {
   }, [headerSearch]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-brand-bg">
+    <div className="h-screen overflow-hidden bg-brand-bg">
+      <div
+        className="dashboard-browser-scale flex overflow-hidden bg-brand-bg"
+      >
       <Sidebar
         currentPage={currentPage}
         onLogout={onLogout}
@@ -96,7 +154,7 @@ export default function App({ onLogout }) {
           onSearchChange={setHeaderSearch}
           searchValue={headerSearch}
           setCurrentPage={setCurrentPage}
-          showSearch={currentPage !== "dashboard"}
+          showSearch={currentPage !== "dashboard" && currentPage !== "add-user"}
           showDivider={
             currentPage === "login-history" ||
             currentPage === "login-attempts" ||
@@ -179,6 +237,7 @@ export default function App({ onLogout }) {
       <footer className="fixed bottom-0 left-[260px] right-0 z-30 bg-brand-bg/95 py-3 text-center text-[12px] font-medium text-[#8C8C8C] backdrop-blur">
         Copyright@2026 design by secureedge
       </footer>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,10 @@
 import apiClient from "../../../services/apiClient";
 
-export function getLoginAttempts({ page = 0, size = 10, search = "" } = {}) {
+export function getLoginAttempts({
+  page = 0,
+  size = 10,
+  search = "",
+} = {}) {
   return apiClient.get("/auth/login-attempt", {
     params: {
       page,

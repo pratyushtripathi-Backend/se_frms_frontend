@@ -9,8 +9,10 @@ import { CalendarDays } from "lucide-react";
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import { getUsers, updateUser, updateUserStatus } from "../services/adminEmployeeService";
 import DashboardSuccessModal from "./DashboardSuccessModal";
+import DashboardEditButton from "./DashboardEditButton";
 import DashboardStatusToggle from "./DashboardStatusToggle";
 
+import { openDashboardDatePicker } from "./dashboardDatePicker";
 const rowsPerPage = 10;
 
 export default function AllUsersPage({ searchQuery = "" }) {
@@ -36,6 +38,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
   const [successModalMessage, setSuccessModalMessage] = useState("");
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
+  const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -49,16 +52,34 @@ export default function AllUsersPage({ searchQuery = "" }) {
       setErrorMessage("");
 
       try {
+        const requestedPage = isLocalFilterActive ? 0 : currentPage - 1;
         const response = await getUsers({
-          page: currentPage - 1,
+          page: requestedPage,
           search: searchQuery,
           size: rowsPerPage,
         });
         const normalizedResponse = normalizeUsersResponse(response.data);
+        const normalizedRows = [...normalizedResponse.rows];
+
+        if (isLocalFilterActive && normalizedResponse.totalPages > 1) {
+          const remainingResponses = await Promise.all(
+            Array.from({ length: normalizedResponse.totalPages - 1 }, (_, index) =>
+              getUsers({
+                page: index + 1,
+                search: searchQuery,
+                size: rowsPerPage,
+              }),
+            ),
+          );
+
+          remainingResponses.forEach((pageResponse) => {
+            normalizedRows.push(...normalizeUsersResponse(pageResponse.data).rows);
+          });
+        }
 
         if (!isActive) return;
 
-        setUsers(normalizedResponse.rows);
+        setUsers(normalizedRows);
         setTotalRecords(normalizedResponse.totalRecords);
         setTotalPages(normalizedResponse.totalPages);
       } catch (error) {
@@ -80,23 +101,49 @@ export default function AllUsersPage({ searchQuery = "" }) {
     return () => {
       isActive = false;
     };
-  }, [currentPage, searchQuery]);
+  }, [currentPage, isLocalFilterActive, searchQuery]);
 
-  const visiblePages = useMemo(() => {
-    const pageCount = Math.max(totalPages, 1);
-    const start = Math.max(Math.min(currentPage - 2, pageCount - 4), 1);
-    const end = Math.min(start + 4, pageCount);
-
-    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
-  }, [currentPage, totalPages]);
-
-  const showingFrom = totalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
-  const showingTo = Math.min(currentPage * rowsPerPage, totalRecords);
   const filteredUsers = useMemo(() => {
     return users.filter((user) =>
       isDateWithinRange(user.createdDate, fromDate, toDate, year),
     );
   }, [fromDate, toDate, users, year]);
+  const effectiveTotalRecords = isLocalFilterActive ? filteredUsers.length : totalRecords;
+  const effectiveTotalPages = Math.max(Math.ceil(effectiveTotalRecords / rowsPerPage), 1);
+  const visibleUsers = isLocalFilterActive
+    ? filteredUsers.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+    : filteredUsers;
+  const visiblePages = useMemo(() => {
+    const pageCount = Math.max(effectiveTotalPages, 1);
+    const start = Math.max(Math.min(currentPage - 2, pageCount - 4), 1);
+    const end = Math.min(start + 4, pageCount);
+
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  }, [currentPage, effectiveTotalPages]);
+  const showingFrom = effectiveTotalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const showingTo = Math.min(currentPage * rowsPerPage, effectiveTotalRecords);
+
+  const handleYearChange = (value) => {
+    setYear(value);
+    setCurrentPage(1);
+  };
+
+  const handleFromDateChange = (value) => {
+    setFromDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleToDateChange = (value) => {
+    setToDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setYear("");
+    setFromDate("");
+    setToDate("");
+    setCurrentPage(1);
+  };
 
   const handleOpenEdit = (user) => {
     setOpenMenu(null);
@@ -171,7 +218,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
         ),
       );
       setSuccessModalMessage(
-        response.data?.responseMessage || "User updated successfully.",
+        response.data?.responseMessage || "",
       );
       handleCloseEdit({ force: true });
     } catch (error) {
@@ -193,7 +240,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
             <div className="relative">
               <select
                 className="h-10 w-[105px] appearance-none rounded-lg border border-[#E5E7EB] bg-white pl-3 pr-8 text-[12px] text-[#202224] outline-none"
-                onChange={(event) => setYear(event.target.value)}
+                onChange={(event) => handleYearChange(event.target.value)}
                 value={year}
               >
                 <option value="">Year</option>
@@ -206,14 +253,14 @@ export default function AllUsersPage({ searchQuery = "" }) {
 
             <input
               className="hidden"
-              onChange={(event) => setFromDate(event.target.value)}
+              onChange={(event) => handleFromDateChange(event.target.value)}
               ref={fromInputRef}
               type="date"
               value={fromDate}
             />
             <button
               className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
-              onClick={() => fromInputRef.current?.showPicker ? fromInputRef.current.showPicker() : fromInputRef.current?.click()}
+              onClick={(event) => openDashboardDatePicker(fromInputRef.current, event.currentTarget)}
               type="button"
             >
               <span>{fromDate || "From"}</span>
@@ -222,18 +269,26 @@ export default function AllUsersPage({ searchQuery = "" }) {
 
             <input
               className="hidden"
-              onChange={(event) => setToDate(event.target.value)}
+              onChange={(event) => handleToDateChange(event.target.value)}
               ref={toInputRef}
               type="date"
               value={toDate}
             />
             <button
               className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
-              onClick={() => toInputRef.current?.showPicker ? toInputRef.current.showPicker() : toInputRef.current?.click()}
+              onClick={(event) => openDashboardDatePicker(toInputRef.current, event.currentTarget)}
               type="button"
             >
               <span>{toDate || "To"}</span>
               <CalendarDays size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              disabled={!isLocalFilterActive}
+              className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+            >
+              Reset
             </button>
           </div>
         </div>
@@ -253,16 +308,16 @@ export default function AllUsersPage({ searchQuery = "" }) {
                   "User Name",
                   "Email",
                   "Phone Number",
+                  "Role",
                   "Status",
                   "Created By",
-                  "Role",
                   "Created Date",
                   "Updated At",
                   "Action",
                 ].map((column) => (
                   <th
                     key={column}
-                    className="whitespace-nowrap px-[18px] py-2.5 text-left text-[13px] font-semibold text-[#555555]"
+                    className="whitespace-nowrap px-[18px] py-2.5 text-left text-[12px] font-semibold text-[#555555]"
                   >
                     {column}
                   </th>
@@ -274,7 +329,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
               {isLoading && (
                 <tr className="h-12 border-b border-[#F1F1F1]">
                   <td
-                    className="px-[18px] py-5 text-center text-[13px] text-[#555555]"
+                    className="px-[18px] py-5 text-center text-[12px] text-[#555555]"
                     colSpan={10}
                   >
                     Loading users...
@@ -282,10 +337,10 @@ export default function AllUsersPage({ searchQuery = "" }) {
                 </tr>
               )}
 
-              {!isLoading && filteredUsers.length === 0 && (
+              {!isLoading && visibleUsers.length === 0 && (
                 <tr className="h-12 border-b border-[#F1F1F1]">
                   <td
-                    className="px-[18px] py-5 text-center text-[13px] text-[#555555]"
+                    className="px-[18px] py-5 text-center text-[12px] text-[#555555]"
                     colSpan={10}
                   >
                     No users found.
@@ -294,22 +349,25 @@ export default function AllUsersPage({ searchQuery = "" }) {
               )}
 
               {!isLoading &&
-                filteredUsers.map((user, index) => (
+                visibleUsers.map((user, index) => (
                   <tr
                     key={user.id}
                     className="relative h-12 border-b border-[#F1F1F1]"
                   >
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[12px] text-[#555555]">
                       {(currentPage - 1) * rowsPerPage + index + 1}
                     </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[12px] text-[#555555]">
                       {user.name}
                     </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[12px] text-[#555555]">
                       {user.email}
                     </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[12px] text-[#555555]">
                       {user.phoneNumber}
+                    </td>
+                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[12px] text-[#555555]">
+                      {user.role}
                     </td>
                     <td className="whitespace-nowrap px-[18px] py-2.5">
                       <DashboardStatusToggle
@@ -319,11 +377,8 @@ export default function AllUsersPage({ searchQuery = "" }) {
                         status={user.status}
                       />
                     </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[12px] text-[#555555]">
                       {user.createdBy}
-                    </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
-                      {user.role}
                     </td>
                     <td className="whitespace-nowrap px-[18px] py-2.5">
                       <DateTime date={user.createdDate} time={user.createdTime} />
@@ -332,13 +387,11 @@ export default function AllUsersPage({ searchQuery = "" }) {
                       <DateTime date={user.updatedDate} time={user.updatedTime} />
                     </td>
                     <td className="relative whitespace-nowrap px-[18px] py-2.5">
-                      <button
-                        className="flex items-center justify-center gap-1.5 rounded-md border border-[#E5E7EB] bg-[#EDEDED] px-3 py-1.5 text-[12px] font-medium text-[#4B4B4B]"
+                      <DashboardEditButton
                         onClick={() => handleOpenEdit(user)}
-                        type="button"
                       >
                         Edit
-                      </button>
+                      </DashboardEditButton>
                     </td>
                   </tr>
                 ))}
@@ -349,7 +402,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
         <div className="mt-4 flex items-center justify-between">
           <p className="text-[13px] text-[#7B7B7B]">
             Showing <strong>{showingFrom}</strong> - <strong>{showingTo}</strong>{" "}
-            of <strong>{totalRecords}</strong> Users
+            of <strong>{effectiveTotalRecords}</strong> Users
           </p>
 
           <div className="flex items-center gap-2.5">
@@ -379,8 +432,8 @@ export default function AllUsersPage({ searchQuery = "" }) {
 
             <button
               className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-[#E5E7EB] bg-white disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+              disabled={currentPage >= effectiveTotalPages}
+              onClick={() => setCurrentPage((page) => Math.min(page + 1, effectiveTotalPages))}
               type="button"
             >
               <FiChevronRight />
@@ -493,7 +546,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
         <DashboardSuccessModal
           message={successModalMessage}
           onClose={() => setSuccessModalMessage("")}
-          title="Edit Successful"
+          title="Updated Successfully"
         />
       )}
     </div>

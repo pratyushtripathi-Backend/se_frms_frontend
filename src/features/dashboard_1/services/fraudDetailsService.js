@@ -1,5 +1,9 @@
 import apiClient from "../../../services/apiClient";
 
+function toStatusBoolean(status) {
+  return status === true || String(status).trim().toLowerCase() === "true";
+}
+
 export function getFraudRules({ page = 0, size = 10, search = "" } = {}) {
   return apiClient.get("/fraud-rule", {
     params: {
@@ -26,7 +30,7 @@ export function updateFraudRule(id, payload) {
 export function updateFraudRuleStatus(id, status) {
   return apiClient.patch(
     `/fraud-rule/${id}/status`,
-    { status },
+    { status: toStatusBoolean(status) },
     {
       skipAuthRedirect: true,
     },
@@ -88,7 +92,7 @@ export function updateRuleCategory(id, payload) {
 export function updateRuleCategoryStatus(id, status) {
   return apiClient.patch(
     `/rule-category/status/${id}`,
-    { status },
+    { status: toStatusBoolean(status) },
     {
       skipAuthRedirect: true,
     },
@@ -121,7 +125,7 @@ export function updateRuleScore(id, payload) {
 export function updateRuleScoreStatus(id, status) {
   return apiClient.patch(
     `/rule-score/status/${id}`,
-    { status },
+    { status: toStatusBoolean(status) },
     {
       skipAuthRedirect: true,
     },

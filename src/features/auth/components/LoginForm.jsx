@@ -38,7 +38,7 @@ function LoginForm({ onForgotPassword, onLoginSuccess }) {
       })
       console.log('Login success:', response.data)
       saveAuthUser(response.data)
-      onLoginSuccess(credentials.email)
+      onLoginSuccess(credentials.email, credentials)
     } catch (loginError) {
       setError(getAuthErrorMessage(loginError, 'Unable to login. Please try again.'))
     } finally {

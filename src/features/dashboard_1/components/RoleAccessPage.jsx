@@ -16,8 +16,10 @@ import {
   updateRoleAccess,
   updateRoleAccessStatus,
 } from "../services/adminEmployeeService";
+import DashboardEditButton from "./DashboardEditButton";
 import DashboardStatusToggle from "./DashboardStatusToggle";
 
+import { openDashboardDatePicker } from "./dashboardDatePicker";
 const ROLE_ACCESS_COLUMN_ORDER = [
   "id",
   "access",
@@ -180,9 +182,13 @@ function AddAccessModal({
   );
 }
 
-function SuccessModal({ onClose }) {
+function SuccessModal({ message, onClose }) {
+  const displayMessage = String(
+    message || "Role access saved successfully.",
+  ).toUpperCase();
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 px-4">
       <div className="w-[90%] max-w-[560px] rounded-[24px] bg-white px-10 py-14 text-center shadow-2xl">
 
         {/* Animated checkmark */}
@@ -218,13 +224,9 @@ function SuccessModal({ onClose }) {
           </svg>
         </div>
 
-        <h3 className="text-[18px] font-semibold text-[#202224]">
-          Role&nbsp; Access add Successfully
+        <h3 className="mx-auto max-w-[360px] text-[18px] font-bold uppercase leading-7 text-[#202224]">
+          {displayMessage}
         </h3>
-
-        <p className="mt-2 text-[13px] text-[#7A7A7A]">
-          Role Access permissions have been created successfully.
-        </p>
 
         <button
           type="button"
@@ -295,6 +297,7 @@ export default function RoleAccessPage() {
   const [accessOptions, setAccessOptions] = useState([]);
   const [roleOptions, setRoleOptions] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const [showFormModal, setShowFormModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -302,6 +305,7 @@ export default function RoleAccessPage() {
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
   const rowsPerPage = 10;
+  const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   const loadRoleAccessList = useCallback(async () => {
     const trimmedSearchValue = debouncedSearchValue.trim();
@@ -453,15 +457,44 @@ export default function RoleAccessPage() {
 
       if (year && itemYear !== year) return false;
 
-      if (fromDate && itemDate < new Date(fromDate)) return false;
+      if (fromDate && itemDate < parseDateOnly(fromDate)) return false;
 
-      if (toDate && itemDate > new Date(toDate)) return false;
+      if (toDate && itemDate > parseDateOnly(toDate, true)) return false;
 
       return true;
     });
   }, [roleAccessRows, fromDate, toDate, hasSearched, year]);
+  const effectiveTotalRecords = isLocalFilterActive ? filteredData.length : totalRecords;
+  const effectiveTotalPages = isLocalFilterActive
+    ? Math.max(Math.ceil(effectiveTotalRecords / rowsPerPage), 1)
+    : totalPages;
+  const visibleData = isLocalFilterActive
+    ? filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+    : filteredData;
 
   const matchedRole = filteredData[0]?.role || searchValue;
+
+  const handleYearChange = (value) => {
+    setYear(value);
+    setCurrentPage(1);
+  };
+
+  const handleFromDateChange = (value) => {
+    setFromDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleToDateChange = (value) => {
+    setToDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setYear("");
+    setFromDate("");
+    setToDate("");
+    setCurrentPage(1);
+  };
 
   const handleSearch = () => {
     const trimmedSearchInput = searchInput.trim();
@@ -522,12 +555,14 @@ export default function RoleAccessPage() {
     setErrorMessage("");
 
     try {
+      let response;
+
       if (selectedRoleAccess) {
-        await updateRoleAccess(normalizedRoleId, {
+        response = await updateRoleAccess(normalizedRoleId, {
           accessIds: normalizedAccessIds,
         });
       } else {
-        await createRoleAccess({
+        response = await createRoleAccess({
           roleId: normalizedRoleId,
           accessIds: normalizedAccessIds,
         });
@@ -536,6 +571,9 @@ export default function RoleAccessPage() {
       await refreshRoleAccessRows(normalizedRoleId);
       setSelectedRoleAccess(null);
       setShowFormModal(false);
+      setSuccessMessage(
+        response?.data?.responseMessage || "Role access saved successfully.",
+      );
       setShowSuccessModal(true);
     } catch (error) {
       setErrorMessage(
@@ -570,9 +608,10 @@ export default function RoleAccessPage() {
   const handleDeleteRoleAccess = async (item) => {
     const roleId = getRoleAccessRoleId(item);
     const accessId = getRoleAccessAccessId(item);
+    const roleAccessId = getRoleAccessId(item);
 
-    if (!roleId || !accessId) {
-      setErrorMessage("Unable to delete this row because role id or access id is missing.");
+    if (!roleId || !accessId || !roleAccessId) {
+      setErrorMessage("Unable to delete this row because role access id, role id, or access id is missing.");
       setOpenActionId(null);
       return;
     }
@@ -581,7 +620,7 @@ export default function RoleAccessPage() {
     setErrorMessage("");
 
     try {
-      await updateRoleAccessStatus(roleId, accessId, false);
+      await updateRoleAccessStatus(roleAccessId, false);
       await refreshRoleAccessRows(roleId);
       setOpenActionId(null);
     } catch (error) {
@@ -597,34 +636,33 @@ export default function RoleAccessPage() {
   };
 
   const handleToggleRoleAccessStatus = async (item, nextStatus) => {
+    const roleAccessId = getRoleAccessId(item);
     const roleId =
       getRoleAccessRoleId(item) ||
       resolveRoleId(debouncedSearchValue || searchValue || searchInput, roleOptions);
-    const accessId =
-      getRoleAccessAccessId(item) ||
-      resolveAccessIdFromOptions(item, accessOptions);
 
-    if (!roleId || !accessId) {
-      setErrorMessage(
-        "Unable to update status because role id or access id is missing.",
-      );
+    if (!roleAccessId) {
+      setErrorMessage("Unable to update status because role access id is missing.");
+      return;
+    }
+
+    if (!roleId) {
+      setErrorMessage("Unable to update status because role id is missing.");
       return;
     }
 
     setErrorMessage("");
 
-    await updateRoleAccessStatus(roleId, accessId, nextStatus);
+    await updateRoleAccessStatus(roleAccessId, nextStatus);
 
     setRoleAccessRows((currentRows) =>
       currentRows.map((row) =>
-        String(getRoleAccessRoleId(row)) === String(roleId) &&
-        String(getRoleAccessAccessId(row)) === String(accessId)
+        String(getRoleAccessId(row)) === String(roleAccessId)
           ? { ...row, status: nextStatus }
           : row,
       ),
     );
 
-    await refreshRoleAccessRows(roleId);
   };
 
   return (
@@ -712,7 +750,7 @@ export default function RoleAccessPage() {
                   <div className="relative">
                     <select
                       className="h-10 w-[105px] appearance-none rounded-lg border border-[#E5E7EB] bg-white pl-3 pr-8 text-[12px] text-[#202224] outline-none"
-                      onChange={(event) => setYear(event.target.value)}
+                      onChange={(event) => handleYearChange(event.target.value)}
                       value={year}
                     >
                       <option value="">Year</option>
@@ -732,19 +770,13 @@ export default function RoleAccessPage() {
                       ref={fromInputRef}
                       type="date"
                       value={fromDate}
-                      onChange={(e) => setFromDate(e.target.value)}
+                      onChange={(e) => handleFromDateChange(e.target.value)}
                       className="hidden"
                     />
 
                     <button
                       type="button"
-                      onClick={() => {
-                        if (fromInputRef.current?.showPicker) {
-                          fromInputRef.current.showPicker();
-                        } else {
-                          fromInputRef.current?.click();
-                        }
-                      }}
+                      onClick={(event) => openDashboardDatePicker(fromInputRef.current, event.currentTarget)}
                       className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
                     >
                       <span>{fromDate || "From"}</span>
@@ -757,25 +789,28 @@ export default function RoleAccessPage() {
                       ref={toInputRef}
                       type="date"
                       value={toDate}
-                      onChange={(e) => setToDate(e.target.value)}
+                      onChange={(e) => handleToDateChange(e.target.value)}
                       className="hidden"
                     />
 
                     <button
                       type="button"
-                      onClick={() => {
-                        if (toInputRef.current?.showPicker) {
-                          toInputRef.current.showPicker();
-                        } else {
-                          toInputRef.current?.click();
-                        }
-                      }}
+                      onClick={(event) => openDashboardDatePicker(toInputRef.current, event.currentTarget)}
                       className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
                     >
                       <span>{toDate || "To"}</span>
                       <CalendarDays size={15} />
                     </button>
                   </>
+
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    disabled={!isLocalFilterActive}
+                    className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+                  >
+                    Reset
+                  </button>
                 </div>
               </div>
 
@@ -788,10 +823,10 @@ export default function RoleAccessPage() {
                       {[
                         "Sr No",
                         "Access",
+                        "Status",
                         "Created By",
                         "Created At",
                         "Updated At",
-                        "Status",
                         "Action",
                       ].map((column) => (
                         <th
@@ -821,7 +856,7 @@ export default function RoleAccessPage() {
                   </tr>
                 )}
 
-                {!isLoading && filteredData.map((item, index) => (
+                {!isLoading && visibleData.map((item, index) => (
                   <tr
                     key={item.id}
                     className="relative border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
@@ -831,6 +866,14 @@ export default function RoleAccessPage() {
                     </td>
                     <td className="whitespace-nowrap px-4 py-4">
                       {formatRoleAccessValue(item.access)}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-4">
+                      <DashboardStatusToggle
+                        onToggle={(nextStatus) =>
+                          handleToggleRoleAccessStatus(item, nextStatus)
+                        }
+                        status={item.status}
+                      />
                     </td>
                     <td className="whitespace-nowrap px-4 py-4">
                       {formatRoleAccessValue(item.createdBy)}
@@ -855,22 +898,12 @@ export default function RoleAccessPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-4">
-                      <DashboardStatusToggle
-                        onToggle={(nextStatus) =>
-                          handleToggleRoleAccessStatus(item, nextStatus)
-                        }
-                        status={item.status}
-                      />
-                    </td>
                     <td className="relative whitespace-nowrap px-4 py-4">
-                      <button
-                        type="button"
+                      <DashboardEditButton
                         onClick={() => handleEditRoleAccess(item)}
-                        className="flex h-8 w-[92px] items-center justify-between rounded-md border border-[#E5E7EB] bg-white px-3 text-[12px] font-medium text-[#4B5563]"
                       >
                         Edit
-                      </button>
+                      </DashboardEditButton>
                       </td>
                   </tr>
                 ))}
@@ -883,7 +916,7 @@ export default function RoleAccessPage() {
           <div className="flex items-center justify-between border-t border-[#ECECEC] bg-white px-6 py-4">
 
             <p className="text-[12px] text-[#7A7A7A]">
-              Showing {filteredData.length} of {totalRecords} transactions
+              Showing {visibleData.length} of {effectiveTotalRecords} transactions
             </p>
 
             <div className="flex items-center gap-2">
@@ -897,7 +930,7 @@ export default function RoleAccessPage() {
                 &lt;
               </button>
 
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, index) => index + 1).map((page) => (
+              {Array.from({ length: Math.min(effectiveTotalPages, 5) }, (_, index) => index + 1).map((page) => (
                 <button
                   key={page}
                   onClick={() => setCurrentPage(page)}
@@ -914,8 +947,8 @@ export default function RoleAccessPage() {
 
               <button
                 className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+                disabled={currentPage >= effectiveTotalPages}
+                onClick={() => setCurrentPage((page) => Math.min(page + 1, effectiveTotalPages))}
                 type="button"
               >
                 &gt;
@@ -945,7 +978,13 @@ export default function RoleAccessPage() {
       )}
 
       {showSuccessModal && (
-        <SuccessModal onClose={() => setShowSuccessModal(false)} />
+        <SuccessModal
+          message={successMessage}
+          onClose={() => {
+            setShowSuccessModal(false);
+            setSuccessMessage("");
+          }}
+        />
       )}
 
     </div>
@@ -1229,7 +1268,6 @@ function normalizeRoleAccessRow(item, index, fallbackRoleId = "") {
     item.role_id ??
     item.role?.id ??
     item.role?.roleId ??
-    item.userRoleId ??
     fallbackRoleId ??
     "";
   const accessId =
@@ -1358,7 +1396,19 @@ function isRolePayloadWithoutAccess(payload) {
 }
 
 function getRoleAccessRoleId(item) {
-  return item?.roleId ?? item?.role?.id ?? item?.role?.roleId ?? "";
+  return (
+    item?.roleId ??
+    item?.role_id ??
+    item?.roleMasterId ??
+    item?.role?.id ??
+    item?.role?.roleId ??
+    item?.role?.role_id ??
+    ""
+  );
+}
+
+function getRoleAccessId(item) {
+  return item?.id ?? item?.roleAccessId ?? item?.role_access_id ?? "";
 }
 
 function getRoleAccessAccessId(item) {
@@ -1482,6 +1532,12 @@ function parseRoleAccessDate(value) {
   }
 
   return new Date(dateValue);
+}
+
+function parseDateOnly(dateValue, endOfDay = false) {
+  const date = new Date(`${dateValue}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
+
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function findFirstArray(value, visited = new Set()) {

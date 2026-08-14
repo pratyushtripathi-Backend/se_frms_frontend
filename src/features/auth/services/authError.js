@@ -32,6 +32,7 @@ function normalizeMessage(value) {
   }
 
   const directMessage =
+    value.responseMessage ??
     value.message ??
     value.msg ??
     value.errorMessage ??

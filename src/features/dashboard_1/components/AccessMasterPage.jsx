@@ -13,15 +13,18 @@ import {
   updateAccessName,
   updateAccessStatus,
 } from "../services/adminEmployeeService";
+import DashboardEditButton from "./DashboardEditButton";
 import DashboardStatusToggle from "./DashboardStatusToggle";
+import DashboardSuccessModal from "./DashboardSuccessModal";
 
+import { openDashboardDatePicker } from "./dashboardDatePicker";
 const TABLE_COLUMNS = [
   "Sr No",
   "Access",
-  "Created by",
-  "Created at",
-  "Update at",
   "Status",
+  "Created By",
+  "Created at",
+  "Updated At",
   "Action",
 ];
 
@@ -44,6 +47,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
   const [editingAccess, setEditingAccess] = useState(null);
   const [accessName, setAccessName] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successModalVariant, setSuccessModalVariant] = useState("success");
   const [successModalTitle, setSuccessModalTitle] = useState(
     "Access Created Successfully",
   );
@@ -51,6 +55,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
   const rowsPerPage = 20;
+  const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   const loadAccessList = useCallback(async () => {
     setIsLoading(true);
@@ -58,7 +63,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
 
     try {
       const response = await getAccessList({
-        page: currentPage - 1,
+        page: isLocalFilterActive ? 0 : currentPage - 1,
         size: rowsPerPage,
         accessName: searchQuery,
       });
@@ -66,8 +71,27 @@ export default function AccessMasterPage({ searchQuery = "" }) {
         response.data,
         rowsPerPage,
       );
+      const normalizedRows = [...normalizedResponse.rows];
 
-      setAccessRows(normalizedResponse.rows);
+      if (isLocalFilterActive && normalizedResponse.totalPages > 1) {
+        const remainingResponses = await Promise.all(
+          Array.from({ length: normalizedResponse.totalPages - 1 }, (_, index) =>
+            getAccessList({
+              page: index + 1,
+              size: rowsPerPage,
+              accessName: searchQuery,
+            }),
+          ),
+        );
+
+        remainingResponses.forEach((pageResponse) => {
+          normalizedRows.push(
+            ...normalizeAccessResponse(pageResponse.data, rowsPerPage).rows,
+          );
+        });
+      }
+
+      setAccessRows(normalizedRows);
       setTotalRecords(normalizedResponse.totalRecords);
       setTotalPages(normalizedResponse.totalPages);
     } catch (error) {
@@ -83,7 +107,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, searchQuery]);
+  }, [currentPage, isLocalFilterActive, searchQuery]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -104,13 +128,41 @@ export default function AccessMasterPage({ searchQuery = "" }) {
 
       if (year && itemYear !== year) return false;
 
-      if (fromDate && itemDate < new Date(fromDate)) return false;
+      if (fromDate && itemDate < parseDateOnly(fromDate)) return false;
 
-      if (toDate && itemDate > new Date(toDate)) return false;
+      if (toDate && itemDate > parseDateOnly(toDate, true)) return false;
 
       return true;
     });
   }, [accessRows, fromDate, toDate, year]);
+
+  const effectiveTotalRecords = isLocalFilterActive ? filteredData.length : totalRecords;
+  const effectiveTotalPages = Math.max(Math.ceil(effectiveTotalRecords / rowsPerPage), 1);
+  const visibleData = isLocalFilterActive
+    ? filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+    : filteredData;
+
+  const handleYearChange = (value) => {
+    setYear(value);
+    setCurrentPage(1);
+  };
+
+  const handleFromDateChange = (value) => {
+    setFromDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleToDateChange = (value) => {
+    setToDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setYear("");
+    setFromDate("");
+    setToDate("");
+    setCurrentPage(1);
+  };
 
   const closeModal = () => {
     setIsModalOpen(false);
@@ -122,7 +174,9 @@ export default function AccessMasterPage({ searchQuery = "" }) {
     const trimmedAccessName = accessName.trim();
 
     if (!trimmedAccessName) {
-      setErrorMessage("Access name is required.");
+      setSuccessMessage("Access name is required.");
+      setSuccessModalVariant("error");
+      setShowSuccessModal(true);
       return;
     }
 
@@ -143,21 +197,24 @@ export default function AccessMasterPage({ searchQuery = "" }) {
 
       closeModal();
       setSuccessModalTitle(nextSuccessTitle);
-      setShowSuccessModal(true);
+      setSuccessModalVariant("success");
       setSuccessMessage(
         response.data?.responseMessage ||
           (editingAccess
             ? "Access updated successfully."
             : "Access created successfully."),
       );
+      setShowSuccessModal(true);
       await loadAccessList();
     } catch (error) {
-      setErrorMessage(
+      setSuccessMessage(
         getAuthErrorMessage(
           error,
           "Unable to create access. Please try again.",
         ),
       );
+      setSuccessModalVariant("error");
+      setShowSuccessModal(true);
     } finally {
       setIsSaving(false);
     }
@@ -165,6 +222,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
 
   const handleBackToPage = () => {
     setShowSuccessModal(false);
+    setSuccessMessage("");
   };
 
   const handleEditAccess = (item) => {
@@ -186,16 +244,45 @@ export default function AccessMasterPage({ searchQuery = "" }) {
       setSuccessMessage(
         response.data?.responseMessage || "Access deleted successfully.",
       );
+      setSuccessModalVariant("success");
+      setShowSuccessModal(true);
       await loadAccessList();
     } catch (error) {
-      setErrorMessage(
+      setSuccessMessage(
         getAuthErrorMessage(
           error,
           "Unable to delete access. Please try again.",
         ),
       );
+      setSuccessModalVariant("error");
+      setShowSuccessModal(true);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleStatusToggle = async (item, nextStatus) => {
+    setSuccessMessage("");
+    setErrorMessage("");
+
+    try {
+      const response = await updateAccessStatus(item.id, nextStatus);
+
+      setSuccessMessage(
+        response.data?.responseMessage || "Access status updated successfully.",
+      );
+      setSuccessModalVariant("success");
+      setShowSuccessModal(true);
+      await loadAccessList();
+    } catch (error) {
+      setSuccessMessage(
+        getAuthErrorMessage(
+          error,
+          "Unable to update access status. Please try again.",
+        ),
+      );
+      setSuccessModalVariant("error");
+      setShowSuccessModal(true);
     }
   };
 
@@ -216,7 +303,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
             <div className="relative">
               <select
                 value={year}
-                onChange={(e) => setYear(e.target.value)}
+                onChange={(e) => handleYearChange(e.target.value)}
                 className="h-10 w-[105px] appearance-none rounded-lg border border-[#E5E7EB] bg-white pl-3 pr-8 text-[12px] text-[#202224] outline-none"
               >
                 <option value="">Year</option>
@@ -237,19 +324,13 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                 ref={fromInputRef}
                 type="date"
                 value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
+                onChange={(e) => handleFromDateChange(e.target.value)}
                 className="hidden"
               />
 
               <button
                 type="button"
-                onClick={() => {
-                  if (fromInputRef.current?.showPicker) {
-                    fromInputRef.current.showPicker();
-                  } else {
-                    fromInputRef.current?.click();
-                  }
-                }}
+                onClick={(event) => openDashboardDatePicker(fromInputRef.current, event.currentTarget)}
                 className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
               >
                 <span>{fromDate || "From"}</span>
@@ -263,25 +344,28 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                 ref={toInputRef}
                 type="date"
                 value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
+                onChange={(e) => handleToDateChange(e.target.value)}
                 className="hidden"
               />
 
               <button
                 type="button"
-                onClick={() => {
-                  if (toInputRef.current?.showPicker) {
-                    toInputRef.current.showPicker();
-                  } else {
-                    toInputRef.current?.click();
-                  }
-                }}
+                onClick={(event) => openDashboardDatePicker(toInputRef.current, event.currentTarget)}
                 className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
               >
                 <span>{toDate || "To"}</span>
                 <CalendarDays size={15} />
               </button>
             </>
+
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              disabled={!isLocalFilterActive}
+              className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+            >
+              Reset
+            </button>
 
             {/* Add Access */}
             <button
@@ -299,18 +383,6 @@ export default function AccessMasterPage({ searchQuery = "" }) {
 
           </div>
         </div>
-
-        {successMessage && (
-          <div className="mx-6 mb-4 rounded-lg bg-[#ECFDF3] px-4 py-3 text-[13px] font-semibold text-[#027A48]">
-            {successMessage}
-          </div>
-        )}
-
-        {errorMessage && (
-          <div className="mx-6 mb-4 rounded-lg bg-[#FEF3F2] px-4 py-3 text-[13px] font-semibold text-[#D92D20]">
-            {errorMessage}
-          </div>
-        )}
 
         {/* Table Card */}
         <div className="overflow-hidden rounded-xl border border-[#ECECEC] bg-white">
@@ -341,7 +413,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                   </tr>
                 )}
 
-                {!isLoading && filteredData.length === 0 && (
+                {!isLoading && visibleData.length === 0 && (
                   <tr className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563]">
                     <td colSpan={TABLE_COLUMNS.length} className="px-4 py-6 text-center">
                       No access details found.
@@ -349,7 +421,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                   </tr>
                 )}
 
-                {!isLoading && filteredData.map((item, index) => (
+                {!isLoading && visibleData.map((item, index) => (
                   <tr
                     key={item.id}
                     className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
@@ -360,6 +432,15 @@ export default function AccessMasterPage({ searchQuery = "" }) {
 
                     <td className="whitespace-nowrap px-4 py-4">
                       {item.access}
+                    </td>
+
+                    <td className="px-4 py-4">
+                      <DashboardStatusToggle
+                        onToggle={(nextStatus) =>
+                          handleStatusToggle(item, nextStatus)
+                        }
+                        status={item.status}
+                      />
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-4">
@@ -390,23 +471,12 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                       </div>
                     </td>
 
-                    <td className="px-4 py-4">
-                      <DashboardStatusToggle
-                        onToggle={(nextStatus) =>
-                          updateAccessStatus(item.id, nextStatus)
-                        }
-                        status={item.status}
-                      />
-                    </td>
-
                     <td className="relative px-4 py-4">
-                      <button
-                        className="flex items-center justify-center gap-2 rounded-md border border-[#E5E7EB] bg-[#EDEDED] px-3 py-1.5 text-[12px] font-medium text-[#4B4B4B]"
+                      <DashboardEditButton
                         onClick={() => handleEditAccess(item)}
-                        type="button"
                       >
                         Edit
-                      </button>
+                      </DashboardEditButton>
                     </td>
                   </tr>
                 ))}
@@ -419,7 +489,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
           <div className="flex items-center justify-between border-t border-[#ECECEC] bg-white px-6 py-4">
 
             <p className="text-[12px] text-[#7A7A7A]">
-              Showing {filteredData.length} of {totalRecords} transactions
+              Showing {visibleData.length} of {effectiveTotalRecords} transactions
             </p>
 
             <div className="flex items-center gap-2">
@@ -433,7 +503,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                 &lt;
               </button>
 
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, index) => index + 1).map((page) => (
+              {Array.from({ length: Math.min(effectiveTotalPages, 5) }, (_, index) => index + 1).map((page) => (
                 <button
                   key={page}
                   onClick={() => setCurrentPage(page)}
@@ -450,8 +520,8 @@ export default function AccessMasterPage({ searchQuery = "" }) {
 
               <button
                 className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+                disabled={currentPage >= effectiveTotalPages}
+                onClick={() => setCurrentPage((page) => Math.min(page + 1, effectiveTotalPages))}
                 type="button"
               >
                 &gt;
@@ -509,75 +579,12 @@ export default function AccessMasterPage({ searchQuery = "" }) {
         </div>
       )}
 
-      {/* Success Modal */}
       {showSuccessModal && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55">
-          <div className="w-[640px] max-w-[92vw] rounded-2xl bg-white px-12 py-14 text-center shadow-2xl">
-
-            <div className="mb-6 flex w-full items-center justify-center">
-              <svg
-                width="88"
-                height="88"
-                viewBox="0 0 88 88"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <circle
-                  cx="44"
-                  cy="44"
-                  r="40"
-                  stroke="#111111"
-                  strokeWidth="3"
-                  fill="none"
-                  strokeDasharray="252"
-                  strokeDashoffset="252"
-                  style={{
-                    animation: "drawCircle 0.6s ease-out forwards",
-                  }}
-                />
-                <path
-                  d="M27 45 L39 57 L61 33"
-                  stroke="#EB5757"
-                  strokeWidth="4"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeDasharray="46"
-                  strokeDashoffset="46"
-                  style={{
-                    animation:
-                      "drawCheck 0.4s ease-out 0.55s forwards",
-                  }}
-                />
-              </svg>
-
-              <style>{`
-                @keyframes drawCircle {
-                  to { stroke-dashoffset: 0; }
-                }
-                @keyframes drawCheck {
-                  to { stroke-dashoffset: 0; }
-                }
-              `}</style>
-            </div>
-
-            <h3 className="mb-4 text-[20px] font-semibold text-[#202224]">
-              {successModalTitle}
-            </h3>
-
-            <p className="mx-auto mb-8 max-w-[420px] text-[14px] leading-6 text-[#7A7A7A]">
-              Access permissions have been created successfully.
-            </p>
-
-            <button
-              type="button"
-              onClick={handleBackToPage}
-              className="h-[46px] w-[160px] rounded-lg border-none bg-[#4B4B4B] text-[14px] font-semibold text-white"
-            >
-              Back to Page
-            </button>
-          </div>
-        </div>
+        <DashboardSuccessModal
+          message={successMessage || successModalTitle}
+          onClose={handleBackToPage}
+          variant={successModalVariant}
+        />
       )}
 
     </div>
@@ -672,6 +679,12 @@ function parseAccessDate(value) {
   }
 
   return new Date(dateValue);
+}
+
+function parseDateOnly(dateValue, endOfDay = false) {
+  const date = new Date(`${dateValue}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
+
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function findFirstArray(value, visited = new Set()) {

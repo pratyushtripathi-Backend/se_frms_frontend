@@ -12,9 +12,11 @@ import {
   updateAdminEmployee,
   updateAdminEmployeeStatus,
 } from "../services/adminEmployeeService";
+import DashboardEditButton from "./DashboardEditButton";
 import DashboardSuccessModal from "./DashboardSuccessModal";
 import DashboardStatusToggle from "./DashboardStatusToggle";
 
+import { openDashboardDatePicker } from "./dashboardDatePicker";
 const AllEmployeePage = ({ searchQuery = "" }) => {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -40,6 +42,7 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
   const toInputRef = useRef(null);
 
   const rowsPerPage = 10;
+  const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -54,16 +57,32 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
 
       try {
         const normalizedResponse = await fetchEmployeePage(
-          currentPage,
+          isLocalFilterActive ? 1 : currentPage,
           rowsPerPage,
           searchQuery,
         );
+        const normalizedRows = [...normalizedResponse.rows];
+
+        if (isLocalFilterActive && normalizedResponse.totalPages > 1) {
+          const remainingResponses = await Promise.all(
+            Array.from({ length: normalizedResponse.totalPages - 1 }, (_, index) =>
+              fetchEmployeePage(index + 2, rowsPerPage, searchQuery),
+            ),
+          );
+
+          remainingResponses.forEach((pageResponse) => {
+            normalizedRows.push(...pageResponse.rows);
+          });
+        }
 
         if (!isActive) return;
 
-        setEmployees(normalizedResponse.rows);
+        setEmployees(normalizedRows);
         setTotalEmployees(normalizedResponse.totalRecords);
         setTotalApiPages(normalizedResponse.totalPages);
+        if (currentPage > normalizedResponse.totalPages) {
+          setCurrentPage(normalizedResponse.totalPages);
+        }
       } catch (employeeError) {
         if (!isActive) return;
 
@@ -86,16 +105,54 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
     return () => {
       isActive = false;
     };
-  }, [currentPage, searchQuery]);
+  }, [currentPage, isLocalFilterActive, searchQuery]);
 
   const currentEmployees = useMemo(() => {
     return employees.filter((employee) =>
       isDateWithinRange(employee.createdDate, fromDate, toDate, year),
     );
   }, [employees, fromDate, toDate, year]);
-  const totalPages = totalApiPages;
-  const showingFrom = totalEmployees === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
-  const showingTo = Math.min(currentPage * rowsPerPage, totalEmployees);
+  const effectiveTotalEmployees = isLocalFilterActive ? currentEmployees.length : totalEmployees;
+  const totalPages = isLocalFilterActive
+    ? Math.max(Math.ceil(effectiveTotalEmployees / rowsPerPage), 1)
+    : totalApiPages;
+  const visibleEmployees = isLocalFilterActive
+    ? currentEmployees.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+    : currentEmployees;
+  const visiblePageNumbers = useMemo(() => {
+    const pageCount = Math.max(totalPages, 1);
+    const startPage = Math.max(Math.min(currentPage - 2, pageCount - 4), 1);
+    const endPage = Math.min(startPage + 4, pageCount);
+
+    return Array.from(
+      { length: endPage - startPage + 1 },
+      (_, index) => startPage + index,
+    );
+  }, [currentPage, totalPages]);
+  const showingFrom = effectiveTotalEmployees === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const showingTo = Math.min(currentPage * rowsPerPage, effectiveTotalEmployees);
+
+  const handleYearChange = (value) => {
+    setYear(value);
+    setCurrentPage(1);
+  };
+
+  const handleFromDateChange = (value) => {
+    setFromDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleToDateChange = (value) => {
+    setToDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setYear("");
+    setFromDate("");
+    setToDate("");
+    setCurrentPage(1);
+  };
 
   const handleEditEmployee = (employee) => {
     setEditingEmployeeId(employee.id);
@@ -276,7 +333,7 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
     th: {
       textAlign: "left",
       padding: "10px 18px",
-      fontSize: "13px",
+      fontSize: "12px",
       fontWeight: 600,
       color: "#555",
       whiteSpace: "nowrap",
@@ -290,7 +347,7 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
 
     td: {
       padding: "10px 18px",
-      fontSize: "13px",
+      fontSize: "12px",
       color: "#555",
       whiteSpace: "nowrap",
     },
@@ -303,21 +360,6 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
       background: "#EEF8FF",
       color: "#0A84FF",
       display: "inline-block",
-    },
-
-    actionBtn: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: "6px",
-      padding: "6px 12px",
-      borderRadius: "6px",
-      border: "1px solid #E5E7EB",
-      background: "#EDEDED",
-      color: "#4B4B4B",
-      fontSize: "12px",
-      fontWeight: 500,
-      cursor: "pointer",
     },
 
     menu: {
@@ -553,7 +595,7 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <div style={{ position: "relative" }}>
               <select
-                onChange={(event) => setYear(event.target.value)}
+                onChange={(event) => handleYearChange(event.target.value)}
                 style={styles.yearSelect}
                 value={year}
               >
@@ -579,11 +621,11 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
               ref={fromInputRef}
               type="date"
               value={fromDate}
-              onChange={(event) => setFromDate(event.target.value)}
+              onChange={(event) => handleFromDateChange(event.target.value)}
               style={{ display: "none" }}
             />
             <button
-              onClick={() => fromInputRef.current?.showPicker ? fromInputRef.current.showPicker() : fromInputRef.current?.click()}
+              onClick={(event) => openDashboardDatePicker(fromInputRef.current, event.currentTarget)}
               style={styles.dateButton}
               type="button"
             >
@@ -595,16 +637,24 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
               ref={toInputRef}
               type="date"
               value={toDate}
-              onChange={(event) => setToDate(event.target.value)}
+              onChange={(event) => handleToDateChange(event.target.value)}
               style={{ display: "none" }}
             />
             <button
-              onClick={() => toInputRef.current?.showPicker ? toInputRef.current.showPicker() : toInputRef.current?.click()}
+              onClick={(event) => openDashboardDatePicker(toInputRef.current, event.currentTarget)}
               style={styles.dateButton}
               type="button"
             >
               <span>{toDate || "To"}</span>
               <CalendarDays size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              disabled={!isLocalFilterActive}
+              className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+            >
+              Reset
             </button>
           </div>
         </div>
@@ -647,7 +697,7 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
                 </tr>
               )}
 
-              {!isLoading && currentEmployees.length === 0 && (
+              {!isLoading && visibleEmployees.length === 0 && (
                 <tr style={styles.tr}>
                   <td colSpan={10} style={{ ...styles.td, textAlign: "center" }}>
                     No employees found.
@@ -655,7 +705,7 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
                 </tr>
               )}
 
-              {!isLoading && currentEmployees.map((employee, index) => (
+              {!isLoading && visibleEmployees.map((employee, index) => (
                 <tr
                   key={employee.id}
                   style={{
@@ -717,13 +767,11 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
                       position: "relative",
                     }}
                   >
-                    <button
-                      style={styles.actionBtn}
+                    <DashboardEditButton
                       onClick={() => handleEditEmployee(employee)}
-                      type="button"
                     >
                       Edit
-                    </button>
+                    </DashboardEditButton>
                   </td>
                 </tr>
               ))}
@@ -741,39 +789,38 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
             </strong>{" "}
             -
             <strong> {showingTo}</strong>{" "}
-            of <strong>{totalEmployees}</strong> Employees
+            of <strong>{effectiveTotalEmployees}</strong> Employees
           </div>
 
           <div style={styles.pagination}>
             <button
-              onClick={() =>
-                currentPage > 1 && setCurrentPage(currentPage - 1)
-              }
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
               style={{
                 width: "38px",
                 height: "38px",
                 border: "1px solid #E5E7EB",
                 background: "#fff",
                 borderRadius: "8px",
-                cursor: "pointer",
+                cursor: currentPage <= 1 ? "not-allowed" : "pointer",
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
+                opacity: currentPage <= 1 ? 0.5 : 1,
               }}
+              type="button"
             >
               <FiChevronLeft />
             </button>
 
-            {[1, 2, 3, 4, 5].map((page) => (
+            {visiblePageNumbers.map((page) => (
               <button
                 key={page}
-                onClick={() => page <= totalPages && setCurrentPage(page)}
-                disabled={page > totalPages}
+                onClick={() => setCurrentPage(page)}
+                type="button"
                 className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium transition ${
                   page === currentPage
                     ? "bg-[#F3F4F6] text-[#111827]"
-                    : page > totalPages
-                    ? "cursor-not-allowed text-[#D1D5DB]"
                     : "text-[#6B7280] hover:bg-[#F8F8F8]"
                 }`}
               >
@@ -782,9 +829,9 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
             ))}
 
             <button
+              disabled={currentPage >= totalPages}
               onClick={() =>
-                currentPage < totalPages &&
-                setCurrentPage(currentPage + 1)
+                setCurrentPage((page) => Math.min(page + 1, totalPages))
               }
               style={{
                 width: "38px",
@@ -792,11 +839,13 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
                 border: "1px solid #E5E7EB",
                 background: "#fff",
                 borderRadius: "8px",
-                cursor: "pointer",
+                cursor: currentPage >= totalPages ? "not-allowed" : "pointer",
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
+                opacity: currentPage >= totalPages ? 0.5 : 1,
               }}
+              type="button"
             >
               <FiChevronRight />
             </button>

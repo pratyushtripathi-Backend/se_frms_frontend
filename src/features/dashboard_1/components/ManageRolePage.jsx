@@ -15,8 +15,10 @@ import {
   updateAdminRole,
   updateAdminRoleStatus,
 } from "../services/adminEmployeeService";
+import DashboardEditButton from "./DashboardEditButton";
 import DashboardStatusToggle from "./DashboardStatusToggle";
 
+import { openDashboardDatePicker } from "./dashboardDatePicker";
 const INITIAL_ROLE_FORM = {
   roleName: "",
   status: true,
@@ -57,6 +59,7 @@ const ManageRolePage = ({ searchQuery = "" }) => {
   const toInputRef = useRef(null);
 
   const rowsPerPage = 10;
+  const isLocalFilterActive = Boolean(searchQuery.trim() || year || fromDate || toDate);
 
   useEffect(() => {
     let isActive = true;
@@ -67,14 +70,32 @@ const ManageRolePage = ({ searchQuery = "" }) => {
 
       try {
         const response = await getAdminRoles({
-          page: currentPage - 1,
+          page: isLocalFilterActive ? 0 : currentPage - 1,
           size: rowsPerPage,
         });
         const normalizedResponse = normalizeRoleResponse(response.data, rowsPerPage);
+        const normalizedRows = [...normalizedResponse.rows];
+
+        if (isLocalFilterActive && normalizedResponse.totalPages > 1) {
+          const remainingResponses = await Promise.all(
+            Array.from({ length: normalizedResponse.totalPages - 1 }, (_, index) =>
+              getAdminRoles({
+                page: index + 1,
+                size: rowsPerPage,
+              }),
+            ),
+          );
+
+          remainingResponses.forEach((pageResponse) => {
+            normalizedRows.push(
+              ...normalizeRoleResponse(pageResponse.data, rowsPerPage).rows,
+            );
+          });
+        }
 
         if (!isActive) return;
 
-        setRoles(normalizedResponse.rows);
+        setRoles(normalizedRows);
         setTotalRecords(normalizedResponse.totalRecords);
         setTotalApiPages(normalizedResponse.totalPages);
       } catch (error) {
@@ -96,7 +117,7 @@ const ManageRolePage = ({ searchQuery = "" }) => {
     return () => {
       isActive = false;
     };
-  }, [currentPage]);
+  }, [currentPage, isLocalFilterActive]);
 
   const filteredRoles = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -119,9 +140,14 @@ const ManageRolePage = ({ searchQuery = "" }) => {
     });
   }, [fromDate, roles, searchQuery, toDate, year]);
 
-  const totalPages = Math.max(totalApiPages, 1);
+  const effectiveTotalRecords = isLocalFilterActive ? filteredRoles.length : totalRecords;
+  const totalPages = isLocalFilterActive
+    ? Math.max(Math.ceil(effectiveTotalRecords / rowsPerPage), 1)
+    : Math.max(totalApiPages, 1);
 
-  const currentRoles = filteredRoles;
+  const currentRoles = isLocalFilterActive
+    ? filteredRoles.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+    : filteredRoles;
   const roleColumns = useMemo(() => buildRoleColumns(currentRoles), [currentRoles]);
   const tableColSpan = Math.max(roleColumns.length + 2, 4);
 
@@ -135,6 +161,28 @@ const ManageRolePage = ({ searchQuery = "" }) => {
     setRoles(normalizedResponse.rows);
     setTotalRecords(normalizedResponse.totalRecords);
     setTotalApiPages(normalizedResponse.totalPages);
+  };
+
+  const handleYearChange = (value) => {
+    setYear(value);
+    setCurrentPage(1);
+  };
+
+  const handleFromDateChange = (value) => {
+    setFromDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleToDateChange = (value) => {
+    setToDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setYear("");
+    setFromDate("");
+    setToDate("");
+    setCurrentPage(1);
   };
 
   const openAddRoleModal = () => {
@@ -344,7 +392,7 @@ const ManageRolePage = ({ searchQuery = "" }) => {
       textAlign: "left",
       padding: "12px 18px",
       fontWeight: 600,
-      fontSize: "13px",
+      fontSize: "12px",
       color: "#444",
       whiteSpace: "nowrap",
     },
@@ -356,24 +404,9 @@ const ManageRolePage = ({ searchQuery = "" }) => {
 
     td: {
       padding: "10px 18px",
-      fontSize: "13px",
+      fontSize: "12px",
       color: "#555",
       whiteSpace: "nowrap",
-    },
-
-    actionButton: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: "6px",
-      padding: "6px 12px",
-      borderRadius: "6px",
-      border: "1px solid #E5E7EB",
-      background: "#EDEDED",
-      color: "#4B4B4B",
-      fontSize: "12px",
-      fontWeight: 500,
-      cursor: "pointer",
     },
 
     menu: {
@@ -562,7 +595,7 @@ const ManageRolePage = ({ searchQuery = "" }) => {
           <div style={styles.filterSection}>
             <div style={{ position: "relative" }}>
               <select
-                onChange={(event) => setYear(event.target.value)}
+                onChange={(event) => handleYearChange(event.target.value)}
                 style={{ ...styles.dateButton, appearance: "none", color: "#202224" }}
                 value={year}
               >
@@ -577,19 +610,13 @@ const ManageRolePage = ({ searchQuery = "" }) => {
               ref={fromInputRef}
               type="date"
               value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
+              onChange={(e) => handleFromDateChange(e.target.value)}
               style={{ display: "none" }}
             />
 
             <button
               type="button"
-              onClick={() => {
-                if (fromInputRef.current?.showPicker) {
-                  fromInputRef.current.showPicker();
-                } else {
-                  fromInputRef.current?.click();
-                }
-              }}
+              onClick={(event) => openDashboardDatePicker(fromInputRef.current, event.currentTarget)}
               style={styles.dateButton}
             >
               <span>{fromDate || "From"}</span>
@@ -600,23 +627,26 @@ const ManageRolePage = ({ searchQuery = "" }) => {
               ref={toInputRef}
               type="date"
               value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
+              onChange={(e) => handleToDateChange(e.target.value)}
               style={{ display: "none" }}
             />
 
             <button
               type="button"
-              onClick={() => {
-                if (toInputRef.current?.showPicker) {
-                  toInputRef.current.showPicker();
-                } else {
-                  toInputRef.current?.click();
-                }
-              }}
+              onClick={(event) => openDashboardDatePicker(toInputRef.current, event.currentTarget)}
               style={styles.dateButton}
             >
               <span>{toDate || "To"}</span>
               <CalendarDays size={15} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              disabled={!year && !fromDate && !toDate}
+              className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+            >
+              Reset
             </button>
 
             <button style={styles.addRoleButton} onClick={openAddRoleModal}>
@@ -709,15 +739,13 @@ const ManageRolePage = ({ searchQuery = "" }) => {
                     }}
                   >
 
-                    <button
-                      style={styles.actionButton}
+                    <DashboardEditButton
                       onClick={() => {
                         openEditRoleModal(role);
                       }}
-                      type="button"
                     >
                       Edit
-                    </button>
+                    </DashboardEditButton>
 
                   </td>
 
@@ -747,10 +775,10 @@ const ManageRolePage = ({ searchQuery = "" }) => {
               {" "}
               {Math.min(
                 currentPage * rowsPerPage,
-                totalRecords
+                effectiveTotalRecords
               )}
             </strong>{" "}
-            of <strong>{totalRecords}</strong> transactions
+            of <strong>{effectiveTotalRecords}</strong> transactions
           </div>
 
           <div style={styles.pagination}>
@@ -879,7 +907,7 @@ const ManageRolePage = ({ searchQuery = "" }) => {
 
       {successModalMessage && (
         <div
-          style={styles.modalOverlay}
+          style={{ ...styles.modalOverlay, zIndex: 2000 }}
           onClick={() => setSuccessModalMessage("")}
         >
           <div
@@ -904,8 +932,8 @@ const ManageRolePage = ({ searchQuery = "" }) => {
               </svg>
             </div>
 
-            <h3 className="text-[20px] font-bold text-[#202224]">
-              {successModalMessage}
+            <h3 className="text-[20px] font-bold uppercase text-[#202224]">
+              {successModalMessage.toUpperCase()}
             </h3>
 
             <button

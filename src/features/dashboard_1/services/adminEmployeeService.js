@@ -1,5 +1,9 @@
 import apiClient from "../../../services/apiClient";
 
+function toStatusBoolean(status) {
+  return status === true || String(status).trim().toLowerCase() === "true";
+}
+
 export function getAdminEmployees({ page = 0, size = 10, search = "" } = {}) {
   return apiClient.get("/admin/employees", {
     params: {
@@ -26,7 +30,7 @@ export function updateAdminEmployee(employeeId, payload) {
 export function updateAdminEmployeeStatus(employeeId, isActive) {
   return apiClient.patch(
     `/admin/employees/${employeeId}`,
-    { isActive },
+    { isActive: toStatusBoolean(isActive) },
     {
       skipAuthRedirect: true,
     },
@@ -58,7 +62,7 @@ export function updateAdminRole(roleId, payload) {
 export function updateAdminRoleStatus(roleId, status) {
   return apiClient.patch(
     `/admin/roles/${roleId}/status`,
-    { status },
+    { status: toStatusBoolean(status) },
     {
       skipAuthRedirect: true,
     },
@@ -76,7 +80,10 @@ export function getAdminUserRoles({ page = 0, size = 10 } = {}) {
 }
 
 export function updateAdminUserRoleStatus(id, payload) {
-  return apiClient.patch(`/admin/user-roles/${id}/status`, payload, {
+  return apiClient.patch(`/admin/user-roles/${id}/status`, {
+    ...payload,
+    status: toStatusBoolean(payload?.status),
+  }, {
     skipAuthRedirect: true,
   });
 }
@@ -113,7 +120,7 @@ export function deleteAccessName(accessId) {
 export function updateAccessStatus(accessId, status) {
   return apiClient.patch(`/access/${accessId}/status`, null, {
     params: {
-      status,
+      status: toStatusBoolean(status),
     },
     skipAuthRedirect: true,
   });
@@ -148,11 +155,10 @@ export function updateRoleAccess(roleId, payload) {
   });
 }
 
-export function updateRoleAccessStatus(roleId, accessId, status) {
-  return apiClient.patch(`/role-access/${roleId}/${accessId}/status`, null, {
-    params: {
-      status,
-    },
+export function updateRoleAccessStatus(roleAccessId, status) {
+  return apiClient.patch(`/role-access/${roleAccessId}`, {
+    status: toStatusBoolean(status),
+  }, {
     skipAuthRedirect: true,
   });
 }
@@ -182,7 +188,7 @@ export function updateEmailNotificationTemplate(templateCode, payload) {
 export function updateEmailNotificationTemplateStatus(templateCode, status) {
   return apiClient.patch(
     `/admin/email-notification-templates/${templateCode}/status`,
-    { status },
+    { status: toStatusBoolean(status) },
     {
       skipAuthRedirect: true,
     },
@@ -209,7 +215,7 @@ export function updateUser(userId, payload) {
 export function updateUserStatus(userId, status) {
   return apiClient.patch(
     `/users/${userId}/status`,
-    { status },
+    { status: toStatusBoolean(status) },
     {
       skipAuthRedirect: true,
     },

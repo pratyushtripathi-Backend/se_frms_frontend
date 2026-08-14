@@ -15,8 +15,9 @@ import {
   getUsers,
   removeAdminBlacklistUser,
 } from "../services/adminEmployeeService";
-import DashboardStatusToggle from "./DashboardStatusToggle";
+import DashboardSuccessModal from "./DashboardSuccessModal";
 
+import { openDashboardDatePicker } from "./dashboardDatePicker";
 const UserBlacklistPage = ({ searchQuery = "" }) => {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -45,6 +46,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
   const toInputRef = useRef(null);
 
   const rowsPerPage = 10;
+  const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -59,14 +61,31 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
 
       try {
         const normalizedResponse = await fetchBlacklistPage({
-          currentPage,
+          currentPage: isLocalFilterActive ? 1 : currentPage,
           rowsPerPage,
           search: searchQuery,
         });
+        const normalizedRows = [...normalizedResponse.rows];
+
+        if (isLocalFilterActive && normalizedResponse.totalPages > 1) {
+          const remainingResponses = await Promise.all(
+            Array.from({ length: normalizedResponse.totalPages - 1 }, (_, index) =>
+              fetchBlacklistPage({
+                currentPage: index + 2,
+                rowsPerPage,
+                search: searchQuery,
+              }),
+            ),
+          );
+
+          remainingResponses.forEach((pageResponse) => {
+            normalizedRows.push(...pageResponse.rows);
+          });
+        }
 
         if (!isActive) return;
 
-        setBlacklistUsers(normalizedResponse.rows);
+        setBlacklistUsers(normalizedRows);
         setTotalRecords(normalizedResponse.totalRecords);
         setTotalApiPages(normalizedResponse.totalPages);
       } catch (error) {
@@ -91,7 +110,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
     return () => {
       isActive = false;
     };
-  }, [currentPage, searchQuery]);
+  }, [currentPage, isLocalFilterActive, searchQuery]);
 
   useEffect(() => {
     if (!isModalOpen) return undefined;
@@ -130,14 +149,41 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
     };
   }, [isModalOpen]);
 
-  const totalPages = totalApiPages;
-
   const currentData = blacklistUsers.filter((item) =>
     isDateWithinRange(item.createdAt, fromDate, toDate, year),
   );
-  const showingFrom = totalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
-  const showingTo = Math.min(currentPage * rowsPerPage, totalRecords);
+  const effectiveTotalRecords = isLocalFilterActive ? currentData.length : totalRecords;
+  const totalPages = isLocalFilterActive
+    ? Math.max(Math.ceil(effectiveTotalRecords / rowsPerPage), 1)
+    : totalApiPages;
+  const visibleData = isLocalFilterActive
+    ? currentData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+    : currentData;
+  const showingFrom = effectiveTotalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const showingTo = Math.min(currentPage * rowsPerPage, effectiveTotalRecords);
   const closeModal = () => setIsModalOpen(false);
+
+  const handleYearChange = (value) => {
+    setYear(value);
+    setCurrentPage(1);
+  };
+
+  const handleFromDateChange = (value) => {
+    setFromDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleToDateChange = (value) => {
+    setToDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setYear("");
+    setFromDate("");
+    setToDate("");
+    setCurrentPage(1);
+  };
 
   const handleFormChange = (field) => (event) => {
     setFormData((currentData) => ({
@@ -238,9 +284,16 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
       const refreshedRows = normalizedResponse.rows.filter(
         (blacklistUser) => Number(blacklistUser.userId) !== userId,
       );
+      const removedFromRefreshedPage =
+        refreshedRows.length !== normalizedResponse.rows.length;
 
       setBlacklistUsers(refreshedRows);
-      setTotalRecords(Math.max(normalizedResponse.totalRecords - 1, 0));
+      setTotalRecords(
+        Math.max(
+          normalizedResponse.totalRecords - (removedFromRefreshedPage ? 1 : 0),
+          0,
+        ),
+      );
       setTotalApiPages(normalizedResponse.totalPages);
       setSuccessMessage(
         response.data?.responseMessage || "User unblocked successfully.",
@@ -400,6 +453,27 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
     status: {
       color: "#FF3B30",
       fontWeight: 600,
+    },
+
+    statusBadge: {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minWidth: "76px",
+      borderRadius: "999px",
+      padding: "5px 12px",
+      fontSize: "11px",
+      fontWeight: 700,
+    },
+
+    activeStatusBadge: {
+      background: "#E7F8EF",
+      color: "#27AE60",
+    },
+
+    inactiveStatusBadge: {
+      background: "#FEECEC",
+      color: "#EB5757",
     },
 
     createdDate: {
@@ -644,7 +718,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
           <div style={styles.filters}>
             <div style={{ position: "relative" }}>
               <select
-                onChange={(event) => setYear(event.target.value)}
+                onChange={(event) => handleYearChange(event.target.value)}
                 style={{
                   ...styles.dateButton,
                   appearance: "none",
@@ -675,19 +749,13 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
               ref={fromInputRef}
               type="date"
               value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
+              onChange={(e) => handleFromDateChange(e.target.value)}
               style={{ display: "none" }}
             />
 
             <button
               type="button"
-              onClick={() => {
-                if (fromInputRef.current?.showPicker) {
-                  fromInputRef.current.showPicker();
-                } else {
-                  fromInputRef.current?.click();
-                }
-              }}
+              onClick={(event) => openDashboardDatePicker(fromInputRef.current, event.currentTarget)}
               style={styles.dateButton}
             >
               <span>{fromDate || "From"}</span>
@@ -698,23 +766,26 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
               ref={toInputRef}
               type="date"
               value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
+              onChange={(e) => handleToDateChange(e.target.value)}
               style={{ display: "none" }}
             />
 
             <button
               type="button"
-              onClick={() => {
-                if (toInputRef.current?.showPicker) {
-                  toInputRef.current.showPicker();
-                } else {
-                  toInputRef.current?.click();
-                }
-              }}
+              onClick={(event) => openDashboardDatePicker(toInputRef.current, event.currentTarget)}
               style={styles.dateButton}
             >
               <span>{toDate || "To"}</span>
               <CalendarDays size={15} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              disabled={!isLocalFilterActive}
+              className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+            >
+              Reset
             </button>
 
             <button style={styles.addButton} onClick={() => setIsModalOpen(true)}>
@@ -725,12 +796,6 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
           </div>
 
         </div>
-
-        {successMessage && (
-          <div style={{ ...styles.alert, ...styles.successAlert }}>
-            {successMessage}
-          </div>
-        )}
 
         {errorMessage && (
           <div style={{ ...styles.alert, ...styles.errorAlert }}>
@@ -749,13 +814,13 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
                 <th style={styles.th}>Employee Name</th>
                 <th style={styles.th}>Email</th>
                 <th style={styles.th}>Mobile</th>
-                <th style={styles.th}>Status</th>
                 <th style={styles.th}>Reason</th>
                 <th style={styles.th}>Risk Type</th>
+                <th style={styles.th}>Status</th>
                 <th style={styles.th}>Created By</th>
                 <th style={styles.th}>Created At</th>
                 <th style={styles.th}>Updated At</th>
-                <th style={styles.th}>Unblock</th>
+                <th style={styles.th}>Action</th>
 
               </tr>
             </thead>
@@ -770,7 +835,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
                 </tr>
               )}
 
-              {!isLoading && currentData.length === 0 && (
+              {!isLoading && visibleData.length === 0 && (
                 <tr style={styles.tr}>
                   <td colSpan={11} style={{ ...styles.td, textAlign: "center" }}>
                     No blacklist users found.
@@ -778,7 +843,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
                 </tr>
               )}
 
-              {!isLoading && currentData.map((item, index) => (
+              {!isLoading && visibleData.map((item, index) => (
 
                 <tr key={item.id} style={styles.tr}>
 
@@ -791,17 +856,6 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
                   <td style={styles.td}>{item.email}</td>
 
                   <td style={styles.td}>{item.mobile}</td>
-
-                  <td style={styles.td}>
-                    <DashboardStatusToggle
-                      onToggle={(nextStatus) =>
-                        nextStatus
-                          ? handleRemoveBlacklistUser(item)
-                          : Promise.resolve()
-                      }
-                      status={item.status}
-                    />
-                  </td>
 
                   <td style={styles.td}>
                     {item.reason}
@@ -821,6 +875,19 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
                       {item.riskType}
                     </span>
 
+                  </td>
+
+                  <td style={styles.td}>
+                    <span
+                      style={{
+                        ...styles.statusBadge,
+                        ...(isActiveStatus(item.status)
+                          ? styles.activeStatusBadge
+                          : styles.inactiveStatusBadge),
+                      }}
+                    >
+                      {item.status}
+                    </span>
                   </td>
 
                   <td style={styles.td}>
@@ -846,7 +913,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
                       disabled={removingUserId === item.userId}
                       onClick={() => handleRemoveBlacklistUser(item)}
                     >
-                      {removingUserId === item.userId ? "Removing..." : "Remove"}
+                      {removingUserId === item.userId ? "Unblocking..." : "Unblock"}
                     </button>
                   </td>
 
@@ -872,7 +939,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
             <strong>
               {" "}{showingTo}
             </strong>{" "}
-            of <strong>{totalRecords}</strong> transactions
+            of <strong>{effectiveTotalRecords}</strong> transactions
           </div>
 
           <div style={styles.pagination}>
@@ -1037,6 +1104,13 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
           </div>
         </div>
       )}
+
+      {successMessage && (
+        <DashboardSuccessModal
+          message={successMessage}
+          onClose={() => setSuccessMessage("")}
+        />
+      )}
     </div>
   );
 };
@@ -1142,9 +1216,24 @@ function normalizeBlacklistRow(row, index) {
 }
 
 function normalizeBlacklistStatus(status) {
-  if (typeof status === "boolean") return status ? "Block" : "Active";
-  if (status === null || status === undefined || status === "") return "Block";
+  if (typeof status === "boolean") return status ? "Active" : "Inactive";
+  if (status === null || status === undefined || status === "") return "Inactive";
+
+  const normalizedStatus = String(status).trim().toLowerCase();
+
+  if (["true", "1", "active", "success", "enabled"].includes(normalizedStatus)) {
+    return "Active";
+  }
+
+  if (["false", "0", "inactive", "block", "blocked", "disabled"].includes(normalizedStatus)) {
+    return "Inactive";
+  }
+
   return String(status);
+}
+
+function isActiveStatus(status) {
+  return String(status).trim().toLowerCase() === "active";
 }
 
 function isBlacklistStatusBlocked(status) {

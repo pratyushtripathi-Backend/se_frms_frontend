@@ -16,16 +16,18 @@ import {
   updateRuleScoreStatus,
 } from "../services/fraudDetailsService";
 import DashboardSuccessModal from "./DashboardSuccessModal";
+import DashboardEditButton from "./DashboardEditButton";
 import DashboardStatusToggle from "./DashboardStatusToggle";
 
+import { openDashboardDatePicker } from "./dashboardDatePicker";
 const TABLE_COLUMNS = [
   "S.No",
   "Fraud Rule",
   "Rule Score",
-  "Created At",
-  "Created By",
-  "Updated At",
   "Status",
+  "Created By",
+  "Created At",
+  "Updated At",
   "Action",
 ];
 
@@ -33,16 +35,19 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [openActionId, setOpenActionId] = useState(null);
   const [ruleScores, setRuleScores] = useState([]);
   const [fraudRules, setFraudRules] = useState([]);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingFraudRules, setIsLoadingFraudRules] = useState(false);
   const [isSavingRuleScore, setIsSavingRuleScore] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [successModalMessage, setSuccessModalMessage] = useState("");
+  const [failureModalMessage, setFailureModalMessage] = useState("");
   const [showAddRuleScoreModal, setShowAddRuleScoreModal] = useState(false);
   const [editingRuleScore, setEditingRuleScore] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -52,31 +57,53 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
+  const rowsPerPage = 10;
+  const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   const loadRuleScores = useCallback(async ({ showLoader = true, searchValue = searchQuery } = {}) => {
     if (showLoader) setIsLoading(true);
     setErrorMessage("");
 
     try {
+      const requestedPage = isLocalFilterActive ? 0 : currentPage - 1;
       const response = await getRuleScores({
-        page: 0,
+        page: requestedPage,
         search: searchValue,
-        size: 10,
+        size: rowsPerPage,
       });
       const normalizedResponse = normalizeRuleScoreResponse(response.data);
+      const normalizedRows = [...normalizedResponse.rows];
 
-      setRuleScores(normalizedResponse.rows);
+      if (isLocalFilterActive && normalizedResponse.totalPages > 1) {
+        const remainingResponses = await Promise.all(
+          Array.from({ length: normalizedResponse.totalPages - 1 }, (_, index) =>
+            getRuleScores({
+              page: index + 1,
+              search: searchValue,
+              size: rowsPerPage,
+            }),
+          ),
+        );
+
+        remainingResponses.forEach((pageResponse) => {
+          normalizedRows.push(...normalizeRuleScoreResponse(pageResponse.data).rows);
+        });
+      }
+
+      setRuleScores(normalizedRows);
       setTotalRecords(normalizedResponse.totalRecords);
+      setTotalPages(normalizedResponse.totalPages);
     } catch (error) {
       setRuleScores([]);
       setTotalRecords(0);
+      setTotalPages(1);
       setErrorMessage(
         getAuthErrorMessage(error, "Unable to load rule scores. Please try again."),
       );
     } finally {
       if (showLoader) setIsLoading(false);
     }
-  }, [searchQuery]);
+  }, [currentPage, isLocalFilterActive, searchQuery]);
 
   const loadFraudRules = useCallback(async () => {
     setIsLoadingFraudRules(true);
@@ -92,6 +119,10 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
       setIsLoadingFraudRules(false);
     }
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   useEffect(() => {
     let isActive = true;
@@ -118,13 +149,51 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
 
       if (year && yearValue !== year) return false;
 
-      if (fromDate && itemDate && itemDate < new Date(fromDate)) return false;
+      if (fromDate && itemDate && itemDate < parseDateOnly(fromDate)) return false;
 
-      if (toDate && itemDate && itemDate > new Date(toDate)) return false;
+      if (toDate && itemDate && itemDate > parseDateOnly(toDate, true)) return false;
 
       return true;
     }).sort(sortByRecentCreated);
   }, [ruleScores, year, fromDate, toDate]);
+
+  const handleYearChange = (value) => {
+    setYear(value);
+    setCurrentPage(1);
+  };
+
+  const handleFromDateChange = (value) => {
+    setFromDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleToDateChange = (value) => {
+    setToDate(value);
+    setCurrentPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setYear("");
+    setFromDate("");
+    setToDate("");
+    setCurrentPage(1);
+  };
+
+  const effectiveTotalRecords = isLocalFilterActive ? filteredData.length : totalRecords;
+  const effectiveTotalPages = Math.max(Math.ceil(effectiveTotalRecords / rowsPerPage), 1);
+  const visibleData = isLocalFilterActive
+    ? filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+    : filteredData;
+  const visiblePageNumbers = useMemo(() => {
+    const pageCount = Math.max(effectiveTotalPages, 1);
+    const startPage = Math.max(Math.min(currentPage - 2, pageCount - 4), 1);
+    const endPage = Math.min(startPage + 4, pageCount);
+
+    return Array.from(
+      { length: endPage - startPage + 1 },
+      (_, index) => startPage + index,
+    );
+  }, [currentPage, effectiveTotalPages]);
 
   const fraudRuleById = useMemo(() => {
     return fraudRules.reduce((lookup, rule) => {
@@ -132,6 +201,10 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
       return lookup;
     }, new Map());
   }, [fraudRules]);
+  const activeFraudRules = useMemo(
+    () => fraudRules.filter((rule) => isActiveStatus(rule.status)),
+    [fraudRules],
+  );
 
   const isScoreSectionActive = selectedRuleId !== "";
   const canSaveRuleScore = isScoreSectionActive && ruleScore.trim() !== "";
@@ -158,6 +231,7 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
     setIsSavingRuleScore(true);
     setSuccessMessage("");
     setErrorMessage("");
+    setFailureModalMessage("");
 
     try {
       const payload = {
@@ -185,9 +259,14 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
         showLoader: false,
       });
     } catch (error) {
-      setErrorMessage(
-        getAuthErrorMessage(error, "Unable to create rule score. Please try again."),
+      const nextErrorMessage = getAuthErrorMessage(
+        error,
+        editingRuleScore
+          ? "Unable to update rule score. Please try again."
+          : "Unable to create rule score. Please try again.",
       );
+      setErrorMessage(nextErrorMessage);
+      setFailureModalMessage(nextErrorMessage);
     } finally {
       setIsSavingRuleScore(false);
     }
@@ -260,7 +339,7 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
             <div className="relative">
               <select
                 value={year}
-                onChange={(e) => setYear(e.target.value)}
+                onChange={(e) => handleYearChange(e.target.value)}
                 className="h-10 w-[105px] appearance-none rounded-lg border border-[#E5E7EB] bg-white pl-3 pr-8 text-[12px] text-[#202224] outline-none"
               >
                 <option value="">Year</option>
@@ -281,19 +360,13 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
                 ref={fromInputRef}
                 type="date"
                 value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
+                onChange={(e) => handleFromDateChange(e.target.value)}
                 className="hidden"
               />
 
               <button
                 type="button"
-                onClick={() => {
-                  if (fromInputRef.current?.showPicker) {
-                    fromInputRef.current.showPicker();
-                  } else {
-                    fromInputRef.current?.click();
-                  }
-                }}
+                onClick={(event) => openDashboardDatePicker(fromInputRef.current, event.currentTarget)}
                 className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
               >
                 <span>{fromDate || "From"}</span>
@@ -307,25 +380,28 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
                 ref={toInputRef}
                 type="date"
                 value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
+                onChange={(e) => handleToDateChange(e.target.value)}
                 className="hidden"
               />
 
               <button
                 type="button"
-                onClick={() => {
-                  if (toInputRef.current?.showPicker) {
-                    toInputRef.current.showPicker();
-                  } else {
-                    toInputRef.current?.click();
-                  }
-                }}
+                onClick={(event) => openDashboardDatePicker(toInputRef.current, event.currentTarget)}
                 className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
               >
                 <span>{toDate || "To"}</span>
                 <CalendarDays size={15} />
               </button>
             </>
+
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              disabled={!isLocalFilterActive}
+              className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+            >
+              Reset
+            </button>
 
             {/* Export */}
             <ExportFile rows={filteredData} />
@@ -381,7 +457,7 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
                   </tr>
                 )}
 
-                {!isLoading && filteredData.length === 0 && (
+                {!isLoading && visibleData.length === 0 && (
                   <tr>
                     <td colSpan={TABLE_COLUMNS.length} className="px-4 py-5 text-center text-[12px] text-[#6B7280]">
                       No rule scores found.
@@ -389,13 +465,13 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
                   </tr>
                 )}
 
-                {!isLoading && filteredData.map((item, index) => (
+                {!isLoading && visibleData.map((item, index) => (
                   <tr
                     key={item.id}
                     className="relative border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
                   >
                     <td className="px-4 py-4 font-medium">
-                      {index + 1}
+                      {(currentPage - 1) * rowsPerPage + index + 1}
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-4">
@@ -404,6 +480,19 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
 
                     <td className="whitespace-nowrap px-4 py-4">
                       {item.ruleScore}
+                    </td>
+
+                    <td className="px-4 py-4">
+                      <DashboardStatusToggle
+                        onToggle={(nextStatus) =>
+                          updateRuleScoreStatus(item.id, nextStatus)
+                        }
+                        status={item.status}
+                      />
+                    </td>
+
+                    <td className="whitespace-nowrap px-4 py-4">
+                      {item.createdBy}
                     </td>
 
                     <td className="px-4 py-4">
@@ -418,10 +507,6 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
                       </div>
                     </td>
 
-                    <td className="whitespace-nowrap px-4 py-4">
-                      {item.createdBy}
-                    </td>
-
                     <td className="px-4 py-4">
                       <div className="flex flex-col text-[12px] leading-5">
                         <span className="font-medium text-[#2F80ED]">
@@ -434,23 +519,12 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
                       </div>
                     </td>
 
-                    <td className="px-4 py-4">
-                      <DashboardStatusToggle
-                        onToggle={(nextStatus) =>
-                          updateRuleScoreStatus(item.id, nextStatus)
-                        }
-                        status={item.status}
-                      />
-                    </td>
-
                     <td className="relative px-4 py-4">
-                      <button
-                        type="button"
+                      <DashboardEditButton
                         onClick={() => handleEditRuleScore(item)}
-                        className="flex h-8 w-[92px] items-center justify-between rounded-md border-none bg-[#F3F4F6] px-3 text-[12px] font-medium text-[#4B5563]"
                       >
                         Edit
-                      </button>
+                      </DashboardEditButton>
                     </td>
                   </tr>
                 ))}
@@ -463,20 +537,27 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
           <div className="flex items-center justify-between border-t border-[#ECECEC] bg-white px-6 py-4">
 
             <p className="text-[12px] text-[#7A7A7A]">
-              Showing {filteredData.length} of {totalRecords} transactions
+              Showing {visibleData.length} of {effectiveTotalRecords} transactions
             </p>
 
             <div className="flex items-center gap-2">
 
-              <button className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50">
+              <button
+                className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={currentPage <= 1 || isLoading}
+                onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                type="button"
+              >
                 &lt;
               </button>
 
-              {[1, 2, 3, 4, 5].map((page) => (
+              {visiblePageNumbers.map((page) => (
                 <button
                   key={page}
+                  onClick={() => setCurrentPage(page)}
+                  type="button"
                   className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium transition ${
-                    page === 1
+                    page === currentPage
                       ? "bg-[#F3F4F6] text-[#111827]"
                       : "text-[#6B7280] hover:bg-[#F8F8F8]"
                   }`}
@@ -485,7 +566,14 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
                 </button>
               ))}
 
-              <button className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50">
+              <button
+                className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={currentPage >= effectiveTotalPages || isLoading}
+                onClick={() =>
+                  setCurrentPage((page) => Math.min(page + 1, effectiveTotalPages))
+                }
+                type="button"
+              >
                 &gt;
               </button>
 
@@ -534,12 +622,12 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
                     <option value="">
                       {isLoadingFraudRules ? "Loading fraud rules..." : "Select Fraud Rule"}
                     </option>
-                    {!isLoadingFraudRules && fraudRules.length === 0 && (
+                    {!isLoadingFraudRules && activeFraudRules.length === 0 && (
                       <option disabled value="">
-                        No fraud rules found
+                        No active fraud rules found
                       </option>
                     )}
-                    {fraudRules.map((rule) => (
+                    {activeFraudRules.map((rule) => (
                       <option key={rule.id} value={rule.id}>
                         {rule.label}
                       </option>
@@ -623,7 +711,14 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
         <DashboardSuccessModal
           message={successModalMessage}
           onClose={() => setSuccessModalMessage("")}
-          title="Success"
+        />
+      )}
+
+      {failureModalMessage && (
+        <DashboardSuccessModal
+          message={failureModalMessage}
+          onClose={() => setFailureModalMessage("")}
+          variant="error"
         />
       )}
 
@@ -641,8 +736,11 @@ function normalizeRuleScoreResponse(responseData) {
   const totalRecords =
     findFirstNumber(payload, ["totalElements", "totalRecords", "totalCount", "total", "count"]) ??
     rows.length;
+  const totalPages =
+    findFirstNumber(payload, ["totalPages", "pages"]) ??
+    Math.max(Math.ceil(totalRecords / 10), 1);
 
-  return { rows, totalRecords };
+  return { rows, totalRecords, totalPages: Math.max(totalPages, 1) };
 }
 
 function normalizeRuleScoreRow(row, index) {
@@ -691,7 +789,17 @@ function normalizeFraudRuleOption(rule, index) {
     id,
     name,
     label: name ? `${id} - ${name}` : String(id),
+    status: rule?.status,
   };
+}
+
+function isActiveStatus(status) {
+  if (typeof status === "boolean") return status;
+  if (status === null || status === undefined || status === "") return true;
+
+  return ["active", "success", "true", "enabled"].includes(
+    String(status).trim().toLowerCase(),
+  );
 }
 
 function getFraudRuleDisplay(ruleScoreItem, fraudRuleById) {
@@ -734,6 +842,12 @@ function parseDateValue(value) {
   if (parts.length === 3) return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
 
   return null;
+}
+
+function parseDateOnly(dateValue, endOfDay = false) {
+  const date = new Date(`${dateValue}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
+
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function sortByRecentCreated(currentItem, nextItem) {
