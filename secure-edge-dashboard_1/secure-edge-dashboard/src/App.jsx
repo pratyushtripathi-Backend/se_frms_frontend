@@ -35,6 +35,9 @@ import AllFraudRulesPage from "./components/AllFraudRulesPage";
 import AllRuleScorePage from "./components/AllRuleScorePage";
 import AllCategoryPage from "./components/AllCategoryPage";
 
+// Transaction Monitoring sub-pages
+import TransactionDataPage from "./components/TransactionDataPage";
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
 
@@ -63,6 +66,8 @@ export default function App() {
     "all-fraud-rules": "All Fraud Rules",
     "all-rule-score": "All Rule Score",
     "all-category": "All Category",
+
+    "transaction-data": "Transaction Data",
   };
 
   return (
@@ -150,6 +155,9 @@ export default function App() {
         {currentPage === "all-rule-score" && <AllRuleScorePage />}
 
         {currentPage === "all-category" && <AllCategoryPage />}
+
+        {/* Transaction Monitoring */}
+        {currentPage === "transaction-data" && <TransactionDataPage />}
       </main>
     </div>
   );
