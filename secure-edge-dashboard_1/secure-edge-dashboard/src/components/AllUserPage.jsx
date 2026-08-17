@@ -751,4 +751,4 @@ const AllUserPage = () => {
   );
 };
 
-export default AllEmployeePage;
+export default AllUserPage;

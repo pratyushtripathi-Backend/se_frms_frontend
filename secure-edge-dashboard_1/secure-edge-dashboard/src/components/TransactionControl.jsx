@@ -1,108 +1,107 @@
 import { useState, forwardRef } from "react";
-import {
-  CalendarDays,
-  Download,
-  ChevronDown,
-} from "lucide-react";
+import { CalendarDays, Download, ChevronDown } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
-const DateButton = forwardRef(
-  ({ value, onClick, placeholder }, ref) => (
-    <button
-      type="button"
-      ref={ref}
-      onClick={onClick}
-      className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-2 text-[12.5px] text-brand-dim"
-    >
-      {value || placeholder}
-      <CalendarDays size={14} />
-    </button>
-  )
-);
+const DateButton = forwardRef(({ value, onClick, placeholder }, ref) => (
+  <button
+    className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-2 text-[12.5px] text-brand-dim"
+    onClick={onClick}
+    ref={ref}
+    type="button"
+  >
+    {value || placeholder}
+    <CalendarDays size={14} />
+  </button>
+));
 
 DateButton.displayName = "DateButton";
 
-export default function TransactionControls({ rows }) {
+/**
+ * Shared Year / From / To / Export toolbar.
+ *
+ * Generic on purpose so any list page can reuse it — pass the table's
+ * own `headers` (array of column labels) and `rows` (array of arrays,
+ * same order as headers) and this component handles the CSV export.
+ */
+export default function TransactionControls({
+  headers = [],
+  rows = [],
+  filename = "export.csv",
+  onYearChange,
+  onFromChange,
+  onToChange,
+  years = ["2026", "2025", "2024"],
+}) {
   const [fromDate, setFromDate] = useState(null);
   const [toDate, setToDate] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
 
+  const handleFromChange = (date) => {
+    setFromDate(date);
+    onFromChange?.(date);
+  };
+
+  const handleToChange = (date) => {
+    setToDate(date);
+    onToChange?.(date);
+  };
+
   const exportCSV = () => {
-    const headers = [
-      "Sr No",
-      "ID",
-      "User Name",
-      "Account No",
-      "Amount",
-      "Mode",
-      "Mobile No",
-      "Date",
-      "Time",
-      "Status",
-      "Priority",
-    ];
+    const escapeCell = (cell) => {
+      const value = cell === null || cell === undefined ? "" : String(cell);
+      return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+    };
 
-    const csvRows = rows.map((r) => [
-      r.sr,
-      r.id,
-      r.user,
-      r.account,
-      r.amount,
-      r.mode,
-      r.mobile,
-      r.date,
-      r.time,
-      r.status,
-      r.priority,
-    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map(escapeCell).join(","))
+      .join("\n");
 
-    const csv = [
-      headers.join(","),
-      ...csvRows.map((r) => r.join(",")),
-    ].join("\n");
-
-    const blob = new Blob([csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = "transactions.csv";
+    link.download = filename;
     link.click();
 
     URL.revokeObjectURL(url);
-
     setShowMenu(false);
   };
 
   return (
     <div className="flex flex-wrap items-center gap-2.5">
-      <select className="rounded-lg border border-brand-border px-3 py-2 text-[12.5px] outline-none">
-        <option>Year</option>
+      <select
+        className="rounded-lg border border-brand-border px-3 py-2 text-[12.5px] text-brand-dim outline-none"
+        onChange={(event) => onYearChange?.(event.target.value)}
+      >
+        <option value="">Year</option>
+        {years.map((year) => (
+          <option key={year} value={year}>
+            {year}
+          </option>
+        ))}
       </select>
 
       <DatePicker
-        selected={fromDate}
-        onChange={setFromDate}
-        dateFormat="dd-MM-yyyy"
         customInput={<DateButton placeholder="From" />}
+        dateFormat="dd-MM-yyyy"
+        onChange={handleFromChange}
+        selected={fromDate}
       />
 
       <DatePicker
-        selected={toDate}
-        onChange={setToDate}
-        dateFormat="dd-MM-yyyy"
         customInput={<DateButton placeholder="To" />}
+        dateFormat="dd-MM-yyyy"
+        onChange={handleToChange}
+        selected={toDate}
       />
 
       <div className="relative">
         <button
-          onClick={() => setShowMenu(!showMenu)}
           className="flex items-center gap-2 rounded-lg border border-brand-red px-3.5 py-2 text-[12.5px] font-semibold text-brand-red"
+          onClick={() => setShowMenu((open) => !open)}
+          type="button"
         >
           <Download size={14} />
           Export
@@ -110,10 +109,11 @@ export default function TransactionControls({ rows }) {
         </button>
 
         {showMenu && (
-          <div className="absolute right-0 mt-2 w-40 rounded-lg border bg-white shadow-lg">
+          <div className="absolute right-0 z-20 mt-2 w-40 rounded-lg border border-brand-border bg-white shadow-lg">
             <button
+              className="w-full px-4 py-2 text-left text-[12.5px] hover:bg-gray-100"
               onClick={exportCSV}
-              className="w-full px-4 py-2 text-left hover:bg-gray-100"
+              type="button"
             >
               Export CSV
             </button>
