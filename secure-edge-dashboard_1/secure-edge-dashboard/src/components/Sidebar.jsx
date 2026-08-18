@@ -52,6 +52,7 @@ const FRAUD_DETAILS_ITEMS = [
 
 const TRANSACTION_MONITORING_ITEMS = [
   { label: "Transaction Data", page: "transaction-data" },
+  { label: "Scoring Table", page: "scoring-table" },
 ];
 
 export default function Sidebar({ currentPage, onLogout, setCurrentPage }) {

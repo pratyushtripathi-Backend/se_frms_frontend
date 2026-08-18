@@ -37,6 +37,7 @@ import AllCategoryPage from "./components/AllCategoryPage";
 
 // Transaction Monitoring sub-pages
 import TransactionDataPage from "./components/TransactionDataPage";
+import ScoringTablePage from "./components/ScoringTablePage";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
@@ -68,6 +69,7 @@ export default function App() {
     "all-category": "All Category",
 
     "transaction-data": "Transaction Data",
+    "scoring-table": "Scoring Table",
   };
 
   return (
@@ -158,6 +160,8 @@ export default function App() {
 
         {/* Transaction Monitoring */}
         {currentPage === "transaction-data" && <TransactionDataPage />}
+
+        {currentPage === "scoring-table" && <ScoringTablePage />}
       </main>
     </div>
   );
