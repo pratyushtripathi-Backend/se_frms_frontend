@@ -38,6 +38,7 @@ import AllCategoryPage from "./components/AllCategoryPage";
 // Transaction Monitoring sub-pages
 import TransactionDataPage from "./components/TransactionDataPage";
 import ScoringTablePage from "./components/ScoringTablePage";
+import MatchedRulePage from "./components/MatchedRulePage";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
@@ -70,6 +71,7 @@ export default function App() {
 
     "transaction-data": "Transaction Data",
     "scoring-table": "Scoring Table",
+    "matched-rule": "Matched Rule",
   };
 
   return (
@@ -162,6 +164,8 @@ export default function App() {
         {currentPage === "transaction-data" && <TransactionDataPage />}
 
         {currentPage === "scoring-table" && <ScoringTablePage />}
+
+        {currentPage === "matched-rule" && <MatchedRulePage />}
       </main>
     </div>
   );
