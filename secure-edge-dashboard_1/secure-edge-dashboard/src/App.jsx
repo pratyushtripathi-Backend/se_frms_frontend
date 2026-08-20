@@ -37,6 +37,10 @@ import AllCategoryPage from "./components/AllCategoryPage";
 
 // Transaction Monitoring sub-pages
 import TransactionDataPage from "./components/TransactionDataPage";
+import ScoringTablePage from "./components/ScoringTablePage";
+import MatchedRulePage from "./components/MatchedRulePage";
+import DecisionPolicyPage from "./components/DecisionPolicyPage";
+import DecisionTablePage from "./components/DecisionTablePage";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
@@ -68,6 +72,10 @@ export default function App() {
     "all-category": "All Category",
 
     "transaction-data": "Transaction Data",
+    "scoring-table": "Scoring Table",
+    "matched-rule": "Matched Rule",
+    "decision-policy": "Decision Policy",
+    "decision-table": "Decision Table",
   };
 
   return (
@@ -158,6 +166,14 @@ export default function App() {
 
         {/* Transaction Monitoring */}
         {currentPage === "transaction-data" && <TransactionDataPage />}
+
+        {currentPage === "scoring-table" && <ScoringTablePage />}
+
+        {currentPage === "matched-rule" && <MatchedRulePage />}
+
+        {currentPage === "decision-policy" && <DecisionPolicyPage />}
+
+        {currentPage === "decision-table" && <DecisionTablePage />}
       </main>
     </div>
   );
