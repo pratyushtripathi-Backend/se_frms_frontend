@@ -39,6 +39,7 @@ import AllCategoryPage from "./components/AllCategoryPage";
 import TransactionDataPage from "./components/TransactionDataPage";
 import ScoringTablePage from "./components/ScoringTablePage";
 import MatchedRulePage from "./components/MatchedRulePage";
+import DecisionPolicyPage from "./components/DecisionPolicyPage";
 import DecisionTablePage from "./components/DecisionTablePage";
 
 export default function App() {
@@ -73,6 +74,7 @@ export default function App() {
     "transaction-data": "Transaction Data",
     "scoring-table": "Scoring Table",
     "matched-rule": "Matched Rule",
+    "decision-policy": "Decision Policy",
     "decision-table": "Decision Table",
   };
 
@@ -168,6 +170,8 @@ export default function App() {
         {currentPage === "scoring-table" && <ScoringTablePage />}
 
         {currentPage === "matched-rule" && <MatchedRulePage />}
+
+        {currentPage === "decision-policy" && <DecisionPolicyPage />}
 
         {currentPage === "decision-table" && <DecisionTablePage />}
       </main>
