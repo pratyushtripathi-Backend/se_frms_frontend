@@ -39,6 +39,7 @@ import AllCategoryPage from "./components/AllCategoryPage";
 import TransactionDataPage from "./components/TransactionDataPage";
 import ScoringTablePage from "./components/ScoringTablePage";
 import MatchedRulePage from "./components/MatchedRulePage";
+import DecisionTablePage from "./components/DecisionTablePage";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
@@ -72,6 +73,7 @@ export default function App() {
     "transaction-data": "Transaction Data",
     "scoring-table": "Scoring Table",
     "matched-rule": "Matched Rule",
+    "decision-table": "Decision Table",
   };
 
   return (
@@ -166,6 +168,8 @@ export default function App() {
         {currentPage === "scoring-table" && <ScoringTablePage />}
 
         {currentPage === "matched-rule" && <MatchedRulePage />}
+
+        {currentPage === "decision-table" && <DecisionTablePage />}
       </main>
     </div>
   );

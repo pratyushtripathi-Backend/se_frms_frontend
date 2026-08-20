@@ -54,6 +54,7 @@ const TRANSACTION_MONITORING_ITEMS = [
   { label: "Transaction Data", page: "transaction-data" },
   { label: "Scoring Table", page: "scoring-table" },
   { label: "Matched Rule", page: "matched-rule" },
+  { label: "Decision Table", page: "decision-table" },
 ];
 
 export default function Sidebar({ currentPage, onLogout, setCurrentPage }) {
