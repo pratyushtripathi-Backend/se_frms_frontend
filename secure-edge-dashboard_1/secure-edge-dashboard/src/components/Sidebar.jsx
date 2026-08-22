@@ -75,7 +75,7 @@ export default function Sidebar({ currentPage, onLogout, setCurrentPage }) {
   return (
     <aside className="relative flex h-screen w-[260px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-panel">
       {/* Logo */}
-      <div className="relative z-10 flex items-center px-7 pt-8 pb-5">
+      <div className="relative z-10 flex items-center px-7 pt-4 pb-5">
         <img
           src="/logo.png"
           alt="Secure Edge"
