@@ -2,6 +2,8 @@ import { useState, useRef, useMemo } from "react";
 import {
   CalendarDays,
   ChevronDown,
+  Plus,
+  X,
 } from "lucide-react";
 import ExportFile from "./ExportFile";
 import { allFraudRulesData } from "./AllFraudRulesData";
@@ -13,10 +15,27 @@ const TABLE_COLUMNS = [
   "Rule Code",
   "Rule Name",
   "Rule Description",
+  "Rule Expression",
   "Created By",
   "Updated At",
   "Status",
 ];
+
+const CATEGORY_OPTIONS = [
+  { id: "CAT001", label: "Transaction Fraud" },
+  { id: "CAT002", label: "Account Takeover" },
+  { id: "CAT003", label: "Identity Fraud" },
+  { id: "CAT004", label: "Payment Fraud" },
+  { id: "CAT005", label: "Device Fraud" },
+];
+
+const emptyRuleForm = {
+  categoryId: "",
+  ruleName: "",
+  ruleCode: "",
+  ruleDescription: "",
+  ruleExpression: "",
+};
 
 export default function AllFraudRulesPage() {
   const [year, setYear] = useState("");
@@ -37,6 +56,36 @@ export default function AllFraudRulesPage() {
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
+
+  // Create Fraud Rule modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [ruleForm, setRuleForm] = useState(emptyRuleForm);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const isCategorySelected = ruleForm.categoryId !== "";
+
+  const openCreateModal = () => {
+    setRuleForm(emptyRuleForm);
+    setShowCreateModal(true);
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+  };
+
+  const handleRuleFieldChange = (field) => (event) => {
+    setRuleForm((prev) => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const handleSaveRule = () => {
+    // TODO: wire up to real create-rule submission once the API is available
+    setShowCreateModal(false);
+    setShowSuccessModal(true);
+  };
+
+  const handleSuccessBack = () => {
+    setShowSuccessModal(false);
+  };
 
   const filteredData = useMemo(() => {
     return allFraudRulesData.filter((item) => {
@@ -142,6 +191,16 @@ export default function AllFraudRulesPage() {
             {/* Export */}
             <ExportFile rows={filteredData} />
 
+            {/* Create Rule */}
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="flex h-10 items-center gap-1.5 rounded-lg border border-[#FF4D4F] bg-white px-4 text-[13px] font-semibold text-[#FF4D4F]"
+            >
+              Create Rule
+              <Plus size={14} />
+            </button>
+
           </div>
         </div>
 
@@ -150,7 +209,7 @@ export default function AllFraudRulesPage() {
 
           <div className="w-full overflow-x-auto">
 
-            <table className="w-full min-w-[1500px] border-collapse">
+            <table className="w-full min-w-[1750px] border-collapse">
 
               <thead className="bg-[#F8F9FB]">
                 <tr>
@@ -202,8 +261,12 @@ export default function AllFraudRulesPage() {
                         {item.ruleName}
                       </td>
 
-                      <td className="max-w-[320px] px-4 py-4">
+                      <td className="max-w-[280px] px-4 py-4">
                         {item.ruleDescription}
+                      </td>
+
+                      <td className="max-w-[280px] px-4 py-4">
+                        {item.ruleExpression}
                       </td>
 
                       <td className="whitespace-nowrap px-4 py-4">
@@ -291,6 +354,209 @@ export default function AllFraudRulesPage() {
           Copyright@2026 design by secureedge
         </p>
       </footer>
+
+      {/* Create Fraud Rule Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/45">
+          <div className="w-[940px] max-w-[92vw] max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-8 shadow-2xl">
+
+            <div className="mb-6 flex items-start justify-between">
+              <h3 className="text-[17px] font-bold text-[#202224]">
+                Create Fraud Rule
+              </h3>
+
+              <button
+                type="button"
+                onClick={closeCreateModal}
+                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[#202224] text-white"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+
+              {/* Choose Category */}
+              <div>
+                <label className="mb-2 block text-[12px] font-semibold text-[#202224]">
+                  Choose Category
+                </label>
+
+                <div className="relative">
+                  <select
+                    value={ruleForm.categoryId}
+                    onChange={handleRuleFieldChange("categoryId")}
+                    className="h-11 w-full appearance-none rounded-lg border border-[#E5E7EB] bg-[#FAFAFA] px-4 pr-9 text-[13px] text-[#202224] outline-none"
+                  >
+                    <option value="">Select Category</option>
+                    {CATEGORY_OPTIONS.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <ChevronDown
+                    size={15}
+                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#808080]"
+                  />
+                </div>
+              </div>
+
+              {/* Rule Name */}
+              <div>
+                <label className="mb-2 block text-[12px] font-semibold text-[#202224]">
+                  Rule Name
+                </label>
+
+                <input
+                  type="text"
+                  disabled={!isCategorySelected}
+                  value={ruleForm.ruleName}
+                  onChange={handleRuleFieldChange("ruleName")}
+                  placeholder="Rule Name"
+                  className="h-11 w-full rounded-lg border border-[#E5E7EB] bg-[#FAFAFA] px-4 text-[13px] text-[#202224] outline-none disabled:cursor-not-allowed disabled:text-[#B0B0B0]"
+                />
+              </div>
+
+              {/* Rule Code */}
+              <div>
+                <label className="mb-2 block text-[12px] font-semibold text-[#202224]">
+                  Rule Code
+                </label>
+
+                <input
+                  type="text"
+                  disabled={!isCategorySelected}
+                  value={ruleForm.ruleCode}
+                  onChange={handleRuleFieldChange("ruleCode")}
+                  placeholder="Rule Code"
+                  className="h-11 w-full rounded-lg border border-[#E5E7EB] bg-[#FAFAFA] px-4 text-[13px] text-[#202224] outline-none disabled:cursor-not-allowed disabled:text-[#B0B0B0]"
+                />
+              </div>
+
+              {/* Rule Description */}
+              <div>
+                <label className="mb-2 block text-[12px] font-semibold text-[#202224]">
+                  Rule Description
+                </label>
+
+                <textarea
+                  disabled={!isCategorySelected}
+                  value={ruleForm.ruleDescription}
+                  onChange={handleRuleFieldChange("ruleDescription")}
+                  placeholder="Write a description"
+                  rows={1}
+                  className="h-11 w-full resize-none overflow-hidden rounded-lg border border-[#E5E7EB] bg-[#FAFAFA] px-4 py-3 text-[13px] text-[#202224] outline-none disabled:cursor-not-allowed disabled:text-[#B0B0B0]"
+                />
+              </div>
+
+              {/* Rule Expression */}
+              <div>
+                <label className="mb-2 block text-[12px] font-semibold text-[#202224]">
+                  Rule Expression
+                </label>
+
+                <input
+                  type="text"
+                  disabled={!isCategorySelected}
+                  value={ruleForm.ruleExpression}
+                  onChange={handleRuleFieldChange("ruleExpression")}
+                  placeholder="Rule Expression"
+                  className="h-11 w-full rounded-lg border border-[#E5E7EB] bg-[#FAFAFA] px-4 text-[13px] text-[#202224] outline-none disabled:cursor-not-allowed disabled:text-[#B0B0B0]"
+                />
+              </div>
+
+            </div>
+
+            {!isCategorySelected && (
+              <p className="mt-5 text-[13px] font-semibold text-[#FF4D4F]">
+                Please select a category first to fill in the other fields.
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleSaveRule}
+              className="mt-6 h-[46px] w-[140px] rounded-lg border-none bg-[#3A3A3A] text-[14px] font-semibold text-white"
+            >
+              Save
+            </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* Create Fraud Rule Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55">
+          <div className="w-[760px] max-w-[94vw] rounded-lg bg-white px-12 py-14 text-center shadow-2xl">
+
+            <div className="mb-6 flex justify-center">
+              <svg
+                width="88"
+                height="88"
+                viewBox="0 0 88 88"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="44"
+                  cy="44"
+                  r="40"
+                  stroke="#111111"
+                  strokeWidth="3"
+                  fill="none"
+                  strokeDasharray="252"
+                  strokeDashoffset="252"
+                  style={{
+                    animation: "drawCircleFraud 0.6s ease-out forwards",
+                  }}
+                />
+                <path
+                  d="M27 45 L39 57 L61 33"
+                  stroke="#EB5757"
+                  strokeWidth="4"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="46"
+                  strokeDashoffset="46"
+                  style={{
+                    animation:
+                      "drawCheckFraud 0.4s ease-out 0.55s forwards",
+                  }}
+                />
+              </svg>
+
+              <style>{`
+                @keyframes drawCircleFraud {
+                  to { stroke-dashoffset: 0; }
+                }
+                @keyframes drawCheckFraud {
+                  to { stroke-dashoffset: 0; }
+                }
+              `}</style>
+            </div>
+
+            <h3 className="mb-4 text-[20px] font-semibold text-[#202224]">
+              Fraud Rule Create
+            </h3>
+
+            <p className="mx-auto mb-8 max-w-[420px] text-[14px] leading-6 text-[#7A7A7A]">
+              Fraud Rule Create  has been updated successfully.
+            </p>
+
+            <button
+              type="button"
+              onClick={handleSuccessBack}
+              className="h-[46px] w-[160px] rounded-lg border-none bg-[#4B4B4B] text-[14px] font-semibold text-white"
+            >
+              Back to Page
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

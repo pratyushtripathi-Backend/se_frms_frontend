@@ -6,6 +6,8 @@ export const allFraudRulesData = [
     ruleName: "Rule Name",
     ruleDescription:
       "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    ruleExpression:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     createdBy: "Admin",
     createdDate: "12-05-2025",
     createdTime: "11:30 AM",
@@ -19,6 +21,8 @@ export const allFraudRulesData = [
     ruleCode: "5545657",
     ruleName: "Rule Name",
     ruleDescription:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    ruleExpression:
       "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     createdBy: "Admin",
     createdDate: "12-05-2025",
@@ -34,6 +38,8 @@ export const allFraudRulesData = [
     ruleName: "Rule Name",
     ruleDescription:
       "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    ruleExpression:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     createdBy: "Admin",
     createdDate: "12-05-2025",
     createdTime: "11:30 AM",
@@ -47,6 +53,8 @@ export const allFraudRulesData = [
     ruleCode: "5545657",
     ruleName: "Rule Name",
     ruleDescription:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    ruleExpression:
       "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     createdBy: "Admin",
     createdDate: "12-05-2025",
@@ -62,6 +70,8 @@ export const allFraudRulesData = [
     ruleName: "Rule Name",
     ruleDescription:
       "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    ruleExpression:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     createdBy: "Admin",
     createdDate: "12-05-2025",
     createdTime: "11:30 AM",
@@ -75,6 +85,8 @@ export const allFraudRulesData = [
     ruleCode: "5545657",
     ruleName: "Rule Name",
     ruleDescription:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    ruleExpression:
       "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     createdBy: "Admin",
     createdDate: "12-05-2025",
@@ -90,6 +102,8 @@ export const allFraudRulesData = [
     ruleName: "Rule Name",
     ruleDescription:
       "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    ruleExpression:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     createdBy: "Admin",
     createdDate: "12-05-2025",
     createdTime: "11:30 AM",
@@ -103,6 +117,8 @@ export const allFraudRulesData = [
     ruleCode: "5545657",
     ruleName: "Rule Name",
     ruleDescription:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    ruleExpression:
       "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     createdBy: "Admin",
     createdDate: "12-05-2025",
@@ -118,6 +134,8 @@ export const allFraudRulesData = [
     ruleName: "Rule Name",
     ruleDescription:
       "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    ruleExpression:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     createdBy: "Admin",
     createdDate: "12-05-2025",
     createdTime: "11:30 AM",
@@ -131,6 +149,8 @@ export const allFraudRulesData = [
     ruleCode: "5545657",
     ruleName: "Rule Name",
     ruleDescription:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    ruleExpression:
       "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
     createdBy: "Admin",
     createdDate: "12-05-2025",
