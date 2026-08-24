@@ -26,8 +26,8 @@ import AccessMasterPage from "./components/AccessMasterPage";
 import RoleAccessPage from "./components/RoleAccessPage";
 import UserRolePage from "./components/UserRolePage";
 
-// Not built yet — keep commented until the component exists
-// import FraudAlertPage from "./components/FraudAlertPage";
+// Fraud Alert
+import FraudAlertPage from "./components/FraudAlertPage";
 
 // Fraud Details sub-pages
 import CreateRulePage from "./components/CreateRulesPage";
@@ -152,8 +152,8 @@ export default function App() {
 
         {currentPage === "user-role" && <UserRolePage />}
 
-        {/* Not built yet — uncomment once FraudAlertPage exists */}
-        {/* {currentPage === "fraud-alert" && <FraudAlertPage />} */}
+        {/* Fraud Alert */}
+        {currentPage === "fraud-alert" && <FraudAlertPage />}
 
         {/* Fraud Details */}
         {currentPage === "create-rule" && <CreateRulePage />}
