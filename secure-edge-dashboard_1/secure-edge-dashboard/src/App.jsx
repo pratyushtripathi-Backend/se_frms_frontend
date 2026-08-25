@@ -29,6 +29,9 @@ import UserRolePage from "./components/UserRolePage";
 // Fraud Alert
 import FraudAlertPage from "./components/FraudAlertPage";
 
+// Case Management
+import CaseManagementPage from "./components/CaseManagementPage";
+
 // Fraud Details sub-pages
 import CreateRulePage from "./components/CreateRulesPage";
 import AllFraudRulesPage from "./components/AllFraudRulesPage";
@@ -65,6 +68,8 @@ export default function App() {
     "user-role": "User Role",
 
     "fraud-alert": "Fraud Alert",
+
+    "case-management": "Case Management",
 
     "create-rule": "Create Rule",
     "all-fraud-rules": "All Fraud Rules",
@@ -154,6 +159,9 @@ export default function App() {
 
         {/* Fraud Alert */}
         {currentPage === "fraud-alert" && <FraudAlertPage />}
+
+        {/* Case Management */}
+        {currentPage === "case-management" && <CaseManagementPage />}
 
         {/* Fraud Details */}
         {currentPage === "create-rule" && <CreateRulePage />}

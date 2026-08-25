@@ -20,7 +20,7 @@ const NAV_ITEMS = [
   { label: "Fraud Alert", icon: AlertTriangle, page: "fraud-alert" },
   { label: "Transaction Monitoring", icon: Monitor, chevron: true },
   { label: "Risk Analytics", icon: BarChart3 },
-  { label: "Case Management", icon: FolderSearch },
+  { label: "Case Management", icon: FolderSearch, page: "case-management" },
   { label: "User Management", icon: User, chevron: true },
   { label: "Report", icon: FileText },
   { label: "Login Details", icon: Lock, chevron: true },
