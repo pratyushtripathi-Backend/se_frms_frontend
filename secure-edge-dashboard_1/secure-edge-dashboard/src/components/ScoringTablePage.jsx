@@ -284,7 +284,7 @@ export default function ScoringTablePage() {
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={styles.headerRow}>
-          <div style={styles.title}>Transaction Data</div>
+          <div style={styles.title}>Scoring Data</div>
 
           <div style={styles.controls}>
             <div style={{ position: "relative" }}>

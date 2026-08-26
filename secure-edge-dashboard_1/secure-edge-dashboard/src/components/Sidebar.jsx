@@ -17,10 +17,10 @@ import { useState } from "react";
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutGrid, page: "dashboard" },
   { label: "Fraud Details", icon: FileEdit, chevron: true },
-  { label: "Fraud Alert", icon: AlertTriangle },
+  { label: "Fraud Alert", icon: AlertTriangle, page: "fraud-alert" },
   { label: "Transaction Monitoring", icon: Monitor, chevron: true },
   { label: "Risk Analytics", icon: BarChart3 },
-  { label: "Case Management", icon: FolderSearch },
+  { label: "Case Management", icon: FolderSearch, page: "case-management" },
   { label: "User Management", icon: User, chevron: true },
   { label: "Report", icon: FileText },
   { label: "Login Details", icon: Lock, chevron: true },
@@ -75,7 +75,7 @@ export default function Sidebar({ currentPage, onLogout, setCurrentPage }) {
   return (
     <aside className="relative flex h-screen w-[260px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-panel">
       {/* Logo */}
-      <div className="relative z-10 flex items-center px-7 pt-8 pb-5">
+      <div className="relative z-10 flex items-center px-7 pt-4 pb-5">
         <img
           src="/logo.png"
           alt="Secure Edge"
