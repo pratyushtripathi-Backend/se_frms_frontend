@@ -2,6 +2,7 @@ import { useState, useRef, useMemo, useEffect } from "react";
 import {
   CalendarDays,
   ChevronDown,
+  RotateCcw,
 } from "lucide-react";
 
 import ExportFile from "./ExportFile";
@@ -239,10 +240,10 @@ export default function LoginSessionPage({ searchQuery = "" }) {
             <button
               type="button"
               onClick={handleClearDateFilter}
-              disabled={!fromDate && !toDate}
-              className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+              className="flex h-10 items-center gap-2 rounded-lg bg-[#333333] px-8 text-[12px] font-semibold text-white"
             >
-              RESET
+              <RotateCcw size={15} />
+              Reset
             </button>
 
             {/* Export */}

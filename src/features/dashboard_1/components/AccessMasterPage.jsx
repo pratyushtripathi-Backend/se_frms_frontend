@@ -4,6 +4,7 @@ import {
   Plus,
   X,
   ChevronDown,
+  RotateCcw,
 } from "lucide-react";
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import {
@@ -361,9 +362,9 @@ export default function AccessMasterPage({ searchQuery = "" }) {
             <button
               type="button"
               onClick={handleResetFilters}
-              disabled={!isLocalFilterActive}
-              className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+              className="flex h-10 items-center gap-2 rounded-lg bg-[#333333] px-8 text-[12px] font-semibold text-white"
             >
+              <RotateCcw size={15} />
               Reset
             </button>
 

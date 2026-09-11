@@ -1,0 +1,121 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family:
+    Poppins, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+.frms-password-input::-ms-reveal,
+.frms-password-input::-ms-clear {
+  display: none;
+}
+
+.frms-password-input::-webkit-credentials-auto-fill-button,
+.frms-password-input::-webkit-caps-lock-indicator,
+.frms-password-input::-webkit-contacts-auto-fill-button {
+  visibility: hidden;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
+
+/*
+ * Makes the dashboard render at the same density as plain 90% browser zoom,
+ * while the real browser zoom stays at 100%.
+ *
+ * Deliberately uses `transform: scale()`, NOT the CSS `zoom` property.
+ * `zoom` looked correct for plain CSS layout, but this dashboard's charts
+ * (Recharts' <ResponsiveContainer>) measure their pixel size at runtime via
+ * getBoundingClientRect()/ResizeObserver. Under `zoom`, that measurement
+ * already comes back post-zoom, and the SVG it draws then gets zoomed
+ * *again* by the browser - so every chart rendered roughly zoom×zoom too
+ * small/skewed instead of matching the rest of the page. `transform` is a
+ * paint-only operation: ResizeObserver/getBoundingClientRect keep reporting
+ * true, un-scaled CSS pixel sizes to JS, so Recharts measures correctly and
+ * the single transform then scales the already-correct chart down with
+ * everything else - no double scaling.
+ *
+ * The scale factor below must equal the real browser zoom we're mimicking
+ * (90% zoom => 0.9). It previously carried a leftover value of 0.81 (= 0.9
+ * squared) from an earlier nested-zoom approach that was double-applying
+ * the scale; with a single `transform`, that squared value made the page
+ * render smaller/denser than real 90% zoom.
+ */
+.dashboard-browser-scale {
+  width: calc(100vw / 0.9);
+  height: calc(100vh / 0.9);
+  transform: scale(0.9);
+  transform-origin: top left;
+}
+
+.dashboard-density {
+  font-size: 12px;
+}
+
+.dashboard-density h1 {
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.dashboard-density h2 {
+  font-size: 16px;
+  line-height: 1.35;
+  font-weight: 600;
+  color: #202224;
+}
+
+.dashboard-density table {
+  font-size: 12px;
+}
+
+.dashboard-density th,
+.dashboard-density td {
+  font-size: 12px !important;
+  line-height: 1.45;
+}
+
+.dashboard-density th {
+  font-weight: 600 !important;
+  color: #5a5a5a !important;
+}
+
+.dashboard-density td {
+  color: #4b5563;
+}
+
+.dashboard-density input,
+.dashboard-density select,
+.dashboard-density textarea,
+.dashboard-density button {
+  font-size: 12px;
+}
+
+.dashboard-density input,
+.dashboard-density select {
+  min-height: 40px;
+}
+
+.dashboard-density .rounded-\[20px\].bg-white.p-6,
+.dashboard-density [style*="border-radius: 20px"],
+.dashboard-density [style*="borderRadius: 20px"] {
+  border-radius: 20px;
+}
+
+.dashboard-density [style*="font-size: 13px"],
+.dashboard-density [style*="fontSize: 13px"],
+.dashboard-density [style*="font-size: 14px"],
+.dashboard-density [style*="fontSize: 14px"] {
+  font-size: 12px !important;
+}

@@ -31,19 +31,22 @@ body {
   right: 0;
 }
 
-.dashboard-browser-scale {
-  width: calc(100vw / 0.9);
-  height: calc(100vh / 0.9);
-  zoom: 0.9;
-}
-
-@supports not (zoom: 0.9) {
-  .dashboard-browser-scale {
-    width: calc(100vw / 0.9);
-    height: calc(100vh / 0.9);
-    transform: scale(0.9);
-    transform-origin: top left;
-  }
+/*
+ * Shrinks every page EXCEPT Dashboard Overview back to the compact density
+ * they had earlier, without touching Dashboard Overview - that page was
+ * already resized component-by-component to match Figma directly and does
+ * not need (and must not get) this on top of that.
+ *
+ * Uses CSS `zoom`, not `transform: scale()`, deliberately: none of these
+ * other pages render Recharts (only the Dashboard Overview charts do,
+ * confirmed via grep), so the zoom-vs-ResponsiveContainer double-scaling
+ * bug that ruled out `zoom` for the dashboard doesn't apply here. `zoom`
+ * also - unlike `transform` - actually shrinks the element's reserved
+ * layout box, so there's no leftover blank scroll space at the bottom of
+ * a page the way `transform: scale()` would leave.
+ */
+.page-density-zoom {
+  zoom: 0.81;
 }
 
 .dashboard-density {

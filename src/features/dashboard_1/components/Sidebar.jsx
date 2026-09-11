@@ -8,22 +8,26 @@ import {
   User,
   FileText,
   Lock,
+  FileCheck2,
   ChevronRight,
   ChevronDown,
   LogOut,
+  Bell,
 } from "lucide-react";
 import { useState } from "react";
 
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutGrid, page: "dashboard" },
   { label: "Fraud Details", icon: FileEdit, chevron: true },
-  { label: "Fraud Alert", icon: AlertTriangle },
-  { label: "Transaction Monitoring", icon: Monitor },
+  { label: "Fraud Alert", icon: AlertTriangle, page: "fraud-alert" },
+  { label: "Transaction Monitoring", icon: Monitor, chevron: true },
   { label: "Risk Analytics", icon: BarChart3 },
-  { label: "Case Management", icon: FolderSearch },
+  { label: "Case Management", icon: FolderSearch, page: "case-management" },
   { label: "User Management", icon: User, chevron: true },
-  { label: "Report", icon: FileText },
+  { label: "Report", icon: FileText, page: "report" },
   { label: "Login Details", icon: Lock, chevron: true },
+  { label: "Audit Trail", icon: FileCheck2, page: "audit-trail" },
+  { label: "Notification Record", icon: Bell, page: "notification-record" },
 ];
 
 const LOGIN_DETAILS_ITEMS = [
@@ -44,17 +48,48 @@ const USER_MANAGEMENT_ITEMS = [
 ];
 
 const FRAUD_DETAILS_ITEMS = [
-  { label: "Create Rule", page: "create-rule" },
   { label: "All Fraud Rules", page: "all-fraud-rules" },
   { label: "All Rule Score", page: "all-rule-score" },
   { label: "All Category", page: "all-category" },
+  { label: "Black List Entry", page: "black-list-entry" },
 ];
+
+const TRANSACTION_MONITORING_ITEMS = [
+  { label: "Transaction Data", page: "transaction-data" },
+  { label: "Scoring Table", page: "scoring-table" },
+  { label: "Matched Rule", page: "matched-rule" },
+  { label: "Decision Policy", page: "decision-policy" },
+  { label: "Decision Table", page: "decision-table" },
+];
+
+function SubNavButton({ currentPage, item, setCurrentPage }) {
+  const isActive = currentPage === item.page;
+
+  return (
+    <button
+      className={`flex w-full items-center rounded-md px-2 py-1 text-left text-[10px] font-semibold transition-colors hover:bg-brand-bg hover:text-[#111827] ${
+        isActive ? "text-brand-red" : "text-brand-dim"
+      }`}
+      onClick={() => setCurrentPage?.(item.page)}
+      type="button"
+    >
+      <span>{item.label}</span>
+      <span
+        className={`ml-auto h-4 w-[2px] rounded-full ${
+          isActive ? "bg-brand-red" : "bg-transparent"
+        }`}
+      />
+    </button>
+  );
+}
 
 export default function Sidebar({ currentPage, onLogout, setCurrentPage }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLoginDetailsOpen, setIsLoginDetailsOpen] = useState(false);
   const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
   const [isFraudDetailsOpen, setIsFraudDetailsOpen] = useState(false);
+  const [isTransactionMonitoringOpen, setIsTransactionMonitoringOpen] =
+    useState(false);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -63,13 +98,13 @@ export default function Sidebar({ currentPage, onLogout, setCurrentPage }) {
   };
 
   return (
-    <aside className="relative flex h-screen w-[260px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-panel">
+    <aside className="relative flex h-screen w-[225px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-panel">
       {/* Logo */}
-      <div className="relative z-10 flex items-center px-7 pt-8 pb-5">
+      <div className="relative z-10 flex items-center px-6 pt-5 pb-3">
         <img
           src="/logo.png"
           alt="Secure Edge"
-          className="w-[180px] h-auto object-contain"
+          className="w-[140px] h-auto object-contain"
         />
       </div>
 
@@ -79,16 +114,22 @@ export default function Sidebar({ currentPage, onLogout, setCurrentPage }) {
           const isLoginDetails = label === "Login Details";
           const isUserManagement = label === "User Management";
           const isFraudDetails = label === "Fraud Details";
+          const isTransactionMonitoring = label === "Transaction Monitoring";
           const active =
             currentPage === page ||
             (isFraudDetails &&
               FRAUD_DETAILS_ITEMS.some((item) => item.page === currentPage)) ||
+            (isTransactionMonitoring &&
+              TRANSACTION_MONITORING_ITEMS.some(
+                (item) => item.page === currentPage,
+              )) ||
             (isLoginDetails &&
               LOGIN_DETAILS_ITEMS.some((item) => item.page === currentPage)) ||
             (isUserManagement &&
               USER_MANAGEMENT_ITEMS.some((item) => item.page === currentPage));
           const ChevronIcon =
             (isFraudDetails && isFraudDetailsOpen) ||
+            (isTransactionMonitoring && isTransactionMonitoringOpen) ||
             (isLoginDetails && isLoginDetailsOpen) ||
             (isUserManagement && isUserManagementOpen)
               ? ChevronDown
@@ -97,7 +138,7 @@ export default function Sidebar({ currentPage, onLogout, setCurrentPage }) {
           return (
             <div key={label}>
               <button
-                className={`relative flex w-full items-center gap-2.5 px-6 py-2 text-left text-[12px] whitespace-nowrap transition-colors ${
+                className={`relative flex w-full items-center gap-1.5 px-4 py-1.5 text-left text-[10.5px] whitespace-nowrap transition-colors ${
                   active
                     ? "font-bold text-[#111827]"
                     : "font-semibold text-[#111827] hover:text-[#111827]"
@@ -105,6 +146,11 @@ export default function Sidebar({ currentPage, onLogout, setCurrentPage }) {
                 onClick={() => {
                   if (isFraudDetails) {
                     setIsFraudDetailsOpen((isOpen) => !isOpen);
+                    return;
+                  }
+
+                  if (isTransactionMonitoring) {
+                    setIsTransactionMonitoringOpen((isOpen) => !isOpen);
                     return;
                   }
 
@@ -128,12 +174,12 @@ export default function Sidebar({ currentPage, onLogout, setCurrentPage }) {
                   <img
                     src="/arc.png"
                     alt=""
-                    className="pointer-events-none absolute right-[-16px] top-1/2 h-12 w-auto -translate-y-1/2"
+                    className="pointer-events-none absolute right-[-16px] top-1/2 h-9 w-auto -translate-y-1/2"
                   />
                 )}
 
                 <Icon
-                  size={17}
+                  size={14}
                   strokeWidth={2}
                   className={active ? "text-brand-red" : "text-[#111827]"}
                 />
@@ -143,72 +189,67 @@ export default function Sidebar({ currentPage, onLogout, setCurrentPage }) {
                     {label}
                   </span>
 
-                  {active && (
-                    <span className="ml-4 h-6 w-[2px] rounded-full bg-brand-red" />
+                  {currentPage === page && (
+                    <span className="ml-3 h-5 w-[2px] rounded-full bg-brand-red" />
                   )}
                 </div>
 
                 {chevron && (
                   <ChevronIcon
-                    size={14}
+                    size={12}
                     className="ml-auto text-brand-dim/70"
                   />
                 )}
               </button>
 
               {isFraudDetails && isFraudDetailsOpen && (
-                <div className="ml-11 mr-5 space-y-1 border-l border-brand-border py-1 pl-4">
+                <div className="ml-9 mr-5 space-y-0.5 py-1 pl-3">
                   {FRAUD_DETAILS_ITEMS.map((item) => (
-                    <button
-                      className={`block w-full rounded-md px-2 py-1.5 text-left text-[11px] font-semibold transition-colors hover:bg-brand-bg hover:text-[#111827] ${
-                        currentPage === item.page
-                          ? "text-brand-red"
-                          : "text-brand-dim"
-                      }`}
+                    <SubNavButton
+                      currentPage={currentPage}
+                      item={item}
                       key={item.page}
-                      onClick={() => setCurrentPage?.(item.page)}
-                      type="button"
-                    >
-                      {item.label}
-                    </button>
+                      setCurrentPage={setCurrentPage}
+                    />
                   ))}
                 </div>
               )}
 
               {isLoginDetails && isLoginDetailsOpen && (
-                <div className="ml-11 mr-5 space-y-1 border-l border-brand-border py-1 pl-4">
+                <div className="ml-9 mr-5 space-y-0.5 py-1 pl-3">
                   {LOGIN_DETAILS_ITEMS.map((item) => (
-                    <button
-                      className={`block w-full rounded-md px-2 py-1.5 text-left text-[11px] font-semibold transition-colors hover:bg-brand-bg hover:text-[#111827] ${
-                        currentPage === item.page
-                          ? "text-brand-red"
-                          : "text-brand-dim"
-                      }`}
+                    <SubNavButton
+                      currentPage={currentPage}
+                      item={item}
                       key={item.page}
-                      onClick={() => setCurrentPage?.(item.page)}
-                      type="button"
-                    >
-                      {item.label}
-                    </button>
+                      setCurrentPage={setCurrentPage}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {isTransactionMonitoring && isTransactionMonitoringOpen && (
+                <div className="ml-9 mr-5 space-y-0.5 py-1 pl-3">
+                  {TRANSACTION_MONITORING_ITEMS.map((item) => (
+                    <SubNavButton
+                      currentPage={currentPage}
+                      item={item}
+                      key={item.page}
+                      setCurrentPage={setCurrentPage}
+                    />
                   ))}
                 </div>
               )}
 
               {isUserManagement && isUserManagementOpen && (
-                <div className="ml-11 mr-5 space-y-1 border-l border-brand-border py-1 pl-4">
+                <div className="ml-9 mr-5 space-y-0.5 py-1 pl-3">
                   {USER_MANAGEMENT_ITEMS.map((item) => (
-                    <button
-                      className={`block w-full rounded-md px-2 py-1.5 text-left text-[11px] font-semibold transition-colors hover:bg-brand-bg hover:text-[#111827] ${
-                        currentPage === item.page
-                          ? "text-brand-red"
-                          : "text-brand-dim"
-                      }`}
+                    <SubNavButton
+                      currentPage={currentPage}
+                      item={item}
                       key={item.page}
-                      onClick={() => setCurrentPage?.(item.page)}
-                      type="button"
-                    >
-                      {item.label}
-                    </button>
+                      setCurrentPage={setCurrentPage}
+                    />
                   ))}
                 </div>
               )}
@@ -218,15 +259,15 @@ export default function Sidebar({ currentPage, onLogout, setCurrentPage }) {
       </nav>
 
       {/* Logout */}
-      <div className="relative z-10 px-6 pb-6 pt-3">
+      <div className="relative z-10 px-5 pb-4 pt-2">
         <button
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-red py-2.5 text-[12px] font-bold text-white shadow-card transition-colors hover:bg-brand-redDark disabled:cursor-not-allowed disabled:opacity-70"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-red py-2 text-[11px] font-bold text-white shadow-card transition-colors hover:bg-brand-redDark disabled:cursor-not-allowed disabled:opacity-70"
           disabled={isLoggingOut}
           onClick={handleLogout}
           type="button"
         >
           {isLoggingOut ? "Logging out..." : "Logout"}
-          <LogOut size={15} strokeWidth={2.2} />
+          <LogOut size={13} strokeWidth={2.2} />
         </button>
       </div>
     </aside>

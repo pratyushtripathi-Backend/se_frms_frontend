@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -6,57 +7,124 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
-  Cell,
 } from "recharts";
-import { fraudDetectionTrendData } from "./FraudDetectionTrendData";
+import { getFraudTrend } from "../services/analyticsService";
 
 const RED = "#F0424F";
 const BLUE = "#4C7EF3";
 
+// Same silent-poll pattern as StatCards.jsx / TransactionMonitoring.jsx -
+// keeps the chart close to real-time without hammering the backend.
+const AUTO_REFRESH_INTERVAL_MS = 5000;
+
+const GROUP_BY_OPTIONS = [
+  { label: "Month", value: "month" },
+  { label: "Quarter", value: "quarter" },
+  { label: "Year", value: "year" },
+];
+
+function normalizeTrendResponse(responseData) {
+  const payload = responseData?.responseData ?? responseData?.data ?? responseData ?? [];
+  const rows = Array.isArray(payload) ? payload : [];
+  return rows.map((row) => ({
+    period: row.period,
+    fraudAlertCount: Number(row.fraudAlertCount ?? 0),
+    blockedCount: Number(row.blockedCount ?? 0),
+  }));
+}
+
 export default function FraudDetectionTrend() {
+  const [activeSeries, setActiveSeries] = useState("fraud");
+  const [groupBy, setGroupBy] = useState("month");
+  const [chartData, setChartData] = useState([]);
+  const requestIdRef = useRef(0);
+
+  const loadTrend = useCallback(async ({ silent = false } = {}) => {
+    const requestId = ++requestIdRef.current;
+
+    try {
+      const response = await getFraudTrend({ groupBy });
+      if (requestId !== requestIdRef.current) return;
+      setChartData(normalizeTrendResponse(response?.data));
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return;
+      // A silent background refresh failing shouldn't wipe the last good
+      // chart off the screen - only clear it if the very first load fails.
+      if (!silent) {
+        setChartData([]);
+      }
+      console.error("Failed to load fraud trend", err);
+    }
+  }, [groupBy]);
+
+  useEffect(() => {
+    loadTrend();
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      loadTrend({ silent: true });
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [loadTrend]);
+
   return (
-    <div className="rounded-card border border-brand-border bg-brand-panel p-5 shadow-card">
+    <div className="rounded-card border border-brand-border bg-brand-panel p-4 shadow-card">
       {/* Header */}
       <div className="mb-1 flex items-center justify-between">
-        <h2 className="text-[15px] font-bold text-brand-ink">
+        <h2 className="text-[14px] font-bold text-brand-ink">
           Fraud Detection Trend
         </h2>
 
-        <select className="rounded-lg border border-brand-border px-3 py-1.5 text-[12.5px] text-brand-ink outline-none">
-          <option>Month</option>
-          <option>Quarter</option>
-          <option>Year</option>
+        <select
+          value={groupBy}
+          onChange={(e) => setGroupBy(e.target.value)}
+          className="rounded-lg border border-brand-border px-2.5 py-1 text-[11.5px] text-brand-ink outline-none"
+        >
+          {GROUP_BY_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
       </div>
 
       {/* Legend */}
-      <div className="mb-4 mt-2 flex gap-6 text-[13px] text-brand-ink">
-        <span className="flex items-center gap-2">
-          <span
-            className="h-2.5 w-2.5 rounded-sm"
-            style={{ backgroundColor: RED }}
-          />
+      <div className="mb-2 mt-1.5 flex gap-2 text-[11.5px]">
+        <button
+          type="button"
+          onClick={() => setActiveSeries("fraud")}
+          className={`rounded-full px-4 py-1.5 font-semibold transition-colors ${
+            activeSeries === "fraud"
+              ? "bg-[#1A1A1A] text-white"
+              : "bg-[#EFEFEF] text-[#6B7280]"
+          }`}
+        >
           Fraud Alert
-        </span>
+        </button>
 
-        <span className="flex items-center gap-2">
-          <span
-            className="h-2.5 w-2.5 rounded-sm"
-            style={{ backgroundColor: BLUE }}
-          />
-          Blocked Transaction
-        </span>
+        <button
+          type="button"
+          onClick={() => setActiveSeries("blocked")}
+          className={`rounded-full px-4 py-1.5 font-semibold transition-colors ${
+            activeSeries === "blocked"
+              ? "bg-[#1A1A1A] text-white"
+              : "bg-[#EFEFEF] text-[#6B7280]"
+          }`}
+        >
+          Block Transaction
+        </button>
       </div>
 
       {/* Chart */}
-      <div className="h-[300px] w-full">
+      <div className="h-[210px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={fraudDetectionTrendData}
+            data={chartData}
             margin={{
               top: 8,
-              right: 10,
-              left: 10,
+              right: 6,
+              left: 6,
               bottom: 0,
             }}
             barCategoryGap="28%"
@@ -68,16 +136,16 @@ export default function FraudDetectionTrend() {
             />
 
             <XAxis
-              dataKey="month"
+              dataKey="period"
               padding={{
                 left: 0,
                 right: 0,
               }}
               tick={{
-                fontSize: 11.5,
+                fontSize: 10,
                 fill: "#8A90A2",
               }}
-              tickMargin={10}
+              tickMargin={8}
               axisLine={{
                 stroke: "#E6E6E6",
               }}
@@ -85,23 +153,20 @@ export default function FraudDetectionTrend() {
             />
 
             <YAxis
-              domain={[0, 60]}
-              ticks={[0, 12, 30, 32, 45, 54, 60]}
+              allowDecimals={false}
               tick={{
-                fontSize: 11,
+                fontSize: 10,
                 fill: "#8A90A2",
               }}
-              tickMargin={8}
+              tickMargin={6}
               axisLine={false}
               tickLine={false}
             />
 
             <Tooltip
-              formatter={(v, _n, item) => [
+              formatter={(v, name) => [
                 v,
-                item.payload.type === "fraud"
-                  ? "Fraud Alert"
-                  : "Blocked Transaction",
+                name === "fraudAlertCount" ? "Fraud Alert" : "Blocked Transaction",
               ]}
               cursor={{ fill: "transparent" }}
               contentStyle={{
@@ -112,17 +177,20 @@ export default function FraudDetectionTrend() {
             />
 
             <Bar
-              dataKey="value"
-              barSize={50}
+              dataKey="fraudAlertCount"
+              fill={RED}
+              barSize={16}
               radius={0}
-            >
-              {fraudDetectionTrendData.map((item) => (
-                <Cell
-                  key={item.month}
-                  fill={item.type === "fraud" ? RED : BLUE}
-                />
-              ))}
-            </Bar>
+              hide={activeSeries === "blocked"}
+            />
+
+            <Bar
+              dataKey="blockedCount"
+              fill={BLUE}
+              barSize={16}
+              radius={0}
+              hide={activeSeries === "fraud"}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>

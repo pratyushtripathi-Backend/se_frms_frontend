@@ -137,3 +137,82 @@ export function deleteRuleScore(id) {
     skipAuthRedirect: true,
   });
 }
+
+export function createDecisionPolicy(payload) {
+  return apiClient.post("/decision-policy/create", payload, {
+    skipAuthRedirect: true,
+  });
+}
+
+export function getLatestDecisionPolicy() {
+  return apiClient.get("/decision-policy/latest", {
+    skipAuthRedirect: true,
+  });
+}
+
+const decisionApiBaseUrl =
+  import.meta.env.VITE_DECISION_API_BASE_URL ?? "http://localhost:8085/api/v1";
+
+export function getDecisions({ page = 0, size = 20 } = {}) {
+  return apiClient.get(`${decisionApiBaseUrl}/decisions`, {
+    params: {
+      page,
+      size,
+    },
+    skipAuthRedirect: true,
+  });
+}
+
+const scoringApiBaseUrl =
+  import.meta.env.VITE_SCORING_API_BASE_URL ?? "http://localhost:8085/api/v1";
+
+export function getScoringHistory({ page = 0, size = 20 } = {}) {
+  return apiClient.get(`${scoringApiBaseUrl}/scoring/history`, {
+    params: {
+      page,
+      size,
+    },
+    skipAuthRedirect: true,
+  });
+}
+
+export function getMatchedRules({ page = 0, size = 20 } = {}) {
+  return apiClient.get(`${scoringApiBaseUrl}/scoring/matched-rules`, {
+    params: {
+      page,
+      size,
+    },
+    skipAuthRedirect: true,
+  });
+}
+
+export function getCases({ status = "REVIEW", page = 0, size = 10 } = {}) {
+  return apiClient.get(`${decisionApiBaseUrl}/decisions/cases`, {
+    params: {
+      status,
+      page,
+      size,
+    },
+    skipAuthRedirect: true,
+  });
+}
+
+export function updateDecisionReview(decisionId, finalDecision) {
+  return apiClient.patch(
+    `${decisionApiBaseUrl}/decisions/${decisionId}/review`,
+    { finalDecision },
+    {
+      skipAuthRedirect: true,
+    },
+  );
+}
+
+export function getAuditLogs({ page = 0, size = 10 } = {}) {
+  return apiClient.get(`${decisionApiBaseUrl}/audit-logs`, {
+    params: {
+      page,
+      size,
+    },
+    skipAuthRedirect: true,
+  });
+}

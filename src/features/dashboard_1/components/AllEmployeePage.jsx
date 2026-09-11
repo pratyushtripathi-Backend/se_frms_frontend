@@ -4,7 +4,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
 } from "react-icons/fi";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, RotateCcw } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import {
@@ -333,7 +333,7 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
     th: {
       textAlign: "left",
       padding: "10px 18px",
-      fontSize: "12px",
+      fontSize: "13px",
       fontWeight: 600,
       color: "#555",
       whiteSpace: "nowrap",
@@ -347,7 +347,7 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
 
     td: {
       padding: "10px 18px",
-      fontSize: "12px",
+      fontSize: "13px",
       color: "#555",
       whiteSpace: "nowrap",
     },
@@ -651,9 +651,9 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
             <button
               type="button"
               onClick={handleResetFilters}
-              disabled={!isLocalFilterActive}
-              className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+              className="flex h-10 items-center gap-2 rounded-lg bg-[#333333] px-8 text-[12px] font-semibold text-white"
             >
+              <RotateCcw size={15} />
               Reset
             </button>
           </div>
@@ -1030,7 +1030,7 @@ function formatEmployeeDate(value) {
 
 function EmployeeDateTime({ date, time }) {
   return (
-    <div className="flex flex-col text-[12px] leading-5">
+    <div className="flex flex-col text-[13px] leading-5">
       <span className="font-medium text-[#2F80ED]">{date}</span>
       <span className="text-[#27AE60]">{time}</span>
     </div>

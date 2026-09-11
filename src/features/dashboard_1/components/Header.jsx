@@ -62,7 +62,11 @@ export default function Header({
 
         <div className="flex items-center gap-5">
           {/* Notification */}
-          <button className="relative grid h-9 w-9 place-items-center rounded-full text-brand-ink">
+          <button
+            type="button"
+            onClick={() => setCurrentPage?.("notifications")}
+            className="relative grid h-9 w-9 place-items-center rounded-full text-brand-ink transition-colors hover:bg-brand-bg"
+          >
             <Bell size={20} strokeWidth={1.8} />
 
             <span className="absolute -top-1 right-0 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand-red px-1 text-[10px] font-bold text-white">

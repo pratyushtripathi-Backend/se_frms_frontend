@@ -4,7 +4,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
 } from "react-icons/fi";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, RotateCcw } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import { getUsers, updateUser, updateUserStatus } from "../services/adminEmployeeService";
@@ -285,9 +285,9 @@ export default function AllUsersPage({ searchQuery = "" }) {
             <button
               type="button"
               onClick={handleResetFilters}
-              disabled={!isLocalFilterActive}
-              className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+              className="flex h-10 items-center gap-2 rounded-lg bg-[#333333] px-8 text-[12px] font-semibold text-white"
             >
+              <RotateCcw size={15} />
               Reset
             </button>
           </div>
@@ -317,7 +317,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
                 ].map((column) => (
                   <th
                     key={column}
-                    className="whitespace-nowrap px-[18px] py-2.5 text-left text-[12px] font-semibold text-[#555555]"
+                    className="whitespace-nowrap px-[18px] py-2.5 text-left text-[13px] font-semibold text-[#555555]"
                   >
                     {column}
                   </th>
@@ -329,7 +329,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
               {isLoading && (
                 <tr className="h-12 border-b border-[#F1F1F1]">
                   <td
-                    className="px-[18px] py-5 text-center text-[12px] text-[#555555]"
+                    className="px-[18px] py-5 text-center text-[13px] text-[#555555]"
                     colSpan={10}
                   >
                     Loading users...
@@ -340,7 +340,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
               {!isLoading && visibleUsers.length === 0 && (
                 <tr className="h-12 border-b border-[#F1F1F1]">
                   <td
-                    className="px-[18px] py-5 text-center text-[12px] text-[#555555]"
+                    className="px-[18px] py-5 text-center text-[13px] text-[#555555]"
                     colSpan={10}
                   >
                     No users found.
@@ -354,19 +354,19 @@ export default function AllUsersPage({ searchQuery = "" }) {
                     key={user.id}
                     className="relative h-12 border-b border-[#F1F1F1]"
                   >
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[12px] text-[#555555]">
+                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
                       {(currentPage - 1) * rowsPerPage + index + 1}
                     </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[12px] text-[#555555]">
+                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
                       {user.name}
                     </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[12px] text-[#555555]">
+                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
                       {user.email}
                     </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[12px] text-[#555555]">
+                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
                       {user.phoneNumber}
                     </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[12px] text-[#555555]">
+                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
                       {user.role}
                     </td>
                     <td className="whitespace-nowrap px-[18px] py-2.5">
@@ -377,7 +377,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
                         status={user.status}
                       />
                     </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[12px] text-[#555555]">
+                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
                       {user.createdBy}
                     </td>
                     <td className="whitespace-nowrap px-[18px] py-2.5">
@@ -555,7 +555,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
 
 function DateTime({ date, time }) {
   return (
-    <div className="flex flex-col text-[12px] leading-5">
+    <div className="flex flex-col text-[13px] leading-5">
       <span className="font-medium text-[#2F80ED]">{date}</span>
       <span className="text-[#27AE60]">{time}</span>
     </div>

@@ -5,6 +5,7 @@ import {
   Plus,
   Trash2,
   X,
+  RotateCcw,
 } from "lucide-react";
 import ExportFile from "./ExportFile";
 import { getAuthErrorMessage } from "../../auth/services/authError";
@@ -337,9 +338,9 @@ export default function AllCategoryPage({ searchQuery = "" }) {
             <button
               type="button"
               onClick={handleResetFilters}
-              disabled={!isLocalFilterActive}
-              className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+              className="flex h-10 items-center gap-2 rounded-lg bg-[#333333] px-8 text-[12px] font-semibold text-white"
             >
+              <RotateCcw size={15} />
               Reset
             </button>
 
@@ -379,7 +380,7 @@ export default function AllCategoryPage({ searchQuery = "" }) {
                   {TABLE_COLUMNS.map((column) => (
                     <th
                       key={column}
-                      className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[12px] font-semibold text-[#5A5A5A]"
+                      className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[13px] font-semibold text-[#5A5A5A]"
                     >
                       {column}
                     </th>
@@ -390,7 +391,7 @@ export default function AllCategoryPage({ searchQuery = "" }) {
               <tbody>
                 {isLoading && (
                   <tr>
-                    <td colSpan={TABLE_COLUMNS.length} className="px-4 py-5 text-center text-[12px] text-[#6B7280]">
+                    <td colSpan={TABLE_COLUMNS.length} className="px-4 py-5 text-center text-[13px] text-[#6B7280]">
                       Loading categories...
                     </td>
                   </tr>
@@ -398,7 +399,7 @@ export default function AllCategoryPage({ searchQuery = "" }) {
 
                 {!isLoading && visibleData.length === 0 && (
                   <tr>
-                    <td colSpan={TABLE_COLUMNS.length} className="px-4 py-5 text-center text-[12px] text-[#6B7280]">
+                    <td colSpan={TABLE_COLUMNS.length} className="px-4 py-5 text-center text-[13px] text-[#6B7280]">
                       No categories found.
                     </td>
                   </tr>
@@ -407,7 +408,7 @@ export default function AllCategoryPage({ searchQuery = "" }) {
                 {!isLoading && visibleData.map((item, index) => (
                   <tr
                     key={item.id}
-                    className="relative border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
+                    className="relative border-b border-[#EEF1F5] text-[13px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
                   >
                     <td className="px-4 py-4 font-medium">
                       {(currentPage - 1) * rowsPerPage + index + 1}
@@ -431,7 +432,7 @@ export default function AllCategoryPage({ searchQuery = "" }) {
                     </td>
 
                     <td className="px-4 py-4">
-                      <div className="flex flex-col text-[12px] leading-5">
+                      <div className="flex flex-col text-[13px] leading-5">
                         <span className="font-medium text-[#2F80ED]">
                           {item.createdDate}
                         </span>
@@ -443,7 +444,7 @@ export default function AllCategoryPage({ searchQuery = "" }) {
                     </td>
 
                     <td className="px-4 py-4">
-                      <div className="flex flex-col text-[12px] leading-5">
+                      <div className="flex flex-col text-[13px] leading-5">
                         <span className="font-medium text-[#2F80ED]">
                           {item.updatedDate}
                         </span>
@@ -471,7 +472,7 @@ export default function AllCategoryPage({ searchQuery = "" }) {
 
           <div className="flex items-center justify-between border-t border-[#ECECEC] bg-white px-6 py-4">
 
-            <p className="text-[12px] text-[#7A7A7A]">
+            <p className="text-[13px] text-[#7A7A7A]">
               Showing <strong>{showingFrom}</strong> - <strong>{showingTo}</strong>{" "}
               of <strong>{effectiveTotalRecords}</strong> transactions
             </p>

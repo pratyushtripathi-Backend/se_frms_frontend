@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import {
   CalendarDays,
-  Search,
   Plus,
   X,
   ChevronDown,
+  Pencil,
 } from "lucide-react";
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import {
@@ -13,26 +13,50 @@ import {
   updateEmailNotificationTemplate,
   updateEmailNotificationTemplateStatus,
 } from "../services/adminEmployeeService";
-import DashboardEditButton from "./DashboardEditButton";
 import DashboardStatusToggle from "./DashboardStatusToggle";
 
 import { openDashboardDatePicker } from "./dashboardDatePicker";
-const TABLE_COLUMNS = [
-  "Sr No",
-  "Body Text",
-  "Subject",
-  "Template Code",
-  "Channel",
-  "Status",
-  "Created By",
-  "Created Date",
-  "Updated At",
-  "Action",
-];
 
 const YEAR_OPTIONS = ["2026", "2025", "2024", "2023"];
 const TEMPLATE_CODE_OPTIONS = ["LOGIN_OTP", "Forgot Password", "Welcome Email", "OTP Verification", "Account Locked"];
 const CHANNEL_OPTIONS = ["EMAIL", "SMS"];
+
+// Static placeholder content for the Notification Review/Block cards, per the
+// updated Figma design. The API for these will be wired up separately later.
+const NOTIFICATION_CARDS = [
+  {
+    key: "block",
+    title: "Notification Review & Block Email format",
+    fraudDecision: "Block",
+    templateCode: "Block_Alert",
+    notificationType: "Email",
+    subject: "Block Alert High-Risk Transaction Detected",
+    bodyText:
+      "Lorem Ipsum has been the industry's standard dummy text ever since 1500, Lorem Ipsum has been the industry's standard dummy text ever since 1500.",
+    status: "Active",
+    createdBy: "Admin",
+    createdDate: "12-05-2025",
+    createdTime: "11:30 AM",
+    updatedDate: "12-05-2025",
+    updatedTime: "11:30 AM",
+  },
+  {
+    key: "review",
+    title: "Notification Review & Block Email format",
+    fraudDecision: "Review",
+    templateCode: "Review_Alert",
+    notificationType: "Email",
+    subject: "Review Alert High-Risk Transaction Detected",
+    bodyText:
+      "Lorem Ipsum has been the industry's standard dummy text ever since 1500, Lorem Ipsum has been the industry's standard dummy text ever since 1500.",
+    status: "Active",
+    createdBy: "Admin",
+    createdDate: "12-05-2025",
+    createdTime: "11:30 AM",
+    updatedDate: "12-05-2025",
+    updatedTime: "11:30 AM",
+  },
+];
 
 function CreateEmailFormatModal({ initialValues, isSaving, onClose, onSubmit }) {
   const [templateCode, setTemplateCode] = useState(initialValues?.templateCode ?? "");
@@ -282,52 +306,109 @@ function SuccessModal({ message, onClose }) {
   );
 }
 
-function DeleteConfirmModal({ isSaving, onCancel, onConfirm, template }) {
+function EmailFormatCard({
+  title,
+  fieldsRow,
+  extraRow,
+  bodyText,
+  status,
+  onToggleStatus,
+  createdBy,
+  createdDate,
+  createdTime,
+  updatedDate,
+  updatedTime,
+  showEdit = true,
+  onEdit,
+  onCreate,
+  isLoading = false,
+}) {
   return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 px-4">
-      <div className="w-[90%] max-w-[520px] rounded-[18px] bg-white px-8 py-8 shadow-2xl">
-        <div className="mb-5 flex items-start justify-between gap-5">
-          <div>
-            <h3 className="text-[20px] font-semibold text-[#202224]">
-              Confirm Delete
-            </h3>
-            <p className="mt-2 text-[14px] leading-6 text-[#7A7A7A]">
-              Are you sure you want to delete{" "}
-              <span className="font-semibold text-[#202224]">
-                {template?.templateCode}
-              </span>
-              ? This will only mark the template as inactive.
-            </p>
-          </div>
+    <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-[14px] font-semibold text-[#202224]">{title}</h3>
+
+        <div className="flex items-center gap-2">
+          {showEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-[#2F80ED] px-3 text-[12px] font-semibold text-[#2F80ED] transition-colors hover:bg-[#EFF6FF]"
+            >
+              Edit
+              <Pencil size={13} />
+            </button>
+          )}
 
           <button
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#111827] text-white"
-            onClick={onCancel}
             type="button"
+            onClick={onCreate}
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-[#FF0D0D] px-3 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1]"
           >
-            <X size={15} />
-          </button>
-        </div>
-
-        <div className="flex justify-end gap-3">
-          <button
-            className="h-[42px] rounded-[10px] border border-[#D1D5DB] bg-white px-5 text-[14px] font-semibold text-[#4B5563]"
-            disabled={isSaving}
-            onClick={onCancel}
-            type="button"
-          >
-            Cancel
-          </button>
-          <button
-            className="h-[42px] rounded-[10px] bg-[#DC2626] px-5 text-[14px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
-            disabled={isSaving}
-            onClick={onConfirm}
-            type="button"
-          >
-            {isSaving ? "Deleting..." : "Delete"}
+            Create format
+            <Plus size={13} strokeWidth={2.5} />
           </button>
         </div>
       </div>
+
+      {isLoading ? (
+        <p className="py-8 text-center text-[13px] text-[#9CA3AF]">Loading...</p>
+      ) : (
+        <>
+          <div className="mb-4 grid grid-cols-3 gap-4">
+            {fieldsRow.map((field) => (
+              <div key={field.label} className="min-w-0">
+                <p className="mb-1 text-[12px] text-[#9CA3AF]">{field.label}</p>
+                <p className="truncate text-[13px] font-medium text-[#202224]">
+                  {field.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {extraRow && (
+            <div className="mb-4">
+              <p className="mb-1 text-[12px] text-[#9CA3AF]">{extraRow.label}</p>
+              <p className="text-[13px] font-medium text-[#202224]">
+                {extraRow.value}
+              </p>
+            </div>
+          )}
+
+          <div className="mb-4">
+            <p className="mb-1 text-[12px] text-[#9CA3AF]">Body Text</p>
+            <p className="text-[13px] leading-5 text-[#4B5563]">{bodyText}</p>
+          </div>
+
+          <div className="grid grid-cols-4 gap-4 border-t border-[#F1F1F1] pt-4">
+            <div>
+              <p className="mb-1 text-[12px] text-[#9CA3AF]">Status</p>
+              <DashboardStatusToggle onToggle={onToggleStatus} status={status} />
+            </div>
+
+            <div>
+              <p className="mb-1 text-[12px] text-[#9CA3AF]">Created By</p>
+              <p className="text-[13px] text-[#4B5563]">{createdBy}</p>
+            </div>
+
+            <div>
+              <p className="mb-1 text-[12px] text-[#9CA3AF]">Created date</p>
+              <div className="flex flex-col text-[13px] leading-5">
+                <span className="font-medium text-[#2F80ED]">{createdDate}</span>
+                <span className="text-[#27AE60]">{createdTime}</span>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-1 text-[12px] text-[#9CA3AF]">Updated At</p>
+              <div className="flex flex-col text-[13px] leading-5">
+                <span className="font-medium text-[#2F80ED]">{updatedDate}</span>
+                <span className="text-[#27AE60]">{updatedTime}</span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -339,8 +420,6 @@ export default function EmailFormatPage() {
   const [emailTemplates, setEmailTemplates] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
-  const [openActionMenu, setOpenActionMenu] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -350,7 +429,6 @@ export default function EmailFormatPage() {
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
-  const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   async function loadEmailTemplates() {
     setIsLoading(true);
@@ -408,28 +486,21 @@ export default function EmailFormatPage() {
     };
   }, []);
 
-  const filteredData = useMemo(() => {
-    return emailTemplates.filter((item) => {
-      const itemDate = parseEmailTemplateDate(item.createdDate);
-      const yr = getEmailTemplateYear(item.createdDate);
+  const loginCredentialTemplate = useMemo(
+    () =>
+      emailTemplates.find((item) =>
+        matchesTemplateType(item.templateCode, ["logincredential", "loginotp", "login"]),
+      ) ?? null,
+    [emailTemplates],
+  );
 
-      if (year && yr !== year) return false;
-
-      if (fromDate && itemDate < parseDateOnly(fromDate)) return false;
-
-      if (toDate && itemDate > parseDateOnly(toDate, true)) return false;
-
-      return true;
-    });
-  }, [emailTemplates, year, fromDate, toDate]);
-
-  const visibleData = filteredData.slice(0, 10);
-
-  const handleResetFilters = () => {
-    setYear("");
-    setFromDate("");
-    setToDate("");
-  };
+  const forgotPasswordTemplate = useMemo(
+    () =>
+      emailTemplates.find((item) =>
+        matchesTemplateType(item.templateCode, ["forgotpassword", "forgot"]),
+      ) ?? null,
+    [emailTemplates],
+  );
 
   const handleSubmit = async (formValues) => {
     setErrorMessage("");
@@ -503,56 +574,12 @@ export default function EmailFormatPage() {
   };
 
   const handleEditTemplate = (item) => {
-    setOpenActionMenu(null);
+    if (!item) return;
+
     setEditingTemplate(item);
     setErrorMessage("");
     setSuccessMessage("");
     setShowFormModal(true);
-  };
-
-  const handleDeleteTemplate = (item) => {
-    setOpenActionMenu(null);
-    setSuccessMessage("");
-    setErrorMessage("");
-    setDeleteTarget(item);
-  };
-
-  const handleCancelDelete = () => {
-    if (isSavingTemplate) return;
-
-    setDeleteTarget(null);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
-
-    setIsSavingTemplate(true);
-
-    try {
-      const payload = buildEmailTemplatePayload(deleteTarget, {
-        status: false,
-      });
-      const response = await updateEmailNotificationTemplate(
-        deleteTarget.templateCode,
-        payload,
-      );
-
-      setDeleteTarget(null);
-      setSuccessMessage(
-        response.data?.responseMessage ||
-          "Email template status updated successfully.",
-      );
-      await loadEmailTemplates();
-    } catch (error) {
-      setErrorMessage(
-        getAuthErrorMessage(
-          error,
-          "Unable to update email template status. Please try again.",
-        ),
-      );
-    } finally {
-      setIsSavingTemplate(false);
-    }
   };
 
   return (
@@ -565,7 +592,7 @@ export default function EmailFormatPage() {
         <div className="mb-6 flex items-center justify-between">
 
           <h2 className="text-[17px] font-semibold text-[#202224]">
-            Email Format Deatils
+            Email Format
           </h2>
 
           <div className="flex items-center gap-3">
@@ -631,25 +658,6 @@ export default function EmailFormatPage() {
               </button>
             </>
 
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              disabled={!isLocalFilterActive}
-              className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
-            >
-              Reset
-            </button>
-
-            {/* Create format */}
-            <button
-              type="button"
-              onClick={handleOpenCreateFormat}
-              className="flex h-10 items-center gap-2 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[14px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1]"
-            >
-              <span>Create format</span>
-              <Plus size={16} strokeWidth={2.5} />
-            </button>
-
           </div>
         </div>
 
@@ -665,155 +673,95 @@ export default function EmailFormatPage() {
           </div>
         )}
 
-        {/* Table (no wrapping card/border) */}
-        <div className="w-full overflow-x-auto">
+        {/* Cards grid */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
 
-          <table className="w-full min-w-[1200px] border-collapse">
+          {/* Login Credential — live API */}
+          <EmailFormatCard
+            title="Login & Forgot Password Email Format"
+            fieldsRow={[
+              { label: "Subject", value: loginCredentialTemplate?.subject ?? "-" },
+              { label: "Template Code", value: loginCredentialTemplate?.templateCode ?? "-" },
+              { label: "Channel", value: loginCredentialTemplate?.channel ?? "-" },
+            ]}
+            bodyText={loginCredentialTemplate?.bodyText ?? "-"}
+            status={loginCredentialTemplate?.status}
+            onToggleStatus={
+              loginCredentialTemplate
+                ? (nextStatus) =>
+                    updateEmailNotificationTemplateStatus(
+                      loginCredentialTemplate.templateCode,
+                      nextStatus,
+                    )
+                : undefined
+            }
+            createdBy={loginCredentialTemplate?.createdBy ?? "-"}
+            createdDate={loginCredentialTemplate?.createdDate ?? "-"}
+            createdTime={loginCredentialTemplate?.createdTime ?? "-"}
+            updatedDate={loginCredentialTemplate?.updatedDate ?? "-"}
+            updatedTime={loginCredentialTemplate?.updatedTime ?? "-"}
+            showEdit={Boolean(loginCredentialTemplate)}
+            onEdit={() => handleEditTemplate(loginCredentialTemplate)}
+            onCreate={handleOpenCreateFormat}
+            isLoading={isLoading}
+          />
 
-            <thead className="bg-[#F8F9FB]">
-              <tr>
-                {TABLE_COLUMNS.map((column) => (
-                  <th
-                    key={column}
-                    className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[12px] font-semibold text-[#5A5A5A]"
-                  >
-                    {column}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+          {/* Forgot Password — live API */}
+          <EmailFormatCard
+            title="Login & Forgot Password Email Format"
+            fieldsRow={[
+              { label: "Subject", value: forgotPasswordTemplate?.subject ?? "-" },
+              { label: "Template Code", value: forgotPasswordTemplate?.templateCode ?? "-" },
+              { label: "Channel", value: forgotPasswordTemplate?.channel ?? "-" },
+            ]}
+            bodyText={forgotPasswordTemplate?.bodyText ?? "-"}
+            status={forgotPasswordTemplate?.status}
+            onToggleStatus={
+              forgotPasswordTemplate
+                ? (nextStatus) =>
+                    updateEmailNotificationTemplateStatus(
+                      forgotPasswordTemplate.templateCode,
+                      nextStatus,
+                    )
+                : undefined
+            }
+            createdBy={forgotPasswordTemplate?.createdBy ?? "-"}
+            createdDate={forgotPasswordTemplate?.createdDate ?? "-"}
+            createdTime={forgotPasswordTemplate?.createdTime ?? "-"}
+            updatedDate={forgotPasswordTemplate?.updatedDate ?? "-"}
+            updatedTime={forgotPasswordTemplate?.updatedTime ?? "-"}
+            showEdit={Boolean(forgotPasswordTemplate)}
+            onEdit={() => handleEditTemplate(forgotPasswordTemplate)}
+            onCreate={handleOpenCreateFormat}
+            isLoading={isLoading}
+          />
 
-            <tbody>
-              {isLoading && (
-                <tr className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563]">
-                  <td colSpan={TABLE_COLUMNS.length} className="px-4 py-6 text-center">
-                    Loading email templates...
-                  </td>
-                </tr>
-              )}
-
-              {!isLoading && visibleData.length === 0 && (
-                <tr className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563]">
-                  <td colSpan={TABLE_COLUMNS.length} className="px-4 py-6 text-center">
-                    No email templates found.
-                  </td>
-                </tr>
-              )}
-
-              {!isLoading && visibleData.map((item, index) => (
-                <tr
-                  key={item.id}
-                  className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
-                >
-                  <td className="px-4 py-4 font-medium align-top">
-                    {index + 1}
-                  </td>
-
-                  <td className="max-w-[220px] px-4 py-4 align-top leading-5">
-                    {item.bodyText}
-                  </td>
-
-                  <td className="whitespace-nowrap px-4 py-4 align-top">
-                    {item.subject}
-                  </td>
-
-                  <td className="whitespace-nowrap px-4 py-4 align-top">
-                    {item.templateCode}
-                  </td>
-
-                  <td className="whitespace-nowrap px-4 py-4 align-top">
-                    {item.channel}
-                  </td>
-
-                  <td className="px-4 py-4 align-top">
-                    <DashboardStatusToggle
-                      onToggle={(nextStatus) =>
-                        updateEmailNotificationTemplateStatus(
-                          item.templateCode,
-                          nextStatus,
-                        )
-                      }
-                      status={item.status}
-                    />
-                  </td>
-
-                  <td className="whitespace-nowrap px-4 py-4 align-top">
-                    {item.createdBy}
-                  </td>
-
-                  <td className="px-4 py-4 align-top">
-                    <div className="flex flex-col text-[12px] leading-5">
-                      <span className="font-medium text-[#2F80ED]">
-                        {item.createdDate}
-                      </span>
-
-                      <span className="text-[#27AE60]">
-                        {item.createdTime}
-                      </span>
-                    </div>
-                  </td>
-
-                  <td className="px-4 py-4 align-top">
-                    <div className="flex flex-col text-[12px] leading-5">
-                      <span className="font-medium text-[#2F80ED]">
-                        {item.updatedDate}
-                      </span>
-
-                      <span className="text-[#27AE60]">
-                        {item.updatedTime}
-                      </span>
-                    </div>
-                  </td>
-
-                  <td className="relative px-4 py-4 align-top">
-                    <DashboardEditButton
-                      onClick={() => handleEditTemplate(item)}
-                    >
-                      Edit
-                    </DashboardEditButton>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Bottom Bar */}
-
-        <div className="flex items-center justify-between bg-white px-6 py-4">
-
-          <p className="text-[13px] text-[#7A7A7A]">
-            Showing {visibleData.length} of {filteredData.length} transactions
-          </p>
-
-          <div className="flex items-center gap-2">
-
-            <button className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50">
-              &lt;
-            </button>
-
-            {[1, 2, 3, 4, 5].map((page) => (
-              <button
-                key={page}
-                className={`flex h-8 w-8 items-center justify-center rounded-md text-[13px] font-medium transition ${
-                  page === 1
-                    ? "bg-[#F3F4F6] text-[#111827]"
-                    : "text-[#6B7280] hover:bg-[#F8F8F8]"
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-
-            <button className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50">
-              &gt;
-            </button>
-
-          </div>
+          {/* Notification Review / Block — static placeholder, API to follow later */}
+          {NOTIFICATION_CARDS.map((card) => (
+            <EmailFormatCard
+              key={card.key}
+              title={card.title}
+              fieldsRow={[
+                { label: "Fraud Decision", value: card.fraudDecision },
+                { label: "Template Code", value: card.templateCode },
+                { label: "Notification Type", value: card.notificationType },
+              ]}
+              extraRow={{ label: "Subject", value: card.subject }}
+              bodyText={card.bodyText}
+              status={card.status}
+              createdBy={card.createdBy}
+              createdDate={card.createdDate}
+              createdTime={card.createdTime}
+              updatedDate={card.updatedDate}
+              updatedTime={card.updatedTime}
+              showEdit
+            />
+          ))}
 
         </div>
 
       </div>
+
       {/* Modals */}
       {showFormModal && (
         <CreateEmailFormatModal
@@ -831,17 +779,16 @@ export default function EmailFormatPage() {
         />
       )}
 
-      {deleteTarget && (
-        <DeleteConfirmModal
-          isSaving={isSavingTemplate}
-          onCancel={handleCancelDelete}
-          onConfirm={handleConfirmDelete}
-          template={deleteTarget}
-        />
-      )}
-
     </div>
   );
+}
+
+function matchesTemplateType(templateCode, keywords) {
+  const normalized = String(templateCode || "")
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+
+  return keywords.some((keyword) => normalized.includes(keyword));
 }
 
 function normalizeEmailTemplateResponse(responseData) {
@@ -931,34 +878,6 @@ function formatTimePart(value) {
   if (!stringValue.includes("T")) return "-";
 
   return stringValue.split("T")[1]?.split(".")[0] ?? "-";
-}
-
-function parseEmailTemplateDate(value) {
-  if (!value || value === "-") return new Date(0);
-  const stringValue = String(value);
-
-  if (/^\d{2}-\d{2}-\d{4}$/.test(stringValue)) {
-    const [day, month, year] = stringValue.split("-");
-    return new Date(`${year}-${month}-${day}`);
-  }
-
-  return new Date(stringValue);
-}
-
-function parseDateOnly(dateValue, endOfDay = false) {
-  const date = new Date(`${dateValue}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
-
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function getEmailTemplateYear(value) {
-  if (!value || value === "-") return "";
-  const stringValue = String(value);
-
-  if (/^\d{2}-\d{2}-\d{4}$/.test(stringValue)) return stringValue.split("-")[2];
-  if (/^\d{4}-\d{2}-\d{2}/.test(stringValue)) return stringValue.slice(0, 4);
-
-  return "";
 }
 
 function findFirstArray(value, visited = new Set()) {

@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Plus,
   X,
+  RotateCcw,
 } from "lucide-react";
 import ExportFile from "./ExportFile";
 import { getAuthErrorMessage } from "../../auth/services/authError";
@@ -26,6 +27,7 @@ const TABLE_COLUMNS = [
   "Rule Code",
   "Rule Name",
   "Rule Description",
+  "Rule Expression",
   "Status",
   "Created By",
   "Created At",
@@ -58,6 +60,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
   const [ruleName, setRuleName] = useState("");
   const [ruleCode, setRuleCode] = useState("");
   const [ruleDescription, setRuleDescription] = useState("");
+  const [ruleExpression, setRuleExpression] = useState("");
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
@@ -231,6 +234,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
     setRuleName("");
     setRuleCode("");
     setRuleDescription("");
+    setRuleExpression("");
     setEditingRule(null);
     setShowAddRuleModal(true);
     if (categories.length === 0) await loadCategories();
@@ -255,6 +259,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
         categoryId: Number(selectedCategoryId),
         ruleCode: ruleCode.trim(),
         ruleDescription: ruleDescription.trim(),
+        ruleExpression: ruleExpression.trim(),
         ruleName: ruleName.trim(),
         status: true,
       };
@@ -303,6 +308,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
     setRuleDescription(
       item.ruleDescription === "-" ? "" : item.ruleDescription,
     );
+    setRuleExpression(item.ruleExpression === "-" ? "" : item.ruleExpression);
     setShowAddRuleModal(true);
     if (categories.length === 0) await loadCategories();
   };
@@ -421,9 +427,9 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
             <button
               type="button"
               onClick={handleResetFilters}
-              disabled={!isLocalFilterActive}
-              className="h-10 rounded-lg border border-[#FF0D0D] bg-white px-4 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1] disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white"
+              className="flex h-10 items-center gap-2 rounded-lg bg-[#333333] px-8 text-[12px] font-semibold text-white"
             >
+              <RotateCcw size={15} />
               Reset
             </button>
 
@@ -457,14 +463,14 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
 
           <div className="w-full overflow-x-auto">
 
-            <table className="w-full min-w-[1500px] border-collapse">
+            <table className="w-full min-w-[1650px] border-collapse">
 
               <thead className="bg-[#F8F9FB]">
                 <tr>
                   {TABLE_COLUMNS.map((column) => (
                     <th
                       key={column}
-                      className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[12px] font-semibold text-[#5A5A5A]"
+                      className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[13px] font-semibold text-[#5A5A5A]"
                     >
                       {column}
                     </th>
@@ -475,7 +481,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
               <tbody>
                 {isLoading && (
                   <tr>
-                    <td colSpan={TABLE_COLUMNS.length} className="px-4 py-5 text-center text-[12px] text-[#6B7280]">
+                    <td colSpan={TABLE_COLUMNS.length} className="px-4 py-5 text-center text-[13px] text-[#6B7280]">
                       Loading fraud rules...
                     </td>
                   </tr>
@@ -483,7 +489,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
 
                 {!isLoading && visibleData.length === 0 && (
                   <tr>
-                    <td colSpan={TABLE_COLUMNS.length} className="px-4 py-5 text-center text-[12px] text-[#6B7280]">
+                    <td colSpan={TABLE_COLUMNS.length} className="px-4 py-5 text-center text-[13px] text-[#6B7280]">
                       No fraud rules found.
                     </td>
                   </tr>
@@ -492,7 +498,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
                 {!isLoading && visibleData.map((item, index) => (
                   <tr
                     key={item.id}
-                    className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
+                    className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
                   >
                     <td className="px-4 py-4 font-medium">
                       {(currentPage - 1) * rowsPerPage + index + 1}
@@ -514,6 +520,10 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
                       {item.ruleDescription}
                     </td>
 
+                    <td className="max-w-[320px] px-4 py-4">
+                      {item.ruleExpression}
+                    </td>
+
                     <td className="px-4 py-4">
                       <DashboardStatusToggle
                         onToggle={(nextStatus) =>
@@ -528,7 +538,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
                     </td>
 
                     <td className="px-4 py-4">
-                      <div className="flex flex-col text-[12px] leading-5">
+                      <div className="flex flex-col text-[13px] leading-5">
                         <span className="font-medium text-[#2F80ED]">
                           {item.createdDate}
                         </span>
@@ -540,7 +550,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
                     </td>
 
                     <td className="px-4 py-4">
-                      <div className="flex flex-col text-[12px] leading-5">
+                      <div className="flex flex-col text-[13px] leading-5">
                         <span className="font-medium text-[#2F80ED]">
                           {item.updatedDate}
                         </span>
@@ -568,7 +578,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
 
           <div className="flex items-center justify-between border-t border-[#ECECEC] bg-white px-6 py-4">
 
-            <p className="text-[12px] text-[#7A7A7A]">
+            <p className="text-[13px] text-[#7A7A7A]">
               Showing <strong>{showingFrom}</strong> - <strong>{showingTo}</strong>{" "}
               of <strong>{effectiveTotalRecords}</strong> transactions
             </p>
@@ -619,36 +629,39 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
 
       {showAddRuleModal && (
         <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55 px-4"
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/45 px-4"
           onClick={handleCloseAddRule}
         >
           <div
-            className="relative w-[960px] max-w-[96vw] rounded-xl bg-white p-6 shadow-2xl"
+            className="w-[940px] max-h-[90vh] max-w-[92vw] overflow-y-auto rounded-2xl bg-white p-8 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <button
-              type="button"
-              onClick={handleCloseAddRule}
-              className="absolute right-6 top-6 text-[#202224]"
-            >
-              <X size={20} />
-            </button>
-
-            <div className="rounded-[10px] border border-[#E5E7EB] p-5">
-              <div className="mb-[14px] text-[14px] font-bold text-[#202224]">
+            <div className="mb-6 flex items-start justify-between">
+              <h3 className="text-[17px] font-bold text-[#202224]">
                 {editingRule ? "Edit Fraud Rule" : "Create Fraud Rule"}
-              </div>
+              </h3>
 
-              <div className="mb-4 grid grid-cols-1 gap-5 md:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-[12px] font-semibold text-[#374151]">
-                    Choose Category
-                  </label>
+              <button
+                type="button"
+                onClick={handleCloseAddRule}
+                className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[#202224] text-white"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-x-8 gap-y-5 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-[12px] font-semibold text-[#202224]">
+                  Choose Category
+                </label>
+
+                <div className="relative">
                   <select
                     value={selectedCategoryId}
                     disabled={isLoadingCategories}
                     onChange={(event) => setSelectedCategoryId(event.target.value)}
-                    className="h-[72px] w-full rounded-lg border border-[#E5E7EB] bg-[#F3F4F6] px-3.5 text-[13px] text-[#111827] outline-none md:w-4/5"
+                    className="h-11 w-full appearance-none rounded-lg border border-[#E5E7EB] bg-[#FAFAFA] px-4 pr-9 text-[13px] text-[#202224] outline-none disabled:cursor-not-allowed disabled:text-[#B0B0B0]"
                   >
                     <option value="">
                       {isLoadingCategories ? "Loading categories..." : "Select Category"}
@@ -664,65 +677,89 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
                       </option>
                     ))}
                   </select>
-                </div>
 
-                <div>
-                  <label className="mb-1.5 block text-[12px] font-semibold text-[#374151]">
-                    Rule Name
-                  </label>
-                  <input
-                    value={ruleName}
-                    disabled={!isRuleSectionActive}
-                    onChange={(event) => setRuleName(event.target.value)}
-                    placeholder="Rule Name"
-                    className="h-[72px] w-full rounded-lg border border-[#E5E7EB] bg-[#F3F4F6] px-3.5 text-[13px] text-[#111827] outline-none disabled:opacity-60 md:w-4/5"
+                  <ChevronDown
+                    size={15}
+                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#808080]"
                   />
                 </div>
               </div>
 
-              <div className="mb-4 grid grid-cols-1 gap-5 md:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-[12px] font-semibold text-[#374151]">
-                    Rule Code
-                  </label>
-                  <input
-                    value={ruleCode}
-                    disabled={!isRuleSectionActive}
-                    onChange={(event) => setRuleCode(event.target.value)}
-                    placeholder="Rule Code"
-                    className="h-[72px] w-full rounded-lg border border-[#E5E7EB] bg-[#F3F4F6] px-3.5 text-[13px] text-[#111827] outline-none disabled:opacity-60 md:w-4/5"
-                  />
-                </div>
+              <div>
+                <label className="mb-2 block text-[12px] font-semibold text-[#202224]">
+                  Rule Name
+                </label>
 
-                <div>
-                  <label className="mb-1.5 block text-[12px] font-semibold text-[#374151]">
-                    Rule Description
-                  </label>
-                  <textarea
-                    value={ruleDescription}
-                    disabled={!isRuleSectionActive}
-                    onChange={(event) => setRuleDescription(event.target.value)}
-                    placeholder="Write a description"
-                    className="min-h-[72px] w-full resize-y rounded-lg border border-[#E5E7EB] bg-[#F3F4F6] px-3.5 py-2.5 text-[13px] text-[#111827] outline-none disabled:opacity-60 md:w-4/5"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={ruleName}
+                  disabled={!isRuleSectionActive}
+                  onChange={(event) => setRuleName(event.target.value)}
+                  placeholder="Rule Name"
+                  className="h-11 w-full rounded-lg border border-[#E5E7EB] bg-[#FAFAFA] px-4 text-[13px] text-[#202224] outline-none disabled:cursor-not-allowed disabled:text-[#B0B0B0]"
+                />
               </div>
 
-              {!isRuleSectionActive && (
-                <div className="mb-4 text-[12px] font-medium text-[#DC2626]">
-                  Please select a category first to fill in the other fields.
-                </div>
-              )}
+              <div>
+                <label className="mb-2 block text-[12px] font-semibold text-[#202224]">
+                  Rule Code
+                </label>
 
-              <button
-                type="button"
-                disabled={!canSaveRule || isSavingRule}
-                onClick={handleSaveRule}
-                className="h-[42px] rounded-lg bg-[#FF0D0D] px-7 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#B9BCC2]"
-              >
-                {isSavingRule ? "Saving..." : "Save"}
-              </button>
+                <input
+                  type="text"
+                  value={ruleCode}
+                  disabled={!isRuleSectionActive}
+                  onChange={(event) => setRuleCode(event.target.value)}
+                  placeholder="Rule Code"
+                  className="h-11 w-full rounded-lg border border-[#E5E7EB] bg-[#FAFAFA] px-4 text-[13px] text-[#202224] outline-none disabled:cursor-not-allowed disabled:text-[#B0B0B0]"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-[12px] font-semibold text-[#202224]">
+                  Rule Description
+                </label>
+
+                <textarea
+                  value={ruleDescription}
+                  disabled={!isRuleSectionActive}
+                  onChange={(event) => setRuleDescription(event.target.value)}
+                  placeholder="Write a description"
+                  rows={1}
+                  className="h-11 w-full resize-none overflow-hidden rounded-lg border border-[#E5E7EB] bg-[#FAFAFA] px-4 py-3 text-[13px] text-[#202224] outline-none disabled:cursor-not-allowed disabled:text-[#B0B0B0]"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-[12px] font-semibold text-[#202224]">
+                  Rule Expression
+                </label>
+
+                <input
+                  type="text"
+                  value={ruleExpression}
+                  disabled={!isRuleSectionActive}
+                  onChange={(event) => setRuleExpression(event.target.value)}
+                  placeholder="Rule Expression"
+                  className="h-11 w-full rounded-lg border border-[#E5E7EB] bg-[#FAFAFA] px-4 text-[13px] text-[#202224] outline-none disabled:cursor-not-allowed disabled:text-[#B0B0B0]"
+                />
+              </div>
             </div>
+
+            {!isRuleSectionActive && (
+              <p className="mt-5 text-[13px] font-semibold text-[#FF4D4F]">
+                Please select a category first to fill in the other fields.
+              </p>
+            )}
+
+            <button
+              type="button"
+              disabled={!canSaveRule || isSavingRule}
+              onClick={handleSaveRule}
+              className="mt-6 h-[46px] w-[140px] rounded-lg border-none bg-[#3A3A3A] text-[14px] font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#B9BCC2]"
+            >
+              {isSavingRule ? "Saving..." : "Save"}
+            </button>
           </div>
         </div>
       )}
@@ -825,6 +862,7 @@ function normalizeFraudRuleRow(row, index) {
     ruleCode: row.ruleCode ?? row.code ?? "-",
     ruleName: row.ruleName ?? row.name ?? "-",
     ruleDescription: row.ruleDescription ?? row.description ?? "-",
+    ruleExpression: row.ruleExpression ?? row.expression ?? "-",
     createdBy: row.createdBy ?? "-",
     ...splitDateTime(row.createdAt ?? row.createdDate),
     ...splitDateTime(row.updatedAt, "updated"),

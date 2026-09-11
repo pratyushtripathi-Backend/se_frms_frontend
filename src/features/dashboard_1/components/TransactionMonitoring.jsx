@@ -6,87 +6,95 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
-  Dot,
 } from "recharts";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CalendarDays } from "lucide-react";
-import { transactionMonitoringData } from "./TransactionMonitoringData";
+import { getDailyTransactionVolume } from "../services/analyticsService";
 import { openDashboardDatePicker } from "./dashboardDatePicker";
 
 const LINE = "#2582DA";
-const FLAG = "#FF3F2F";
 const GRID = "#E6E6E6";
 const AXIS_TEXT = "#8B8B8B";
 const INK = "#111827";
 const DIM = "#6B7280";
 
-function FlaggedDot(props) {
-  const { cx, cy, payload } = props;
+// Same silent-poll pattern as StatCards.jsx - keeps the chart close to
+// real-time without a full-page refresh, without hammering the backend.
+const AUTO_REFRESH_INTERVAL_MS = 5000;
 
-  if (!payload.flagged) return null;
+// How many days back to show when the user hasn't picked a specific date.
+const DEFAULT_WINDOW_DAYS = 7;
 
-  return (
-    <g>
-      <foreignObject
-        x={cx - 72}
-        y={cy - 64}
-        width={144}
-        height={36}
-      >
-        <div
-          style={{
-            position: "relative",
-            display: "inline-block",
-            background: FLAG,
-            color: "#fff",
-            borderRadius: 6,
-            padding: "6px 12px",
-            fontSize: 12,
-            fontWeight: 600,
-            whiteSpace: "nowrap",
-            boxShadow: "0 4px 10px rgba(0,0,0,.18)",
-          }}
-        >
-          Suspected Fraud
+function toIsoDate(date) {
+  return date.toISOString().slice(0, 10);
+}
 
-          <div
-            style={{
-              position: "absolute",
-              left: "50%",
-              bottom: -6,
-              transform: "translateX(-50%)",
-              width: 0,
-              height: 0,
-              borderLeft: "6px solid transparent",
-              borderRight: "6px solid transparent",
-              borderTop: `6px solid ${FLAG}`,
-            }}
-          />
-        </div>
-      </foreignObject>
+function formatAxisDate(isoDate) {
+  const date = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+}
 
-      <Dot
-        cx={cx}
-        cy={cy}
-        r={5}
-        fill="#fff"
-        stroke={FLAG}
-        strokeWidth={3}
-      />
-    </g>
-  );
+// Selecting a date shows the 7-day window ending on that date, rather than
+// a single point, so the chart still reads as a trend.
+function resolveRange(selectedDate) {
+  const toDate = selectedDate ? new Date(`${selectedDate}T00:00:00`) : new Date();
+  const fromDate = new Date(toDate);
+  fromDate.setDate(fromDate.getDate() - (DEFAULT_WINDOW_DAYS - 1));
+  return { fromDate: toIsoDate(fromDate), toDate: toIsoDate(toDate) };
+}
+
+function normalizeVolumeResponse(responseData) {
+  const payload = responseData?.responseData ?? responseData?.data ?? responseData ?? [];
+  const rows = Array.isArray(payload) ? payload : [];
+  return rows.map((row) => ({
+    date: formatAxisDate(row.date),
+    value: Number(row.totalAmount ?? 0),
+  }));
 }
 
 export default function TransactionMonitoring() {
   const [selectedDate, setSelectedDate] = useState("");
+  const [chartData, setChartData] = useState([]);
   const dateInputRef = useRef(null);
+  const requestIdRef = useRef(0);
+
+  const loadVolume = useCallback(async ({ silent = false } = {}) => {
+    const requestId = ++requestIdRef.current;
+    const { fromDate, toDate } = resolveRange(selectedDate);
+
+    try {
+      const response = await getDailyTransactionVolume({ fromDate, toDate });
+      if (requestId !== requestIdRef.current) return;
+      setChartData(normalizeVolumeResponse(response?.data));
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return;
+      // A silent background refresh failing shouldn't wipe the last good
+      // chart off the screen - only clear it if the very first load fails.
+      if (!silent) {
+        setChartData([]);
+      }
+      console.error("Failed to load daily transaction volume", err);
+    }
+  }, [selectedDate]);
+
+  useEffect(() => {
+    loadVolume();
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      loadVolume({ silent: true });
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [loadVolume]);
 
   return (
-    <div className="rounded-card border border-brand-border bg-brand-panel p-5 shadow-card">
+    <div className="rounded-card border border-brand-border bg-brand-panel p-4 shadow-card">
       {/* Header */}
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-1.5 flex items-center justify-between">
         <h2
-          className="text-[15px] font-bold"
+          className="text-[14px] font-bold"
           style={{ color: INK }}
         >
           Transaction Monitoring
@@ -110,14 +118,14 @@ export default function TransactionMonitoring() {
             onClick={(event) =>
               openDashboardDatePicker(dateInputRef.current, event.currentTarget)
             }
-            className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[12.5px]"
+            className="flex items-center gap-2 rounded-lg border px-2.5 py-1 text-[11.5px]"
             style={{
               borderColor: "#D9D9D9",
               color: DIM,
             }}
           >
             {selectedDate || "Select Date"}
-            <CalendarDays size={14} />
+            <CalendarDays size={13} />
           </button>
         </>
       </div>
@@ -126,7 +134,7 @@ export default function TransactionMonitoring() {
       <div
         className="w-full"
         style={{
-          height: "360px",
+          height: "230px",
         }}
       >
         <ResponsiveContainer
@@ -134,12 +142,12 @@ export default function TransactionMonitoring() {
           height="100%"
         >
           <AreaChart
-            data={transactionMonitoringData}
+            data={chartData}
             margin={{
-              top: 36,
-              right: 16,
-              left: 8,
-              bottom: 40,
+              top: 30,
+              right: 12,
+              left: 4,
+              bottom: 24,
             }}
           >
             <defs>
@@ -171,16 +179,16 @@ export default function TransactionMonitoring() {
 
             <XAxis
               dataKey="date"
-              height={86}
+              height={56}
               interval={0}
-              tickMargin={18}
+              tickMargin={10}
               axisLine={{
                 stroke: GRID,
                 strokeWidth: 1,
               }}
               tickLine={false}
               tick={{
-                fontSize: 10.5,
+                fontSize: 9.5,
                 fill: AXIS_TEXT,
                 angle: -35,
                 textAnchor: "end",
@@ -188,19 +196,9 @@ export default function TransactionMonitoring() {
             />
 
             <YAxis
-              width={42}
-              domain={[0, 6000]}
-              ticks={[
-                0,
-                1000,
-                2000,
-                3000,
-                4000,
-                5000,
-                6000,
-              ]}
+              width={44}
               tickFormatter={(v) =>
-                v === 0 ? "0" : `${v / 1000}K`
+                v === 0 ? "0" : `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}K`
               }
               axisLine={false}
               tickLine={false}
@@ -211,7 +209,14 @@ export default function TransactionMonitoring() {
             />
 
             <Tooltip
-              formatter={(v) => [v, "Transactions"]}
+              formatter={(v) => [
+                Number(v).toLocaleString("en-IN", {
+                  style: "currency",
+                  currency: "INR",
+                  maximumFractionDigits: 0,
+                }),
+                "Total Amount",
+              ]}
               contentStyle={{
                 border: `1px solid ${GRID}`,
                 borderRadius: 8,
@@ -225,7 +230,6 @@ export default function TransactionMonitoring() {
               stroke={LINE}
               strokeWidth={2.5}
               fill="url(#tmFill)"
-              dot={<FlaggedDot />}
               activeDot={{
                 r: 5,
                 fill: LINE,
