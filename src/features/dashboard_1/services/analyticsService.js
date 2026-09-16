@@ -9,6 +9,7 @@ export function getAnalyticsSummary() {
   });
 }
 
+// Powers the "Transaction Monitoring" graph's date filter on the Dashboard.
 export function getDailyTransactionVolume({ fromDate, toDate } = {}) {
   return apiClient.get(`${analyticsApiBaseUrl}/analytics/transactions/daily`, {
     params: { fromDate, toDate },

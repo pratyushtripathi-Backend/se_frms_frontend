@@ -48,9 +48,9 @@ const USER_MANAGEMENT_ITEMS = [
 ];
 
 const FRAUD_DETAILS_ITEMS = [
+  { label: "All Category", page: "all-category" },
   { label: "All Fraud Rules", page: "all-fraud-rules" },
   { label: "All Rule Score", page: "all-rule-score" },
-  { label: "All Category", page: "all-category" },
   { label: "Black List Entry", page: "black-list-entry" },
 ];
 

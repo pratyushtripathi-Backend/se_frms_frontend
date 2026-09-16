@@ -2,10 +2,6 @@ import { RefreshCw, AlertTriangle, Ban, FileText } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAnalyticsSummary } from "../services/analyticsService";
 
-// "Active Case" has no equivalent field in the analytics summary API, so it
-// stays as a static placeholder until a real endpoint backs it.
-const ACTIVE_CASE_PLACEHOLDER = "123";
-
 // The summary endpoint only reflects the state of the backend at the moment
 // it's called - it does not push updates. Without this, the cards would only
 // ever show whatever was true when the Dashboard first loaded, even if a new
@@ -70,7 +66,7 @@ function buildStats(summary, isLoading) {
     },
     {
       label: "Active Case",
-      value: ACTIVE_CASE_PLACEHOLDER,
+      value: liveValue("reviewCount"),
       icon: FileText,
       bg: "#2C5AC0",
     },

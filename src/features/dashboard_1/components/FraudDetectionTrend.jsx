@@ -18,6 +18,8 @@ const BLUE = "#4C7EF3";
 const AUTO_REFRESH_INTERVAL_MS = 5000;
 
 const GROUP_BY_OPTIONS = [
+  { label: "Day", value: "day" },
+  { label: "Week", value: "week" },
   { label: "Month", value: "month" },
   { label: "Quarter", value: "quarter" },
   { label: "Year", value: "year" },

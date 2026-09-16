@@ -408,7 +408,16 @@ export default function CaseManagementPage() {
 
 function normalizeCaseResponse(responseData, currentPage, pageSize) {
   const payload = responseData?.responseData ?? responseData?.data ?? responseData;
-  const rows = findFirstArray(payload).map((row, index) =>
+  const rawRows = findFirstArray(payload);
+
+  // Latest case first, regardless of the order the backend returns them in.
+  const sortedRawRows = [...rawRows].sort((a, b) => {
+    const dateA = new Date(a?.createdAt ?? a?.createdDate ?? 0).getTime();
+    const dateB = new Date(b?.createdAt ?? b?.createdDate ?? 0).getTime();
+    return dateB - dateA;
+  });
+
+  const rows = sortedRawRows.map((row, index) =>
     normalizeCaseRow(row, (currentPage - 1) * pageSize + index + 1),
   );
   const totalRecords =
