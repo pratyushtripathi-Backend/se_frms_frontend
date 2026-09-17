@@ -4,7 +4,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
 } from "react-icons/fi";
-import { CalendarDays, Download, RotateCcw } from "lucide-react";
+import { CalendarDays, Download, Filter, RotateCcw } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import { getDecisions } from "../services/fraudDetailsService";
@@ -21,6 +21,11 @@ export default function DecisionTablePage() {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [appliedFilters, setAppliedFilters] = useState({
+    year: "",
+    startDate: "",
+    endDate: "",
+  });
   const [currentPage, setCurrentPage] = useState(1);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [decisionRows, setDecisionRows] = useState([]);
@@ -39,6 +44,9 @@ export default function DecisionTablePage() {
       const response = await getDecisions({
         page: currentPage - 1,
         size: rowsPerPage,
+        year: appliedFilters.year,
+        startDate: appliedFilters.startDate,
+        endDate: appliedFilters.endDate,
       });
       const normalizedResponse = normalizeDecisionResponse(
         response.data,
@@ -59,16 +67,22 @@ export default function DecisionTablePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage]);
+  }, [currentPage, appliedFilters]);
 
   useEffect(() => {
     loadDecisions();
   }, [loadDecisions]);
 
+  const handleApplyFilters = () => {
+    setAppliedFilters({ year, startDate: fromDate, endDate: toDate });
+    setCurrentPage(1);
+  };
+
   const handleResetFilters = () => {
     setYear("");
     setFromDate("");
     setToDate("");
+    setAppliedFilters({ year: "", startDate: "", endDate: "" });
     setCurrentPage(1);
   };
 
@@ -200,6 +214,21 @@ export default function DecisionTablePage() {
       display: "flex",
       alignItems: "center",
       gap: "6px",
+    },
+
+    filterButton: {
+      height: "40px",
+      padding: "0 24px",
+      borderRadius: "8px",
+      border: "none",
+      background: "#2563EB",
+      color: "#FFFFFF",
+      fontWeight: 600,
+      fontSize: "12px",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
     },
 
     resetButton: {
@@ -428,6 +457,15 @@ export default function DecisionTablePage() {
             >
               <span>{toDate || "To"}</span>
               <CalendarDays size={15} />
+            </button>
+
+            <button
+              onClick={handleApplyFilters}
+              style={styles.filterButton}
+              type="button"
+            >
+              <Filter size={15} />
+              Filter
             </button>
 
             <button
