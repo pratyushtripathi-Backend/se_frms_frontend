@@ -233,10 +233,32 @@ export default function DecisionTablePage() {
     },
 
     tableContainer: {
+      position: "relative",
       border: "1px solid #E5E7EB",
       borderRadius: "10px",
       overflowX: "auto",
       background: "#FFFFFF",
+      minHeight: "44px",
+    },
+
+    tableBody: {
+      transition: "opacity 0.15s ease",
+    },
+
+    loadingOverlay: {
+      position: "absolute",
+      inset: 0,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "rgba(255, 255, 255, 0.7)",
+      borderRadius: "10px",
+      zIndex: 5,
+    },
+
+    controlsDisabled: {
+      opacity: 0.6,
+      pointerEvents: "none",
     },
 
     table: {
@@ -383,11 +405,15 @@ export default function DecisionTablePage() {
           <div style={styles.controls}>
             <div style={{ position: "relative" }}>
               <select
+                disabled={isLoading}
                 onChange={(event) => {
                   setYear(event.target.value);
                   setCurrentPage(1);
                 }}
-                style={styles.yearSelect}
+                style={{
+                  ...styles.yearSelect,
+                  ...(isLoading ? styles.controlsDisabled : {}),
+                }}
                 value={year}
               >
                 <option value="">Year</option>
@@ -420,12 +446,16 @@ export default function DecisionTablePage() {
                 value={fromDate}
               />
               <button
+                disabled={isLoading}
                 onClick={() =>
                   fromInputRef.current?.showPicker
                     ? fromInputRef.current.showPicker()
                     : fromInputRef.current?.click()
                 }
-                style={styles.dateButton}
+                style={{
+                  ...styles.dateButton,
+                  ...(isLoading ? styles.controlsDisabled : {}),
+                }}
                 type="button"
               >
                 <span>{fromDate || "From"}</span>
@@ -445,12 +475,16 @@ export default function DecisionTablePage() {
                 value={toDate}
               />
               <button
+                disabled={isLoading}
                 onClick={() =>
                   toInputRef.current?.showPicker
                     ? toInputRef.current.showPicker()
                     : toInputRef.current?.click()
                 }
-                style={styles.dateButton}
+                style={{
+                  ...styles.dateButton,
+                  ...(isLoading ? styles.controlsDisabled : {}),
+                }}
                 type="button"
               >
                 <span>{toDate || "To"}</span>
@@ -459,8 +493,12 @@ export default function DecisionTablePage() {
             </div>
 
             <button
+              disabled={isLoading}
               onClick={handleResetFilters}
-              style={styles.resetButton}
+              style={{
+                ...styles.resetButton,
+                ...(isLoading ? styles.controlsDisabled : {}),
+              }}
               type="button"
             >
               <RotateCcw size={15} />
@@ -536,16 +574,13 @@ export default function DecisionTablePage() {
               </tr>
             </thead>
 
-            <tbody>
-              {isLoading && (
-                <tr style={styles.tr}>
-                  <td colSpan={8} style={{ ...styles.td, textAlign: "center" }}>
-                    <Loader label="Loading..." />
-                  </td>
-                </tr>
-              )}
-
-              {!isLoading && errorMessage && (
+            <tbody
+              style={{
+                ...styles.tableBody,
+                opacity: isLoading ? 0.4 : 1,
+              }}
+            >
+              {errorMessage && (
                 <tr style={styles.tr}>
                   <td
                     colSpan={8}
@@ -556,15 +591,15 @@ export default function DecisionTablePage() {
                 </tr>
               )}
 
-              {!isLoading && !errorMessage && currentRows.length === 0 && (
+              {!errorMessage && currentRows.length === 0 && (
                 <tr style={styles.tr}>
                   <td colSpan={8} style={{ ...styles.td, textAlign: "center" }}>
-                    No decisions found.
+                    {isLoading ? " " : "No decisions found."}
                   </td>
                 </tr>
               )}
 
-              {!isLoading && !errorMessage && currentRows.map((row) => (
+              {!errorMessage && currentRows.map((row) => (
                 <tr key={row.srNo} style={styles.tr}>
                   <td style={styles.td}>{row.srNo}</td>
                   <td style={styles.td}>{row.transactionId}</td>
@@ -590,6 +625,12 @@ export default function DecisionTablePage() {
               ))}
             </tbody>
           </table>
+
+          {isLoading && (
+            <div style={styles.loadingOverlay}>
+              <Loader label="Loading decision table..." />
+            </div>
+          )}
         </div>
 
         <div style={styles.footerRow}>
