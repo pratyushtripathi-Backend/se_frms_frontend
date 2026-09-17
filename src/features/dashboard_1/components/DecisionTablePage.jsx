@@ -186,6 +186,17 @@ export default function DecisionTablePage() {
       outline: "none",
     },
 
+    hiddenDateInput: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      opacity: 0,
+      border: "none",
+      pointerEvents: "none",
+    },
+
     dateButton: {
       width: "125px",
       height: "40px",
@@ -419,45 +430,49 @@ export default function DecisionTablePage() {
               />
             </div>
 
-            <input
-              onChange={(event) => setFromDate(event.target.value)}
-              ref={fromInputRef}
-              style={{ display: "none" }}
-              type="date"
-              value={fromDate}
-            />
-            <button
-              onClick={() =>
-                fromInputRef.current?.showPicker
-                  ? fromInputRef.current.showPicker()
-                  : fromInputRef.current?.click()
-              }
-              style={styles.dateButton}
-              type="button"
-            >
-              <span>{fromDate || "From"}</span>
-              <CalendarDays size={15} />
-            </button>
+            <div style={{ position: "relative" }}>
+              <input
+                onChange={(event) => setFromDate(event.target.value)}
+                ref={fromInputRef}
+                style={styles.hiddenDateInput}
+                type="date"
+                value={fromDate}
+              />
+              <button
+                onClick={() =>
+                  fromInputRef.current?.showPicker
+                    ? fromInputRef.current.showPicker()
+                    : fromInputRef.current?.click()
+                }
+                style={styles.dateButton}
+                type="button"
+              >
+                <span>{fromDate || "From"}</span>
+                <CalendarDays size={15} />
+              </button>
+            </div>
 
-            <input
-              onChange={(event) => setToDate(event.target.value)}
-              ref={toInputRef}
-              style={{ display: "none" }}
-              type="date"
-              value={toDate}
-            />
-            <button
-              onClick={() =>
-                toInputRef.current?.showPicker
-                  ? toInputRef.current.showPicker()
-                  : toInputRef.current?.click()
-              }
-              style={styles.dateButton}
-              type="button"
-            >
-              <span>{toDate || "To"}</span>
-              <CalendarDays size={15} />
-            </button>
+            <div style={{ position: "relative" }}>
+              <input
+                onChange={(event) => setToDate(event.target.value)}
+                ref={toInputRef}
+                style={styles.hiddenDateInput}
+                type="date"
+                value={toDate}
+              />
+              <button
+                onClick={() =>
+                  toInputRef.current?.showPicker
+                    ? toInputRef.current.showPicker()
+                    : toInputRef.current?.click()
+                }
+                style={styles.dateButton}
+                type="button"
+              >
+                <span>{toDate || "To"}</span>
+                <CalendarDays size={15} />
+              </button>
+            </div>
 
             <button
               onClick={handleApplyFilters}
