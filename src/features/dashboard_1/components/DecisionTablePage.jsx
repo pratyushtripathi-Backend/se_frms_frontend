@@ -8,6 +8,7 @@ import { CalendarDays, Download, RotateCcw } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import { getDecisions } from "../services/fraudDetailsService";
+import Loader from "../../../components/ui/Loader";
 
 const rowsPerPage = 10;
 
@@ -39,6 +40,9 @@ export default function DecisionTablePage() {
       const response = await getDecisions({
         page: currentPage - 1,
         size: rowsPerPage,
+        year,
+        startDate: fromDate,
+        endDate: toDate,
       });
       const normalizedResponse = normalizeDecisionResponse(
         response.data,
@@ -59,7 +63,7 @@ export default function DecisionTablePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage]);
+  }, [currentPage, year, fromDate, toDate]);
 
   useEffect(() => {
     loadDecisions();
@@ -73,6 +77,10 @@ export default function DecisionTablePage() {
   };
 
   const currentRows = useMemo(() => decisionRows, [decisionRows]);
+
+  const startRecord = totalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const endRecord =
+    totalRecords === 0 ? 0 : Math.min(startRecord + currentRows.length - 1, totalRecords);
 
   const exportCSV = () => {
     const headers = [
@@ -172,6 +180,17 @@ export default function DecisionTablePage() {
       outline: "none",
     },
 
+    hiddenDateInput: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      opacity: 0,
+      border: "none",
+      pointerEvents: "none",
+    },
+
     dateButton: {
       width: "125px",
       height: "40px",
@@ -218,10 +237,32 @@ export default function DecisionTablePage() {
     },
 
     tableContainer: {
+      position: "relative",
       border: "1px solid #E5E7EB",
       borderRadius: "10px",
       overflowX: "auto",
       background: "#FFFFFF",
+      minHeight: "44px",
+    },
+
+    tableBody: {
+      transition: "opacity 0.15s ease",
+    },
+
+    loadingOverlay: {
+      position: "absolute",
+      inset: 0,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "rgba(255, 255, 255, 0.7)",
+      borderRadius: "10px",
+      zIndex: 5,
+    },
+
+    controlsDisabled: {
+      opacity: 0.6,
+      pointerEvents: "none",
     },
 
     table: {
@@ -368,8 +409,15 @@ export default function DecisionTablePage() {
           <div style={styles.controls}>
             <div style={{ position: "relative" }}>
               <select
-                onChange={(event) => setYear(event.target.value)}
-                style={styles.yearSelect}
+                disabled={isLoading}
+                onChange={(event) => {
+                  setYear(event.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{
+                  ...styles.yearSelect,
+                  ...(isLoading ? styles.controlsDisabled : {}),
+                }}
                 value={year}
               >
                 <option value="">Year</option>
@@ -390,49 +438,71 @@ export default function DecisionTablePage() {
               />
             </div>
 
-            <input
-              onChange={(event) => setFromDate(event.target.value)}
-              ref={fromInputRef}
-              style={{ display: "none" }}
-              type="date"
-              value={fromDate}
-            />
-            <button
-              onClick={() =>
-                fromInputRef.current?.showPicker
-                  ? fromInputRef.current.showPicker()
-                  : fromInputRef.current?.click()
-              }
-              style={styles.dateButton}
-              type="button"
-            >
-              <span>{fromDate || "From"}</span>
-              <CalendarDays size={15} />
-            </button>
+            <div style={{ position: "relative" }}>
+              <input
+                onChange={(event) => {
+                  setFromDate(event.target.value);
+                  setCurrentPage(1);
+                }}
+                ref={fromInputRef}
+                style={styles.hiddenDateInput}
+                type="date"
+                value={fromDate}
+              />
+              <button
+                disabled={isLoading}
+                onClick={() =>
+                  fromInputRef.current?.showPicker
+                    ? fromInputRef.current.showPicker()
+                    : fromInputRef.current?.click()
+                }
+                style={{
+                  ...styles.dateButton,
+                  ...(isLoading ? styles.controlsDisabled : {}),
+                }}
+                type="button"
+              >
+                <span>{fromDate || "From"}</span>
+                <CalendarDays size={15} />
+              </button>
+            </div>
 
-            <input
-              onChange={(event) => setToDate(event.target.value)}
-              ref={toInputRef}
-              style={{ display: "none" }}
-              type="date"
-              value={toDate}
-            />
-            <button
-              onClick={() =>
-                toInputRef.current?.showPicker
-                  ? toInputRef.current.showPicker()
-                  : toInputRef.current?.click()
-              }
-              style={styles.dateButton}
-              type="button"
-            >
-              <span>{toDate || "To"}</span>
-              <CalendarDays size={15} />
-            </button>
+            <div style={{ position: "relative" }}>
+              <input
+                onChange={(event) => {
+                  setToDate(event.target.value);
+                  setCurrentPage(1);
+                }}
+                ref={toInputRef}
+                style={styles.hiddenDateInput}
+                type="date"
+                value={toDate}
+              />
+              <button
+                disabled={isLoading}
+                onClick={() =>
+                  toInputRef.current?.showPicker
+                    ? toInputRef.current.showPicker()
+                    : toInputRef.current?.click()
+                }
+                style={{
+                  ...styles.dateButton,
+                  ...(isLoading ? styles.controlsDisabled : {}),
+                }}
+                type="button"
+              >
+                <span>{toDate || "To"}</span>
+                <CalendarDays size={15} />
+              </button>
+            </div>
 
             <button
+              disabled={isLoading}
               onClick={handleResetFilters}
-              style={styles.resetButton}
+              style={{
+                ...styles.resetButton,
+                ...(isLoading ? styles.controlsDisabled : {}),
+              }}
               type="button"
             >
               <RotateCcw size={15} />
@@ -508,16 +578,13 @@ export default function DecisionTablePage() {
               </tr>
             </thead>
 
-            <tbody>
-              {isLoading && (
-                <tr style={styles.tr}>
-                  <td colSpan={8} style={{ ...styles.td, textAlign: "center" }}>
-                    Loading decision table...
-                  </td>
-                </tr>
-              )}
-
-              {!isLoading && errorMessage && (
+            <tbody
+              style={{
+                ...styles.tableBody,
+                opacity: isLoading ? 0.4 : 1,
+              }}
+            >
+              {errorMessage && (
                 <tr style={styles.tr}>
                   <td
                     colSpan={8}
@@ -528,15 +595,15 @@ export default function DecisionTablePage() {
                 </tr>
               )}
 
-              {!isLoading && !errorMessage && currentRows.length === 0 && (
+              {!errorMessage && currentRows.length === 0 && (
                 <tr style={styles.tr}>
                   <td colSpan={8} style={{ ...styles.td, textAlign: "center" }}>
-                    No decisions found.
+                    {isLoading ? " " : "No decisions found."}
                   </td>
                 </tr>
               )}
 
-              {!isLoading && !errorMessage && currentRows.map((row) => (
+              {!errorMessage && currentRows.map((row) => (
                 <tr key={row.srNo} style={styles.tr}>
                   <td style={styles.td}>{row.srNo}</td>
                   <td style={styles.td}>{row.transactionId}</td>
@@ -562,11 +629,17 @@ export default function DecisionTablePage() {
               ))}
             </tbody>
           </table>
+
+          {isLoading && (
+            <div style={styles.loadingOverlay}>
+              <Loader label="Loading decision table..." />
+            </div>
+          )}
         </div>
 
         <div style={styles.footerRow}>
           <div style={styles.footerText}>
-            Showing <strong>{currentRows.length}</strong> of{" "}
+            Showing <strong>{startRecord}-{endRecord}</strong> of{" "}
             <strong>{totalRecords}</strong> decisions
           </div>
 

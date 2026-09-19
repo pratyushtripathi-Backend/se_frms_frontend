@@ -153,11 +153,14 @@ export function getLatestDecisionPolicy() {
 const decisionApiBaseUrl =
   import.meta.env.VITE_DECISION_API_BASE_URL ?? "http://localhost:8085/api/v1";
 
-export function getDecisions({ page = 0, size = 20 } = {}) {
+export function getDecisions({ page = 0, size = 20, year, startDate, endDate } = {}) {
   return apiClient.get(`${decisionApiBaseUrl}/decisions`, {
     params: {
       page,
       size,
+      ...(year ? { year } : {}),
+      ...(startDate ? { startDate } : {}),
+      ...(endDate ? { endDate } : {}),
     },
     skipAuthRedirect: true,
   });
@@ -166,21 +169,27 @@ export function getDecisions({ page = 0, size = 20 } = {}) {
 const scoringApiBaseUrl =
   import.meta.env.VITE_SCORING_API_BASE_URL ?? "http://localhost:8085/api/v1";
 
-export function getScoringHistory({ page = 0, size = 20 } = {}) {
+export function getScoringHistory({ page = 0, size = 20, year, startDate, endDate } = {}) {
   return apiClient.get(`${scoringApiBaseUrl}/scoring/history`, {
     params: {
       page,
       size,
+      ...(year ? { year } : {}),
+      ...(startDate ? { startDate } : {}),
+      ...(endDate ? { endDate } : {}),
     },
     skipAuthRedirect: true,
   });
 }
 
-export function getMatchedRules({ page = 0, size = 20 } = {}) {
+export function getMatchedRules({ page = 0, size = 20, year, startDate, endDate } = {}) {
   return apiClient.get(`${scoringApiBaseUrl}/scoring/matched-rules`, {
     params: {
       page,
       size,
+      ...(year ? { year } : {}),
+      ...(startDate ? { startDate } : {}),
+      ...(endDate ? { endDate } : {}),
     },
     skipAuthRedirect: true,
   });

@@ -8,6 +8,7 @@ import { CalendarDays, Download, RotateCcw } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import { getScoringHistory } from "../services/fraudDetailsService";
+import Loader from "../../../components/ui/Loader";
 
 const rowsPerPage = 10;
 
@@ -33,6 +34,9 @@ export default function ScoringTablePage() {
       const response = await getScoringHistory({
         page: currentPage - 1,
         size: rowsPerPage,
+        year,
+        startDate: fromDate,
+        endDate: toDate,
       });
       const normalizedResponse = normalizeScoringResponse(
         response.data,
@@ -53,7 +57,7 @@ export default function ScoringTablePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage]);
+  }, [currentPage, year, fromDate, toDate]);
 
   useEffect(() => {
     loadScoringHistory();
@@ -67,6 +71,10 @@ export default function ScoringTablePage() {
   };
 
   const currentRows = useMemo(() => scoringRows, [scoringRows]);
+
+  const startRecord = totalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const endRecord =
+    totalRecords === 0 ? 0 : Math.min(startRecord + currentRows.length - 1, totalRecords);
 
   const exportCSV = () => {
     const headers = [
@@ -164,6 +172,17 @@ export default function ScoringTablePage() {
       outline: "none",
     },
 
+    hiddenDateInput: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      opacity: 0,
+      border: "none",
+      pointerEvents: "none",
+    },
+
     dateButton: {
       width: "125px",
       height: "40px",
@@ -177,6 +196,11 @@ export default function ScoringTablePage() {
       alignItems: "center",
       justifyContent: "space-between",
       cursor: "pointer",
+    },
+
+    controlsDisabled: {
+      opacity: 0.6,
+      pointerEvents: "none",
     },
 
     exportButton: {
@@ -210,10 +234,26 @@ export default function ScoringTablePage() {
     },
 
     tableContainer: {
+      position: "relative",
       border: "1px solid #E5E7EB",
       borderRadius: "10px",
       overflowX: "auto",
       background: "#FFFFFF",
+    },
+
+    tableBody: {
+      transition: "opacity 0.15s ease",
+    },
+
+    loadingOverlay: {
+      position: "absolute",
+      inset: 0,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "rgba(255, 255, 255, 0.7)",
+      borderRadius: "10px",
+      zIndex: 5,
     },
 
     table: {
@@ -344,8 +384,12 @@ export default function ScoringTablePage() {
           <div style={styles.controls}>
             <div style={{ position: "relative" }}>
               <select
+                disabled={isLoading}
                 onChange={(event) => setYear(event.target.value)}
-                style={styles.yearSelect}
+                style={{
+                  ...styles.yearSelect,
+                  ...(isLoading ? styles.controlsDisabled : {}),
+                }}
                 value={year}
               >
                 <option value="">Year</option>
@@ -366,49 +410,65 @@ export default function ScoringTablePage() {
               />
             </div>
 
-            <input
-              onChange={(event) => setFromDate(event.target.value)}
-              ref={fromInputRef}
-              style={{ display: "none" }}
-              type="date"
-              value={fromDate}
-            />
-            <button
-              onClick={() =>
-                fromInputRef.current?.showPicker
-                  ? fromInputRef.current.showPicker()
-                  : fromInputRef.current?.click()
-              }
-              style={styles.dateButton}
-              type="button"
-            >
-              <span>{fromDate || "From"}</span>
-              <CalendarDays size={15} />
-            </button>
+            <div style={{ position: "relative" }}>
+              <input
+                onChange={(event) => setFromDate(event.target.value)}
+                ref={fromInputRef}
+                style={styles.hiddenDateInput}
+                type="date"
+                value={fromDate}
+              />
+              <button
+                disabled={isLoading}
+                onClick={() =>
+                  fromInputRef.current?.showPicker
+                    ? fromInputRef.current.showPicker()
+                    : fromInputRef.current?.click()
+                }
+                style={{
+                  ...styles.dateButton,
+                  ...(isLoading ? styles.controlsDisabled : {}),
+                }}
+                type="button"
+              >
+                <span>{fromDate || "From"}</span>
+                <CalendarDays size={15} />
+              </button>
+            </div>
 
-            <input
-              onChange={(event) => setToDate(event.target.value)}
-              ref={toInputRef}
-              style={{ display: "none" }}
-              type="date"
-              value={toDate}
-            />
-            <button
-              onClick={() =>
-                toInputRef.current?.showPicker
-                  ? toInputRef.current.showPicker()
-                  : toInputRef.current?.click()
-              }
-              style={styles.dateButton}
-              type="button"
-            >
-              <span>{toDate || "To"}</span>
-              <CalendarDays size={15} />
-            </button>
+            <div style={{ position: "relative" }}>
+              <input
+                onChange={(event) => setToDate(event.target.value)}
+                ref={toInputRef}
+                style={styles.hiddenDateInput}
+                type="date"
+                value={toDate}
+              />
+              <button
+                disabled={isLoading}
+                onClick={() =>
+                  toInputRef.current?.showPicker
+                    ? toInputRef.current.showPicker()
+                    : toInputRef.current?.click()
+                }
+                style={{
+                  ...styles.dateButton,
+                  ...(isLoading ? styles.controlsDisabled : {}),
+                }}
+                type="button"
+              >
+                <span>{toDate || "To"}</span>
+                <CalendarDays size={15} />
+              </button>
+            </div>
 
             <button
+              disabled={isLoading}
               onClick={handleResetFilters}
-              style={styles.resetButton}
+              style={{
+                ...styles.resetButton,
+                ...(isLoading ? styles.controlsDisabled : {}),
+              }}
               type="button"
             >
               <RotateCcw size={15} />
@@ -483,16 +543,13 @@ export default function ScoringTablePage() {
               </tr>
             </thead>
 
-            <tbody>
-              {isLoading && (
-                <tr style={styles.tr}>
-                  <td colSpan={7} style={{ ...styles.td, textAlign: "center" }}>
-                    Loading scoring table...
-                  </td>
-                </tr>
-              )}
-
-              {!isLoading && errorMessage && (
+            <tbody
+              style={{
+                ...styles.tableBody,
+                opacity: isLoading ? 0.4 : 1,
+              }}
+            >
+              {errorMessage && (
                 <tr style={styles.tr}>
                   <td
                     colSpan={7}
@@ -503,15 +560,15 @@ export default function ScoringTablePage() {
                 </tr>
               )}
 
-              {!isLoading && !errorMessage && currentRows.length === 0 && (
+              {!errorMessage && currentRows.length === 0 && (
                 <tr style={styles.tr}>
                   <td colSpan={7} style={{ ...styles.td, textAlign: "center" }}>
-                    No scoring records found.
+                    {isLoading ? " " : "No scoring records found."}
                   </td>
                 </tr>
               )}
 
-              {!isLoading && !errorMessage && currentRows.map((row) => (
+              {!errorMessage && currentRows.map((row) => (
                 <tr key={row.srNo} style={styles.tr}>
                   <td style={styles.td}>{row.srNo}</td>
                   <td style={styles.td}>{row.transactionId}</td>
@@ -539,11 +596,17 @@ export default function ScoringTablePage() {
               ))}
             </tbody>
           </table>
+
+          {isLoading && (
+            <div style={styles.loadingOverlay}>
+              <Loader label="Loading scoring table..." />
+            </div>
+          )}
         </div>
 
         <div style={styles.footerRow}>
           <div style={styles.footerText}>
-            Showing <strong>{currentRows.length}</strong> of{" "}
+            Showing <strong>{startRecord}-{endRecord}</strong> of{" "}
             <strong>{totalRecords}</strong> scoring records
           </div>
 
