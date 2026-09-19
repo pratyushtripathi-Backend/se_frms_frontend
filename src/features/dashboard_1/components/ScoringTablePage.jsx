@@ -8,6 +8,7 @@ import { CalendarDays, Download, RotateCcw } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import { getScoringHistory } from "../services/fraudDetailsService";
+import { openDashboardDatePicker } from "./dashboardDatePicker";
 
 const rowsPerPage = 10;
 
@@ -33,6 +34,9 @@ export default function ScoringTablePage() {
       const response = await getScoringHistory({
         page: currentPage - 1,
         size: rowsPerPage,
+        year,
+        startDate: fromDate,
+        endDate: toDate,
       });
       const normalizedResponse = normalizeScoringResponse(
         response.data,
@@ -53,7 +57,7 @@ export default function ScoringTablePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage]);
+  }, [currentPage, year, fromDate, toDate]);
 
   useEffect(() => {
     loadScoringHistory();
@@ -67,6 +71,10 @@ export default function ScoringTablePage() {
   };
 
   const currentRows = useMemo(() => scoringRows, [scoringRows]);
+
+  const startRecord = totalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const endRecord =
+    totalRecords === 0 ? 0 : Math.min(startRecord + currentRows.length - 1, totalRecords);
 
   const exportCSV = () => {
     const headers = [
@@ -374,10 +382,8 @@ export default function ScoringTablePage() {
               value={fromDate}
             />
             <button
-              onClick={() =>
-                fromInputRef.current?.showPicker
-                  ? fromInputRef.current.showPicker()
-                  : fromInputRef.current?.click()
+              onClick={(event) =>
+                openDashboardDatePicker(fromInputRef.current, event.currentTarget)
               }
               style={styles.dateButton}
               type="button"
@@ -394,10 +400,8 @@ export default function ScoringTablePage() {
               value={toDate}
             />
             <button
-              onClick={() =>
-                toInputRef.current?.showPicker
-                  ? toInputRef.current.showPicker()
-                  : toInputRef.current?.click()
+              onClick={(event) =>
+                openDashboardDatePicker(toInputRef.current, event.currentTarget)
               }
               style={styles.dateButton}
               type="button"
@@ -543,7 +547,7 @@ export default function ScoringTablePage() {
 
         <div style={styles.footerRow}>
           <div style={styles.footerText}>
-            Showing <strong>{currentRows.length}</strong> of{" "}
+            Showing <strong>{startRecord}-{endRecord}</strong> of{" "}
             <strong>{totalRecords}</strong> scoring records
           </div>
 

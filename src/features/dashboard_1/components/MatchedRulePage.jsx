@@ -8,6 +8,7 @@ import { CalendarDays, Download, RotateCcw } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import { getMatchedRules } from "../services/fraudDetailsService";
+import { openDashboardDatePicker } from "./dashboardDatePicker";
 
 const rowsPerPage = 10;
 
@@ -33,6 +34,9 @@ export default function MatchedRulePage() {
       const response = await getMatchedRules({
         page: currentPage - 1,
         size: rowsPerPage,
+        year,
+        startDate: fromDate,
+        endDate: toDate,
       });
       const normalizedResponse = normalizeMatchedRuleResponse(
         response.data,
@@ -53,7 +57,7 @@ export default function MatchedRulePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage]);
+  }, [currentPage, year, fromDate, toDate]);
 
   useEffect(() => {
     loadMatchedRules();
@@ -67,6 +71,10 @@ export default function MatchedRulePage() {
   };
 
   const currentRows = useMemo(() => matchedRuleRows, [matchedRuleRows]);
+
+  const startRecord = totalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const endRecord =
+    totalRecords === 0 ? 0 : Math.min(startRecord + currentRows.length - 1, totalRecords);
 
   const exportCSV = () => {
     const headers = [
@@ -396,10 +404,8 @@ export default function MatchedRulePage() {
               value={fromDate}
             />
             <button
-              onClick={() =>
-                fromInputRef.current?.showPicker
-                  ? fromInputRef.current.showPicker()
-                  : fromInputRef.current?.click()
+              onClick={(event) =>
+                openDashboardDatePicker(fromInputRef.current, event.currentTarget)
               }
               style={styles.dateButton}
               type="button"
@@ -416,10 +422,8 @@ export default function MatchedRulePage() {
               value={toDate}
             />
             <button
-              onClick={() =>
-                toInputRef.current?.showPicker
-                  ? toInputRef.current.showPicker()
-                  : toInputRef.current?.click()
+              onClick={(event) =>
+                openDashboardDatePicker(toInputRef.current, event.currentTarget)
               }
               style={styles.dateButton}
               type="button"
@@ -577,7 +581,7 @@ export default function MatchedRulePage() {
 
         <div style={styles.footerRow}>
           <div style={styles.footerText}>
-            Showing <strong>{currentRows.length}</strong> of{" "}
+            Showing <strong>{startRecord}-{endRecord}</strong> of{" "}
             <strong>{totalRecords}</strong> matched rules
           </div>
 

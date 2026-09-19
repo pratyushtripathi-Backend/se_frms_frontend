@@ -78,6 +78,10 @@ export default function DecisionTablePage() {
 
   const currentRows = useMemo(() => decisionRows, [decisionRows]);
 
+  const startRecord = totalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const endRecord =
+    totalRecords === 0 ? 0 : Math.min(startRecord + currentRows.length - 1, totalRecords);
+
   const exportCSV = () => {
     const headers = [
       "Sr.no",
@@ -635,7 +639,7 @@ export default function DecisionTablePage() {
 
         <div style={styles.footerRow}>
           <div style={styles.footerText}>
-            Showing <strong>{currentRows.length}</strong> of{" "}
+            Showing <strong>{startRecord}-{endRecord}</strong> of{" "}
             <strong>{totalRecords}</strong> decisions
           </div>
 
