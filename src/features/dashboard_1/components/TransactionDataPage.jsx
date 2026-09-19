@@ -12,6 +12,7 @@ import {
   normalizeTransactionsResponse,
   normalizeTransactionRow,
 } from "./transactionNormalization";
+import Loader from "../../../components/ui/Loader";
 
 const rowsPerPage = 10;
 const AUTO_REFRESH_INTERVAL_MS = 8000;
@@ -275,6 +276,17 @@ export default function TransactionDataPage({ searchQuery = "" }) {
       outline: "none",
     },
 
+    hiddenDateInput: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      opacity: 0,
+      border: "none",
+      pointerEvents: "none",
+    },
+
     dateButton: {
       width: "125px",
       height: "40px",
@@ -288,6 +300,11 @@ export default function TransactionDataPage({ searchQuery = "" }) {
       alignItems: "center",
       justifyContent: "space-between",
       cursor: "pointer",
+    },
+
+    controlsDisabled: {
+      opacity: 0.6,
+      pointerEvents: "none",
     },
 
     exportButton: {
@@ -321,10 +338,26 @@ export default function TransactionDataPage({ searchQuery = "" }) {
     },
 
     tableContainer: {
+      position: "relative",
       border: "1px solid #E5E7EB",
       borderRadius: "10px",
       overflowX: "auto",
       background: "#FFFFFF",
+    },
+
+    tableBody: {
+      transition: "opacity 0.15s ease",
+    },
+
+    loadingOverlay: {
+      position: "absolute",
+      inset: 0,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "rgba(255, 255, 255, 0.7)",
+      borderRadius: "10px",
+      zIndex: 5,
     },
 
     table: {
@@ -503,8 +536,12 @@ export default function TransactionDataPage({ searchQuery = "" }) {
           <div style={styles.controls}>
             <div style={{ position: "relative" }}>
               <select
+                disabled={isLoading}
                 onChange={(event) => setYear(event.target.value)}
-                style={styles.yearSelect}
+                style={{
+                  ...styles.yearSelect,
+                  ...(isLoading ? styles.controlsDisabled : {}),
+                }}
                 value={year}
               >
                 <option value="">Year</option>
@@ -525,49 +562,65 @@ export default function TransactionDataPage({ searchQuery = "" }) {
               />
             </div>
 
-            <input
-              onChange={(event) => setFromDate(event.target.value)}
-              ref={fromInputRef}
-              style={{ display: "none" }}
-              type="date"
-              value={fromDate}
-            />
-            <button
-              onClick={() =>
-                fromInputRef.current?.showPicker
-                  ? fromInputRef.current.showPicker()
-                  : fromInputRef.current?.click()
-              }
-              style={styles.dateButton}
-              type="button"
-            >
-              <span>{fromDate || "From"}</span>
-              <CalendarDays size={15} />
-            </button>
+            <div style={{ position: "relative" }}>
+              <input
+                onChange={(event) => setFromDate(event.target.value)}
+                ref={fromInputRef}
+                style={styles.hiddenDateInput}
+                type="date"
+                value={fromDate}
+              />
+              <button
+                disabled={isLoading}
+                onClick={() =>
+                  fromInputRef.current?.showPicker
+                    ? fromInputRef.current.showPicker()
+                    : fromInputRef.current?.click()
+                }
+                style={{
+                  ...styles.dateButton,
+                  ...(isLoading ? styles.controlsDisabled : {}),
+                }}
+                type="button"
+              >
+                <span>{fromDate || "From"}</span>
+                <CalendarDays size={15} />
+              </button>
+            </div>
 
-            <input
-              onChange={(event) => setToDate(event.target.value)}
-              ref={toInputRef}
-              style={{ display: "none" }}
-              type="date"
-              value={toDate}
-            />
-            <button
-              onClick={() =>
-                toInputRef.current?.showPicker
-                  ? toInputRef.current.showPicker()
-                  : toInputRef.current?.click()
-              }
-              style={styles.dateButton}
-              type="button"
-            >
-              <span>{toDate || "To"}</span>
-              <CalendarDays size={15} />
-            </button>
+            <div style={{ position: "relative" }}>
+              <input
+                onChange={(event) => setToDate(event.target.value)}
+                ref={toInputRef}
+                style={styles.hiddenDateInput}
+                type="date"
+                value={toDate}
+              />
+              <button
+                disabled={isLoading}
+                onClick={() =>
+                  toInputRef.current?.showPicker
+                    ? toInputRef.current.showPicker()
+                    : toInputRef.current?.click()
+                }
+                style={{
+                  ...styles.dateButton,
+                  ...(isLoading ? styles.controlsDisabled : {}),
+                }}
+                type="button"
+              >
+                <span>{toDate || "To"}</span>
+                <CalendarDays size={15} />
+              </button>
+            </div>
 
             <button
+              disabled={isLoading}
               onClick={handleResetFilters}
-              style={styles.resetButton}
+              style={{
+                ...styles.resetButton,
+                ...(isLoading ? styles.controlsDisabled : {}),
+              }}
               type="button"
             >
               <RotateCcw size={15} />
@@ -652,16 +705,13 @@ export default function TransactionDataPage({ searchQuery = "" }) {
               </tr>
             </thead>
 
-            <tbody>
-              {isLoading && (
-                <tr style={styles.tr}>
-                  <td colSpan={17} style={{ ...styles.td, textAlign: "center" }}>
-                    Loading transactions...
-                  </td>
-                </tr>
-              )}
-
-              {!isLoading && error && (
+            <tbody
+              style={{
+                ...styles.tableBody,
+                opacity: isLoading ? 0.4 : 1,
+              }}
+            >
+              {error && (
                 <tr style={styles.tr}>
                   <td
                     colSpan={17}
@@ -672,7 +722,7 @@ export default function TransactionDataPage({ searchQuery = "" }) {
                 </tr>
               )}
 
-              {!isLoading && !error && currentRows.length > 0 ? currentRows.map((row) => (
+              {!error && currentRows.length > 0 ? currentRows.map((row) => (
                 <tr key={row.srNo} style={styles.tr}>
                   <td style={styles.td}>{row.srNo}</td>
                   <td style={styles.td}>{row.userId}</td>
@@ -733,17 +783,22 @@ export default function TransactionDataPage({ searchQuery = "" }) {
                   </td>
                 </tr>
               )) : (
-                !isLoading &&
                 !error && (
                   <tr style={styles.tr}>
                     <td colSpan={17} style={{ ...styles.td, textAlign: "center" }}>
-                      No transaction data found.
+                      {isLoading ? " " : "No transaction data found."}
                     </td>
                   </tr>
                 )
               )}
             </tbody>
           </table>
+
+          {isLoading && (
+            <div style={styles.loadingOverlay}>
+              <Loader label="Loading transactions..." />
+            </div>
+          )}
         </div>
 
         <div style={styles.footerRow}>
