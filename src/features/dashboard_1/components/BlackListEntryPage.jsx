@@ -4,7 +4,6 @@ import {
   ChevronDown,
   Plus,
   RotateCcw,
-  Trash2,
   X,
 } from "lucide-react";
 import DashboardStatusToggle from "./DashboardStatusToggle";
@@ -14,7 +13,7 @@ import { getAuthErrorMessage } from "../../auth/services/authError";
 import {
   createBlacklistEntry,
   getBlacklistEntries,
-  removeBlacklistEntry,
+  updateBlacklistStatus,
 } from "../services/blacklistService";
 
 const TABLE_COLUMNS = [
@@ -27,7 +26,6 @@ const TABLE_COLUMNS = [
   "Created By",
   "Updated At",
   "Status",
-  "Action",
 ];
 
 const TYPE_OPTIONS = ["Device", "Location", "IP"];
@@ -170,9 +168,6 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
-  const [removeTarget, setRemoveTarget] = useState(null);
-  const [isRemoving, setIsRemoving] = useState(false);
-  const [removeError, setRemoveError] = useState("");
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
@@ -339,34 +334,22 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
     }
   };
 
-  const handleRemoveClick = (row) => {
-    setRemoveError("");
-    setRemoveTarget(row);
-  };
-
-  const handleCancelRemove = () => {
-    setRemoveTarget(null);
-  };
-
-  const handleConfirmRemove = async () => {
-    if (!removeTarget) {
-      return;
-    }
-
-    setIsRemoving(true);
-    setRemoveError("");
-
+  const handleStatusToggle = async (row, nextStatus) => {
     try {
-      await removeBlacklistEntry(removeTarget.id);
-      setRemoveTarget(null);
-      setSuccessMessage("Blacklist entry removed successfully.");
-      await loadEntries();
-    } catch (error) {
-      setRemoveError(
-        getAuthErrorMessage(error, "Unable to remove this blacklist entry. Please try again."),
+      await updateBlacklistStatus(row.id, nextStatus);
+      setRows((previousRows) =>
+        previousRows.map((item) =>
+          item.id === row.id
+            ? { ...item, status: nextStatus ? "Active" : "Inactive" }
+            : item,
+        ),
       );
-    } finally {
-      setIsRemoving(false);
+    } catch (error) {
+      setErrorMessage(
+        getAuthErrorMessage(error, "Unable to update status. Please try again."),
+      );
+      // Re-throw so DashboardStatusToggle reverts its optimistic UI state.
+      throw error;
     }
   };
 
@@ -534,30 +517,9 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
                     </td>
                     <td className="px-4 py-4">
                       <DashboardStatusToggle
-                        onToggle={(nextStatus) => {
-                          // No status-update endpoint has been provided for
-                          // blacklist entries yet, so this only updates the
-                          // local view - it does not persist to the backend.
-                          setRows((previousRows) =>
-                            previousRows.map((item) =>
-                              item.id === row.id
-                                ? { ...item, status: nextStatus ? "Active" : "Inactive" }
-                                : item,
-                            ),
-                          );
-                        }}
+                        onToggle={(nextStatus) => handleStatusToggle(row, nextStatus)}
                         status={row.status}
                       />
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-4">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveClick(row)}
-                        className="flex items-center gap-1.5 rounded-lg border border-[#EB5757] px-3 py-1.5 text-[12px] font-semibold text-[#EB5757]"
-                      >
-                        <Trash2 size={13} />
-                        Remove
-                      </button>
                     </td>
                   </tr>
                 ))}
@@ -722,56 +684,6 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
             >
               {isSubmitting ? "Submitting..." : "Submit"}
             </button>
-          </div>
-        </div>
-      )}
-
-      {removeTarget && (
-        <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
-          onClick={handleCancelRemove}
-        >
-          <div
-            className="w-[520px] max-w-[94vw] rounded-lg bg-white px-10 py-12 text-center shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-6 flex justify-center">
-              <Trash2 size={52} className="text-black" strokeWidth={1.75} />
-            </div>
-
-            <h3 className="mb-4 text-[20px] font-semibold text-[#202224]">
-              Remove Blacklist Entry
-            </h3>
-
-            <p className="mx-auto mb-6 max-w-[380px] text-[14px] leading-6 text-[#7A7A7A]">
-              Are you sure you want to remove{" "}
-              <strong className="text-[#202224]">{removeTarget.value}</strong> from the
-              blacklist?
-            </p>
-
-            {removeError && (
-              <p className="mb-4 text-[13px] font-semibold text-[#D92D20]">{removeError}</p>
-            )}
-
-            <div className="flex items-center justify-center gap-4">
-              <button
-                type="button"
-                onClick={handleCancelRemove}
-                disabled={isRemoving}
-                className="h-[46px] w-[140px] rounded-lg border border-[#E5E7EB] bg-white text-[14px] font-semibold text-[#202224] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={handleConfirmRemove}
-                disabled={isRemoving}
-                className="h-[46px] w-[140px] rounded-lg border-none bg-[#EB5757] text-[14px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isRemoving ? "Removing..." : "Remove"}
-              </button>
-            </div>
           </div>
         </div>
       )}

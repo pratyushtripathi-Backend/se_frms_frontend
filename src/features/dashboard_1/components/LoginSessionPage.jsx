@@ -2,6 +2,7 @@ import { useState, useRef, useMemo, useEffect } from "react";
 import {
   CalendarDays,
   ChevronDown,
+  Loader2,
   RotateCcw,
 } from "lucide-react";
 
@@ -37,6 +38,7 @@ export default function LoginSessionPage({ searchQuery = "" }) {
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
+  const pageScrollRef = useRef(null);
   const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   useEffect(() => {
@@ -156,12 +158,13 @@ export default function LoginSessionPage({ searchQuery = "" }) {
     ? filteredData.slice(currentPage * pageSize, currentPage * pageSize + pageSize)
     : filteredData;
 
-  const visiblePageNumbers = useMemo(() => {
-    const pageCount = Math.max(effectiveTotalPages, 1);
-    const startPage = Math.max(Math.min(currentPage - 2, pageCount - 5), 0);
-    const endPage = Math.min(startPage + 5, pageCount);
-
-    return Array.from({ length: endPage - startPage }, (_, index) => startPage + index);
+  // Keeps the current page's button scrolled into view within the
+  // horizontally-scrollable page-number strip (e.g. after using the
+  // prev/next arrows to move past what's currently visible).
+  useEffect(() => {
+    const container = pageScrollRef.current;
+    const activeButton = container?.querySelector(`[data-page="${currentPage}"]`);
+    activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [currentPage, effectiveTotalPages]);
 
   return (
@@ -255,7 +258,13 @@ export default function LoginSessionPage({ searchQuery = "" }) {
         {/* Table */}
         <div className="overflow-hidden rounded-xl border border-[#ECECEC] bg-white">
 
-          <div className="w-full overflow-x-auto">
+          <div className="relative w-full overflow-x-auto">
+
+            {isLoading && visibleData.length > 0 && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/60 pt-12">
+                <Loader2 size={22} className="animate-spin text-[#6B7280]" />
+              </div>
+            )}
 
             <table className="w-full min-w-[1350px] border-collapse">
 
@@ -344,7 +353,7 @@ export default function LoginSessionPage({ searchQuery = "" }) {
                   </tr>
                 )}
 
-                {isLoading && (
+                {isLoading && visibleData.length === 0 && (
                   <tr>
                     <td
                       className="px-4 py-10 text-center text-[13px] font-medium text-[#7A7A7A]"
@@ -388,20 +397,27 @@ export default function LoginSessionPage({ searchQuery = "" }) {
                 &lt;
               </button>
 
-              {visiblePageNumbers.map((page) => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium transition ${
-                    page === currentPage
-                      ? "bg-[#F3F4F6] text-[#111827]"
-                      : "text-[#6B7280] hover:bg-[#F8F8F8]"
-                  }`}
-                  type="button"
-                >
-                  {page + 1}
-                </button>
-              ))}
+              <div
+                ref={pageScrollRef}
+                className="flex items-center gap-2 overflow-x-auto scroll-smooth"
+                style={{ maxWidth: `${5 * 32 + 4 * 8}px`, scrollbarWidth: "thin" }}
+              >
+                {Array.from({ length: effectiveTotalPages }, (_, index) => index).map((page) => (
+                  <button
+                    key={page}
+                    data-page={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[12px] font-medium transition ${
+                      page === currentPage
+                        ? "bg-[#F3F4F6] text-[#111827]"
+                        : "text-[#6B7280] hover:bg-[#F8F8F8]"
+                    }`}
+                    type="button"
+                  >
+                    {page + 1}
+                  </button>
+                ))}
+              </div>
 
               <button
                 className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"

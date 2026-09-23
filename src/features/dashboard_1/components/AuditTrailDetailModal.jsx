@@ -124,13 +124,66 @@ function TransactionDataCard({ index, evaluation }) {
   );
 }
 
+// Converts a backend-style key (camelCase or snake_case) into a readable
+// label, e.g. "totalRiskScore" -> "Total Risk Score".
+function formatFieldLabel(key) {
+  const spaced = String(key)
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim();
+
+  return spaced.replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatFieldValue(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value === "boolean") return value ? "True" : "False";
+  return String(value);
+}
+
+// Recursively flattens a nested object into readable {label, value} rows,
+// e.g. { transactionData: { userId: "USR006" } } ->
+// [{ label: "Transaction Data → User Id", value: "USR006" }], so the event
+// payload reads as a plain key-value list instead of raw JSON text.
+function flattenEventData(value, parentLabel = "") {
+  if (value === null || value === undefined) return [];
+
+  if (typeof value !== "object") {
+    return [{ label: parentLabel || "Value", value: formatFieldValue(value) }];
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return [{ label: parentLabel || "Value", value: "-" }];
+    }
+
+    return value.flatMap((item, itemIndex) =>
+      flattenEventData(item, `${parentLabel || "Value"} [${itemIndex + 1}]`),
+    );
+  }
+
+  const entries = Object.entries(value);
+
+  if (entries.length === 0) {
+    return [{ label: parentLabel || "Value", value: "-" }];
+  }
+
+  return entries.flatMap(([key, childValue]) => {
+    const label = parentLabel
+      ? `${parentLabel} → ${formatFieldLabel(key)}`
+      : formatFieldLabel(key);
+
+    return flattenEventData(childValue, label);
+  });
+}
+
 function RawEventJsonCard({ index, rawEvent }) {
   const [copied, setCopied] = useState(false);
-  const json = JSON.stringify(rawEvent, null, 2);
+  const rows = flattenEventData(rawEvent);
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(json);
+      await navigator.clipboard.writeText(JSON.stringify(rawEvent, null, 2));
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -141,20 +194,24 @@ function RawEventJsonCard({ index, rawEvent }) {
   return (
     <DetailCard
       index={index}
-      title="Raw Event JSON"
+      title="Event Data"
       className="relative"
     >
       <button
-        aria-label="Copy raw event JSON"
+        aria-label="Copy event data as JSON"
         className="absolute right-5 top-5 flex h-7 w-7 items-center justify-center rounded-md text-[#8A8A8A] transition-colors hover:bg-[#ECECEC] hover:text-[#202224]"
         onClick={handleCopy}
         type="button"
       >
         <Copy size={15} />
       </button>
-      <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-white p-3 text-[12px] leading-5 text-[#4B5563]">
-        {json}
-      </pre>
+      {rows.length === 0 ? (
+        <p className="text-[13px] text-[#8A8A8A]">No details available.</p>
+      ) : (
+        rows.map((row, rowIndex) => (
+          <DetailRow key={`${row.label}-${rowIndex}`} label={row.label} value={row.value} />
+        ))
+      )}
       {copied && (
         <span className="absolute right-14 top-6 text-[11px] font-semibold text-[#27AE60]">
           Copied!

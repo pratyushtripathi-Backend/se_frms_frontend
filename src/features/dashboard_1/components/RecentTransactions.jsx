@@ -2,9 +2,9 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Loader2,
   RotateCcw,
 } from "lucide-react";
-import ExportFile from "./ExportFile";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { openDashboardDatePicker } from "./dashboardDatePicker";
 import { getTransactions } from "../services/transactionService";
@@ -17,6 +17,13 @@ import {
 
 const rowsPerPage = 5;
 const DECISIONS_LOOKUP_SIZE = 50;
+// Page-number strip shows this many buttons at a time (~28px button + 6px
+// gap each) and scrolls horizontally for the rest - see pageScrollRef below.
+const VISIBLE_PAGE_BUTTONS = 5;
+const PAGE_BUTTON_SIZE = 28;
+const PAGE_BUTTON_GAP = 6;
+const PAGE_STRIP_WIDTH =
+  VISIBLE_PAGE_BUTTONS * PAGE_BUTTON_SIZE + (VISIBLE_PAGE_BUTTONS - 1) * PAGE_BUTTON_GAP;
 
 const recentTransactionColumns = [
   "Sr no",
@@ -87,16 +94,19 @@ export default function RecentTransactions() {
   const [toDate, setToDate] = useState("");
   const [transactions, setTransactions] = useState([]);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
   const requestIdRef = useRef(0);
+  const pageScrollRef = useRef(null);
 
   // Fetches the same live transaction data (and uses the exact same
   // normalization logic) as the Transaction Data page, so this widget always
-  // mirrors what is shown there - just the most recent `rowsPerPage` rows.
+  // mirrors what is shown there - just `rowsPerPage` rows at a time, paged.
   // Priority is derived from the Decision Table's Final Decision for the
   // same transaction: Allow -> Safe, Review/Block -> Risk.
   const fetchRecentTransactions = useCallback(async () => {
@@ -106,7 +116,7 @@ export default function RecentTransactions() {
 
     try {
       const [transactionsResponse, decisionsResponse] = await Promise.all([
-        getTransactions({ page: 0, size: rowsPerPage }),
+        getTransactions({ page: currentPage - 1, size: rowsPerPage }),
         getDecisions({ page: 0, size: DECISIONS_LOOKUP_SIZE }).catch(() => null),
       ]);
 
@@ -114,17 +124,19 @@ export default function RecentTransactions() {
         return;
       }
 
-      const { rawRows, totalRecords: total } = normalizeTransactionsResponse(
-        transactionsResponse?.data,
-        rowsPerPage,
-      );
+      const { rawRows, totalRecords: total, totalPages: pages } =
+        normalizeTransactionsResponse(transactionsResponse?.data, rowsPerPage);
 
       const priorityByTransactionId = decisionsResponse
         ? buildDecisionPriorityMap(decisionsResponse?.data)
         : new Map();
 
       const normalizedRows = rawRows.slice(0, rowsPerPage).map((row, index) => {
-        const normalizedRow = normalizeTransactionRow(row, index, 0);
+        const normalizedRow = normalizeTransactionRow(
+          row,
+          index,
+          (currentPage - 1) * rowsPerPage,
+        );
         return {
           ...normalizedRow,
           priority:
@@ -134,6 +146,7 @@ export default function RecentTransactions() {
 
       setTransactions(normalizedRows);
       setTotalRecords(total);
+      setTotalPages(pages);
     } catch (err) {
       if (requestId !== requestIdRef.current) {
         return;
@@ -145,15 +158,25 @@ export default function RecentTransactions() {
         setIsLoading(false);
       }
     }
-  }, []);
+  }, [currentPage]);
 
   useEffect(() => {
     fetchRecentTransactions();
   }, [fetchRecentTransactions]);
 
+  // Keeps the current page's button scrolled into view within the
+  // horizontally-scrollable page-number strip (e.g. after using the prev/next
+  // arrows to move past what's currently visible).
+  useEffect(() => {
+    const container = pageScrollRef.current;
+    const activeButton = container?.querySelector(`[data-page="${currentPage}"]`);
+    activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [currentPage, totalPages]);
+
   const handleResetFilters = () => {
     setFromDate("");
     setToDate("");
+    setCurrentPage(1);
   };
 
   const filteredTransactions = transactions.filter((row) => {
@@ -232,13 +255,30 @@ export default function RecentTransactions() {
             <RotateCcw size={13} />
             Reset
           </button>
-
-          <ExportFile rows={filteredTransactions} />
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[900px] border-collapse text-[12px]">
+      {error && (
+        <div className="mb-2 rounded-lg bg-brand-redSoft px-3 py-2 text-[11.5px] text-brand-red">
+          {error}
+        </div>
+      )}
+
+      {/* Only this card's table area shows a loading state when switching
+          pages - the previous page's rows stay visible (dimmed) under a
+          small spinner instead of the whole card blanking out. */}
+      <div className="relative overflow-x-auto">
+        {isLoading && filteredTransactions.length > 0 && (
+          <div className="absolute inset-0 z-10 grid place-items-center rounded-lg bg-white/60">
+            <Loader2 size={18} className="animate-spin text-brand-dim" />
+          </div>
+        )}
+
+        <table
+          className={`w-full min-w-[900px] border-collapse text-[12px] transition-opacity ${
+            isLoading && filteredTransactions.length > 0 ? "opacity-50" : "opacity-100"
+          }`}
+        >
           <thead>
             <tr className="text-left text-[12px] font-medium text-brand-dim">
               {recentTransactionColumns.map((column) => (
@@ -253,24 +293,13 @@ export default function RecentTransactions() {
           </thead>
 
           <tbody>
-            {isLoading && (
+            {isLoading && filteredTransactions.length === 0 && (
               <tr>
                 <td
                   colSpan={recentTransactionColumns.length}
                   className="px-3 py-4 text-center text-brand-dim"
                 >
                   Loading transactions...
-                </td>
-              </tr>
-            )}
-
-            {!isLoading && error && (
-              <tr>
-                <td
-                  colSpan={recentTransactionColumns.length}
-                  className="px-3 py-4 text-center text-brand-red"
-                >
-                  {error}
                 </td>
               </tr>
             )}
@@ -286,8 +315,7 @@ export default function RecentTransactions() {
               </tr>
             )}
 
-            {!isLoading &&
-              !error &&
+            {filteredTransactions.length > 0 &&
               filteredTransactions.map((row, index) => (
                 <tr
                   key={row.transactionId ?? index}
@@ -346,22 +374,42 @@ export default function RecentTransactions() {
 
         <div className="flex items-center gap-1.5">
           <button
-            className="grid h-7 w-7 place-items-center rounded-lg border border-brand-border text-brand-dim"
+            className="grid h-7 w-7 place-items-center rounded-lg border border-brand-border text-brand-dim disabled:cursor-not-allowed disabled:opacity-50"
             type="button"
+            disabled={currentPage <= 1 || isLoading}
+            onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
           >
             <ChevronLeft size={13} />
           </button>
 
-          <button
-            className="grid h-7 w-7 place-items-center rounded-lg bg-brand-ink text-[11.5px] font-medium text-white"
-            type="button"
+          <div
+            ref={pageScrollRef}
+            className="flex items-center gap-1.5 overflow-x-auto scroll-smooth"
+            style={{ maxWidth: `${PAGE_STRIP_WIDTH}px`, scrollbarWidth: "thin" }}
           >
-            1
-          </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                data-page={page}
+                type="button"
+                onClick={() => setCurrentPage(page)}
+                disabled={isLoading}
+                className={
+                  page === currentPage
+                    ? "grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand-ink text-[11.5px] font-medium text-white"
+                    : "grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-brand-border text-[11.5px] text-brand-dim"
+                }
+              >
+                {page}
+              </button>
+            ))}
+          </div>
 
           <button
-            className="grid h-7 w-7 place-items-center rounded-lg border border-brand-border text-brand-dim"
+            className="grid h-7 w-7 place-items-center rounded-lg border border-brand-border text-brand-dim disabled:cursor-not-allowed disabled:opacity-50"
             type="button"
+            disabled={currentPage >= totalPages || isLoading}
+            onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
           >
             <ChevronRight size={13} />
           </button>

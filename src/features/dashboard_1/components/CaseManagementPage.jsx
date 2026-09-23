@@ -208,10 +208,14 @@ export default function CaseManagementPage() {
                   </tr>
                 )}
 
-                {!isLoading && !errorMessage && caseRows.map((row) => {
+                {!isLoading && !errorMessage && caseRows.map((row, index) => {
                   const isMenuOpen = openMenuSrNo === row.srNo;
                   const isRowPending = pendingSrNo === row.srNo;
                   const rowError = actionErrors[row.srNo];
+                  // The table card clips overflow for its rounded corners, so a
+                  // menu opened downward from one of the last rows gets cut off
+                  // below the visible table. Flip it to open upward instead.
+                  const opensUpward = index >= caseRows.length - 2;
 
                   return (
                     <tr
@@ -314,7 +318,11 @@ export default function CaseManagementPage() {
                             </button>
 
                             {isMenuOpen && (
-                              <div className="absolute right-0 z-20 mt-1 w-[110px] overflow-hidden rounded-md border border-[#E5E7EB] bg-white shadow-lg">
+                              <div
+                                className={`absolute right-0 z-20 w-[110px] overflow-hidden rounded-md border border-[#E5E7EB] bg-white shadow-lg ${
+                                  opensUpward ? "bottom-full mb-1" : "mt-1"
+                                }`}
+                              >
                                 <button
                                   type="button"
                                   onClick={() => handleReviewAction(row, "ALLOW")}

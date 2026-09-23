@@ -5,12 +5,15 @@ import {
   FiChevronRight,
 } from "react-icons/fi";
 import { CalendarDays, Download, RotateCcw } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import { getTransactions } from "../services/transactionService";
 import {
   normalizeTransactionsResponse,
   normalizeTransactionRow,
+  enrichRowsWithLocationNames,
 } from "./transactionNormalization";
 import Loader from "../../../components/ui/Loader";
 
@@ -33,10 +36,20 @@ export default function TransactionDataPage({ searchQuery = "" }) {
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
   const requestIdRef = useRef(0);
+  const pageScrollRef = useRef(null);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, year, fromDate, toDate]);
+
+  // Keeps the current page's button scrolled into view within the
+  // horizontally-scrollable page-number strip (e.g. after using the
+  // prev/next arrows to move past what's currently visible).
+  useEffect(() => {
+    const container = pageScrollRef.current;
+    const activeButton = container?.querySelector(`[data-page="${currentPage}"]`);
+    activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [currentPage, totalApiPages]);
 
   const handleResetFilters = () => {
     setYear("");
@@ -68,14 +81,29 @@ export default function TransactionDataPage({ searchQuery = "" }) {
         if (requestIdRef.current !== requestId) return;
 
         const pageOffset = (currentPage - 1) * rowsPerPage;
-
-        setTransactions(
-          rawRows.map((row, index) =>
-            normalizeTransactionRow(row, index, pageOffset),
-          ),
+        const normalizedRows = rawRows.map((row, index) =>
+          normalizeTransactionRow(row, index, pageOffset),
         );
+
+        setTransactions(normalizedRows);
         setTotalRecords(apiTotalRecords);
         setTotalApiPages(totalPages);
+
+        // Resolve each row's "Locating..." placeholder into a real place
+        // name via OpenStreetMap Nominatim (cached + rate-limited - see
+        // transactionNormalization.js), patching rows in as they resolve
+        // rather than waiting on every lookup to finish.
+        enrichRowsWithLocationNames(normalizedRows, (transactionId, locationName) => {
+          if (requestIdRef.current !== requestId) return;
+
+          setTransactions((previousRows) =>
+            previousRows.map((existingRow) =>
+              existingRow.transactionId === transactionId
+                ? { ...existingRow, location: locationName }
+                : existingRow,
+            ),
+          );
+        });
 
         if (!silent) setError("");
       } catch (fetchError) {
@@ -160,30 +188,30 @@ export default function TransactionDataPage({ searchQuery = "" }) {
     filteredData.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
   const lastVisibleRecord = (currentPage - 1) * rowsPerPage + filteredData.length;
 
-  const exportCSV = () => {
-    const headers = [
-      "Sr.no",
-      "User ID",
-      "Merchant ID",
-      "Channel",
-      "Amount",
-      "Currency",
-      "Latitude",
-      "Longitude 1",
-      "Longitude 2",
-      "IP Address",
-      "Location",
-      "Device ID",
-      "Remark",
-      "Status",
-      "Created By",
-      "Created Date",
-      "Created Time",
-      "Updated Date",
-      "Updated Time",
-    ];
+  const exportHeaders = [
+    "Sr.no",
+    "User ID",
+    "Merchant ID",
+    "Channel",
+    "Amount",
+    "Currency",
+    "Latitude",
+    "Longitude 1",
+    "Longitude 2",
+    "IP Address",
+    "Location",
+    "Device ID",
+    "Remark",
+    "Status",
+    "Created By",
+    "Created Date",
+    "Created Time",
+    "Updated Date",
+    "Updated Time",
+  ];
 
-    const csvRows = filteredData.map((row) => [
+  const buildExportRows = () =>
+    filteredData.map((row) => [
       row.srNo,
       row.userId,
       row.merchantId,
@@ -205,7 +233,10 @@ export default function TransactionDataPage({ searchQuery = "" }) {
       row.updatedTime,
     ]);
 
-    const csv = [headers, ...csvRows]
+  const exportCSV = () => {
+    const csvRows = buildExportRows();
+
+    const csv = [exportHeaders, ...csvRows]
       .map((cells) => cells.join(","))
       .join("\n");
 
@@ -218,6 +249,20 @@ export default function TransactionDataPage({ searchQuery = "" }) {
     link.click();
 
     URL.revokeObjectURL(url);
+    setShowExportMenu(false);
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: "landscape" });
+
+    autoTable(doc, {
+      head: [exportHeaders],
+      body: buildExportRows(),
+      styles: { fontSize: 7 },
+      headStyles: { fillColor: [51, 51, 51] },
+    });
+
+    doc.save("transaction-data.pdf");
     setShowExportMenu(false);
   };
 
@@ -415,32 +460,12 @@ export default function TransactionDataPage({ searchQuery = "" }) {
       cursor: "pointer",
     },
 
-    statusPill: (isActive) => ({
-      position: "relative",
-      display: "inline-flex",
-      alignItems: "center",
-      height: "26px",
-      width: "82px",
-      borderRadius: "20px",
-      padding: "0 10px",
-      fontSize: "12px",
+    // Plain colored text instead of a toggle pill, matching how Status is
+    // shown on the dashboard's Recent Transactions widget.
+    statusText: (isActive) => ({
+      fontSize: "13px",
       fontWeight: 600,
-      color: "#FFFFFF",
-      background: isActive ? "#27AE60" : "#D9D9D9",
-      justifyContent: isActive ? "flex-start" : "flex-end",
-    }),
-
-    statusDot: (isActive) => ({
-      position: "absolute",
-      top: "50%",
-      transform: "translateY(-50%)",
-      height: "18px",
-      width: "18px",
-      borderRadius: "50%",
-      background: "#FFFFFF",
-      boxShadow: "0 1px 2px rgba(0,0,0,.2)",
-      right: isActive ? "4px" : undefined,
-      left: isActive ? undefined : "4px",
+      color: isActive ? "#27AE60" : "#FF4D4F",
     }),
 
     dateTimeDate: {
@@ -472,6 +497,19 @@ export default function TransactionDataPage({ searchQuery = "" }) {
       gap: "8px",
     },
 
+    // Page-number strip shows 5 buttons at a time (32px button + 8px gap
+    // each) and scrolls horizontally for the rest, same as Recent
+    // Transactions on the dashboard.
+    pageNumberScroll: {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      overflowX: "auto",
+      scrollBehavior: "smooth",
+      maxWidth: `${5 * 32 + 4 * 8}px`,
+      scrollbarWidth: "thin",
+    },
+
     pageArrow: {
       width: "34px",
       height: "34px",
@@ -483,11 +521,13 @@ export default function TransactionDataPage({ searchQuery = "" }) {
       justifyContent: "center",
       cursor: "pointer",
       color: "#555555",
+      flexShrink: 0,
     },
 
     pageNumber: (isActive) => ({
       width: "32px",
       height: "32px",
+      flexShrink: 0,
       borderRadius: "6px",
       fontSize: "12px",
       fontWeight: 500,
@@ -669,6 +709,24 @@ export default function TransactionDataPage({ searchQuery = "" }) {
                   >
                     Export CSV
                   </button>
+
+                  <button
+                    onClick={exportPDF}
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      fontSize: "13px",
+                      color: "#3A3A3A",
+                      background: "transparent",
+                      border: "none",
+                      borderTop: "1px solid #ECECEC",
+                      textAlign: "left",
+                      cursor: "pointer",
+                    }}
+                    type="button"
+                  >
+                    Export PDF
+                  </button>
                 </div>
               )}
             </div>
@@ -762,11 +820,8 @@ export default function TransactionDataPage({ searchQuery = "" }) {
                   >
                     {row.remark}
                   </td>
-                  <td style={styles.td}>
-                    <span style={styles.statusPill(row.status === "Active")}>
-                      <span>{row.status}</span>
-                      <span style={styles.statusDot(row.status === "Active")} />
-                    </span>
+                  <td style={{ ...styles.td, ...styles.statusText(row.status === "Active") }}>
+                    {row.status}
                   </td>
                   <td style={styles.td}>{row.createdBy}</td>
                   <td style={styles.td}>
@@ -818,18 +873,21 @@ export default function TransactionDataPage({ searchQuery = "" }) {
               <FiChevronLeft />
             </button>
 
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-              (page) => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  style={styles.pageNumber(page === currentPage)}
-                  type="button"
-                >
-                  {page}
-                </button>
-              )
-            )}
+            <div ref={pageScrollRef} style={styles.pageNumberScroll}>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => (
+                  <button
+                    key={page}
+                    data-page={page}
+                    onClick={() => setCurrentPage(page)}
+                    style={styles.pageNumber(page === currentPage)}
+                    type="button"
+                  >
+                    {page}
+                  </button>
+                )
+              )}
+            </div>
 
             <button
               onClick={() =>

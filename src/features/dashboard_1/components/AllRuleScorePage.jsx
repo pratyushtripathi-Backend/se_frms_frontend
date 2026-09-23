@@ -6,7 +6,6 @@ import {
   X,
   RotateCcw,
 } from "lucide-react";
-import ExportFile from "./ExportFile";
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import {
   createRuleScore,
@@ -403,9 +402,6 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
               <RotateCcw size={15} />
               Reset
             </button>
-
-            {/* Export */}
-            <ExportFile rows={filteredData} />
 
             <button
               type="button"

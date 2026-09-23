@@ -55,7 +55,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
-  const rowsPerPage = 20;
+  const rowsPerPage = 10;
   const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   const loadAccessList = useCallback(async () => {

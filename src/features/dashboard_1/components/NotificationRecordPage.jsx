@@ -128,12 +128,15 @@ function normalizeNotificationsResponse(responseData, pageSize) {
 function normalizeNotificationRow(row, index, pageOffset) {
   const created = splitRecordDateTime(row.createdAt ?? row.createdDate ?? row.created_at);
   const updated = splitRecordDateTime(row.updatedAt ?? row.updatedDate ?? row.updated_at);
+  const failedReason = row.failedReason ?? row.failureReason ?? row.errorMessage ?? null;
   const isSuccess =
-    typeof row.success === "boolean"
-      ? row.success
-      : typeof row.sent === "boolean"
-        ? row.sent
-        : undefined;
+    typeof row.status === "boolean"
+      ? row.status
+      : typeof row.success === "boolean"
+        ? row.success
+        : typeof row.sent === "boolean"
+          ? row.sent
+          : failedReason === null || failedReason === undefined || failedReason === "";
 
   return {
     id: row.id ?? row.notificationId ?? pageOffset + index + 1,
@@ -143,10 +146,17 @@ function normalizeNotificationRow(row, index, pageOffset) {
     recipient: row.recipient ?? row.recipientAddress ?? row.to ?? "-",
     subject: row.subject ?? row.title ?? row.message ?? "-",
     fraudDecision: row.fraudDecision ?? row.decision ?? "-",
+    // `status` from the API is a boolean (true = sent okay), not the
+    // "Success"/"Failed" label the pill needs, so it's derived rather than
+    // passed straight through. Falls back to failedReason when status is
+    // missing entirely.
     status:
-      row.status ??
-      (isSuccess !== undefined ? (isSuccess ? "Success" : "Failed") : "-"),
-    failedReason: row.failedReason ?? row.failureReason ?? row.errorMessage ?? "-",
+      typeof row.status === "string" && row.status.trim()
+        ? row.status
+        : isSuccess
+          ? "Success"
+          : "Failed",
+    failedReason: failedReason ?? "-",
     createdBy: row.createdBy ?? "System",
     createdDate: created.date,
     createdTime: created.time,

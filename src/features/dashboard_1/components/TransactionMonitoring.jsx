@@ -25,8 +25,16 @@ const AUTO_REFRESH_INTERVAL_MS = 5000;
 // How many days back to show when the user hasn't picked a specific date.
 const DEFAULT_WINDOW_DAYS = 7;
 
+// Builds the date from its LOCAL year/month/day rather than
+// date.toISOString() (which converts to UTC first). For a user in a
+// timezone ahead of UTC (e.g. IST, UTC+5:30), toISOString() on a local
+// midnight Date rolls back to the previous day, so the API was silently
+// being queried for the day before whatever the user actually picked.
 function toIsoDate(date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function formatAxisDate(isoDate) {

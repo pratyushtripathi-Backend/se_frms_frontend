@@ -31,6 +31,16 @@ export default function DecisionTablePage() {
   const [errorMessage, setErrorMessage] = useState("");
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
+  const pageScrollRef = useRef(null);
+
+  // Keeps the current page's button scrolled into view within the
+  // horizontally-scrollable page-number strip (e.g. after using the
+  // prev/next arrows to move past what's currently visible).
+  useEffect(() => {
+    const container = pageScrollRef.current;
+    const activeButton = container?.querySelector(`[data-page="${currentPage}"]`);
+    activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [currentPage, totalPages]);
 
   const loadDecisions = useCallback(async () => {
     setIsLoading(true);
@@ -371,6 +381,18 @@ export default function DecisionTablePage() {
       gap: "8px",
     },
 
+    // Page-number strip shows 5 buttons at a time (32px button + 8px gap
+    // each) and scrolls horizontally for the rest, same as Transaction Data.
+    pageNumberScroll: {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      overflowX: "auto",
+      scrollBehavior: "smooth",
+      maxWidth: `${5 * 32 + 4 * 8}px`,
+      scrollbarWidth: "thin",
+    },
+
     pageArrow: {
       width: "34px",
       height: "34px",
@@ -382,11 +404,13 @@ export default function DecisionTablePage() {
       justifyContent: "center",
       cursor: "pointer",
       color: "#555555",
+      flexShrink: 0,
     },
 
     pageNumber: (isActive) => ({
       width: "32px",
       height: "32px",
+      flexShrink: 0,
       borderRadius: "6px",
       fontSize: "12px",
       fontWeight: 500,
@@ -655,18 +679,21 @@ export default function DecisionTablePage() {
               <FiChevronLeft />
             </button>
 
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-              (page) => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  style={styles.pageNumber(page === currentPage)}
-                  type="button"
-                >
-                  {page}
-                </button>
-              )
-            )}
+            <div ref={pageScrollRef} style={styles.pageNumberScroll}>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => (
+                  <button
+                    key={page}
+                    data-page={page}
+                    onClick={() => setCurrentPage(page)}
+                    style={styles.pageNumber(page === currentPage)}
+                    type="button"
+                  >
+                    {page}
+                  </button>
+                )
+              )}
+            </div>
 
             <button
               onClick={() =>

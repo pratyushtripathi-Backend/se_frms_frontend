@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from 'react'
 import { getAuthErrorMessage } from '../services/authError'
 import { login, verifyOtp } from '../services/authService'
@@ -8,11 +9,17 @@ const OTP_LENGTH = 6
 const RESEND_TIMER_SECONDS = 60
 
 function OtpVerificationForm({ email, loginCredentials, onVerified }) {
-  const [otpDigits, setOtpDigits] = useState(Array(OTP_LENGTH).fill(''))
+  const [otpDigits, setOtpDigits] = useState(
+    Array(OTP_LENGTH).fill(''),
+  )
+
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isResending, setIsResending] = useState(false)
-  const [resendTimer, setResendTimer] = useState(RESEND_TIMER_SECONDS)
+  const [resendTimer, setResendTimer] = useState(
+    RESEND_TIMER_SECONDS,
+  )
+
   const inputRefs = useRef([])
 
   const otp = otpDigits.join('')
@@ -24,14 +31,18 @@ function OtpVerificationForm({ email, loginCredentials, onVerified }) {
     }
 
     const timerId = window.setTimeout(() => {
-      setResendTimer((currentTimer) => Math.max(currentTimer - 1, 0))
+      setResendTimer((currentTimer) =>
+        Math.max(currentTimer - 1, 0),
+      )
     }, 1000)
 
     return () => window.clearTimeout(timerId)
   }, [resendTimer])
 
   const handleChange = (index, event) => {
-    const nextValue = event.target.value.replace(/\D/g, '').slice(-1)
+    const nextValue = event.target.value
+      .replace(/\D/g, '')
+      .slice(-1)
 
     setOtpDigits((currentDigits) => {
       const nextDigits = [...currentDigits]
@@ -45,13 +56,18 @@ function OtpVerificationForm({ email, loginCredentials, onVerified }) {
   }
 
   const handleKeyDown = (index, event) => {
-    if (event.key === 'Backspace' && !otpDigits[index] && index > 0) {
+    if (
+      event.key === 'Backspace' &&
+      !otpDigits[index] &&
+      index > 0
+    ) {
       inputRefs.current[index - 1]?.focus()
     }
   }
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+
     setError('')
 
     if (!email) {
@@ -68,26 +84,46 @@ function OtpVerificationForm({ email, loginCredentials, onVerified }) {
 
     try {
       const clientMetadata = await getRequiredClientAuthMetadata()
+
       console.log('OTP client metadata:', clientMetadata)
+
       const response = await verifyOtp({
         email,
         otp,
         ...clientMetadata,
       })
-      console.log('OTP verification success:', response.data)
+
+      console.log(
+        'OTP verification success:',
+        response.data,
+      )
+
       const token = saveAuthToken(response.data)
 
       if (!token) {
-        console.warn('OTP verification response did not include a token:', response.data)
-        setError('Authentication token is missing from OTP verification response.')
+        console.warn(
+          'OTP verification response did not include a token:',
+          response.data,
+        )
+
+        setError(
+          'Authentication token is missing from OTP verification response.',
+        )
+
         return
       }
 
       saveAuthUser(response.data)
+
       onVerified?.()
     } catch (verifyError) {
+      console.error('OTP verification failed:', verifyError)
+
       setError(
-        getAuthErrorMessage(verifyError, 'Unable to verify OTP. Please try again.'),
+        getAuthErrorMessage(
+          verifyError,
+          'Unable to verify OTP. Please try again.',
+        ),
       )
     } finally {
       setIsSubmitting(false)
@@ -99,8 +135,14 @@ function OtpVerificationForm({ email, loginCredentials, onVerified }) {
       return
     }
 
-    if (!loginCredentials?.email || !loginCredentials?.password) {
-      setError('Login details are missing. Please login again to resend OTP.')
+    if (
+      !loginCredentials?.email ||
+      !loginCredentials?.password
+    ) {
+      setError(
+        'Login details are missing. Please login again to resend OTP.',
+      )
+
       return
     }
 
@@ -108,19 +150,61 @@ function OtpVerificationForm({ email, loginCredentials, onVerified }) {
     setIsResending(true)
 
     try {
-      const clientMetadata = await getRequiredClientAuthMetadata()
+      const clientMetadata =
+        await getRequiredClientAuthMetadata()
+
       const response = await login({
         ...loginCredentials,
         ...clientMetadata,
       })
-      console.log('OTP resend success:', response.data)
+
+      console.log(
+        'OTP resend login response:',
+        response.data,
+      )
+
+      const responseData = response.data?.responseData
+
+      /*
+       * Normally this screen should only be used when
+       * otpRequired === true.
+       *
+       * This check prevents the OTP screen from continuing
+       * if the backend unexpectedly returns a direct-login
+       * response.
+       */
+      if (responseData?.otpRequired === false) {
+        const token = saveAuthToken(response.data)
+
+        if (!token) {
+          setError(
+            'Authentication token is missing from login response.',
+          )
+
+          return
+        }
+
+        saveAuthUser(response.data)
+
+        onVerified?.()
+
+        return
+      }
+
       saveAuthUser(response.data)
+
       setOtpDigits(Array(OTP_LENGTH).fill(''))
       setResendTimer(RESEND_TIMER_SECONDS)
+
       inputRefs.current[0]?.focus()
     } catch (resendError) {
+      console.error('OTP resend failed:', resendError)
+
       setError(
-        getAuthErrorMessage(resendError, 'Unable to resend OTP. Please try again.'),
+        getAuthErrorMessage(
+          resendError,
+          'Unable to resend OTP. Please try again.',
+        ),
       )
     } finally {
       setIsResending(false)
@@ -136,8 +220,12 @@ function OtpVerificationForm({ email, loginCredentials, onVerified }) {
             inputMode="numeric"
             key={index}
             maxLength="1"
-            onChange={(event) => handleChange(index, event)}
-            onKeyDown={(event) => handleKeyDown(index, event)}
+            onChange={(event) =>
+              handleChange(index, event)
+            }
+            onKeyDown={(event) =>
+              handleKeyDown(index, event)
+            }
             ref={(element) => {
               inputRefs.current[index] = element
             }}
@@ -150,10 +238,13 @@ function OtpVerificationForm({ email, loginCredentials, onVerified }) {
         Didn&apos;t receive the code?{' '}
         {isResendDisabled ? (
           <span>
-            Resend code in 00:{String(resendTimer).padStart(2, '0')} sec
+            Resend code in 00:
+            {String(resendTimer).padStart(2, '0')} sec
           </span>
         ) : (
-          <span className="font-semibold text-[#f50707]">You can resend code now</span>
+          <span className="font-semibold text-[#f50707]">
+            You can resend code now
+          </span>
         )}
       </p>
 
@@ -166,18 +257,25 @@ function OtpVerificationForm({ email, loginCredentials, onVerified }) {
       <div className="grid gap-4 sm:grid-cols-2 sm:gap-[22px]">
         <button
           className="h-[48px] rounded-[8px] border border-[#5d5d5d] bg-white text-base font-semibold text-[#5f5f5f] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-[#D6D6D6] disabled:text-[#A3A3A3] disabled:hover:bg-white sm:text-[14px]"
-          disabled={isResendDisabled || isResending}
+          disabled={
+            isResendDisabled || isResending
+          }
           onClick={handleResendCode}
           type="button"
         >
-          {isResending ? 'Resending...' : 'Resend Code'}
+          {isResending
+            ? 'Resending...'
+            : 'Resend Code'}
         </button>
+
         <button
           className="h-[48px] rounded-[8px] bg-[#f50707] text-base font-semibold text-white shadow-sm shadow-red-900/20 transition hover:bg-[#d90000] disabled:cursor-not-allowed disabled:opacity-70 sm:text-[14px]"
           disabled={isSubmitting}
           type="submit"
         >
-          {isSubmitting ? 'Verifying...' : 'Continue'}
+          {isSubmitting
+            ? 'Verifying...'
+            : 'Continue'}
         </button>
       </div>
     </form>
@@ -185,3 +283,4 @@ function OtpVerificationForm({ email, loginCredentials, onVerified }) {
 }
 
 export default OtpVerificationForm
+

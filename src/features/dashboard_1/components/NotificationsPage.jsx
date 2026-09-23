@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from "react";
-import { CalendarDays } from "lucide-react";
-import { useNotifications } from "../../../context/NotificationContext.jsx";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { useNotificationBell, useNotifications } from "../../../context/NotificationContext.jsx";
 import { openDashboardDatePicker } from "./dashboardDatePicker";
 
 const FILTERS = [
@@ -8,6 +8,15 @@ const FILTERS = [
   { key: "yesterday", label: "Yesterday" },
   { key: "last7", label: "Last 7 Days" },
 ];
+
+const rowsPerPage = 10;
+// Page-number strip shows this many buttons at a time and scrolls
+// horizontally for the rest, same as Recent Transactions on the dashboard.
+const VISIBLE_PAGE_BUTTONS = 5;
+const PAGE_BUTTON_SIZE = 28;
+const PAGE_BUTTON_GAP = 6;
+const PAGE_STRIP_WIDTH =
+  VISIBLE_PAGE_BUTTONS * PAGE_BUTTON_SIZE + (VISIBLE_PAGE_BUTTONS - 1) * PAGE_BUTTON_GAP;
 
 function isSameDay(a, b) {
   return (
@@ -68,13 +77,24 @@ function toNotificationItem(notification) {
 
 export default function NotificationsPage({ searchQuery = "" }) {
   const rawNotifications = useNotifications();
+  const { markNotificationsSeen } = useNotificationBell();
   const notifications = useMemo(
     () => rawNotifications.map(toNotificationItem),
     [rawNotifications],
   );
   const [activeFilter, setActiveFilter] = useState("today");
   const [customDate, setCustomDate] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const customDateInputRef = useRef(null);
+  const pageScrollRef = useRef(null);
+
+  // Viewing this page is what "reads" the notifications - clear the bell's
+  // unread count as soon as it's opened, however the admin got here
+  // (bell click, sidebar link, or a direct URL/back-button navigation).
+  useEffect(() => {
+    markNotificationsSeen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = useMemo(() => {
     const now = new Date();
@@ -107,6 +127,27 @@ export default function NotificationsPage({ searchQuery = "" }) {
       );
     });
   }, [notifications, activeFilter, customDate, searchQuery]);
+
+  // Switching tabs (Today/Yesterday/Last 7 Days/Custom) or search always
+  // goes back to page 1 of that tab's results.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter, customDate, searchQuery]);
+
+  const totalPages = Math.max(Math.ceil(filtered.length / rowsPerPage), 1);
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginated = filtered.slice(
+    (safeCurrentPage - 1) * rowsPerPage,
+    safeCurrentPage * rowsPerPage,
+  );
+
+  // Keeps the current page's button scrolled into view within the
+  // horizontally-scrollable page-number strip.
+  useEffect(() => {
+    const container = pageScrollRef.current;
+    const activeButton = container?.querySelector(`[data-page="${safeCurrentPage}"]`);
+    activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [safeCurrentPage, totalPages]);
 
   return (
     <div className="flex flex-col gap-4 px-6 pb-10">
@@ -171,13 +212,15 @@ export default function NotificationsPage({ searchQuery = "" }) {
             </div>
           )}
 
-          {filtered.map((item, index) => (
+          {paginated.map((item, index) => (
             <div
               key={item.id}
               className="flex items-start justify-between gap-6 py-3.5 text-[13px] leading-6 text-brand-ink"
             >
               <div className="flex min-w-0 gap-3">
-                <span className="shrink-0 text-brand-dim">{index + 1}.</span>
+                <span className="shrink-0 text-brand-dim">
+                  {(safeCurrentPage - 1) * rowsPerPage + index + 1}.
+                </span>
                 <p>
                   <NotificationMessage
                     transactionId={item.transactionId}
@@ -193,6 +236,60 @@ export default function NotificationsPage({ searchQuery = "" }) {
             </div>
           ))}
         </div>
+
+        {filtered.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-[11.5px] text-brand-dim">
+              Showing {(safeCurrentPage - 1) * rowsPerPage + 1}-
+              {(safeCurrentPage - 1) * rowsPerPage + paginated.length} of{" "}
+              {filtered.length} notifications
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => safeCurrentPage > 1 && setCurrentPage(safeCurrentPage - 1)}
+                disabled={safeCurrentPage <= 1}
+                className="grid h-7 w-7 place-items-center rounded-lg border border-brand-border text-brand-dim disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ChevronLeft size={13} />
+              </button>
+
+              <div
+                ref={pageScrollRef}
+                className="flex items-center gap-1.5 overflow-x-auto scroll-smooth"
+                style={{ maxWidth: `${PAGE_STRIP_WIDTH}px`, scrollbarWidth: "thin" }}
+              >
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    data-page={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={
+                      page === safeCurrentPage
+                        ? "grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand-ink text-[11.5px] font-medium text-white"
+                        : "grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-brand-border text-[11.5px] text-brand-dim"
+                    }
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  safeCurrentPage < totalPages && setCurrentPage(safeCurrentPage + 1)
+                }
+                disabled={safeCurrentPage >= totalPages}
+                className="grid h-7 w-7 place-items-center rounded-lg border border-brand-border text-brand-dim disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ChevronRight size={13} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -288,6 +288,7 @@ export default function AuditTrailPage({ searchQuery = "" }) {
                           <button
                             className="font-semibold text-[#2563FF] underline-offset-2 hover:underline"
                             onClick={() => setSelectedRow(row)}
+                            title="Click to view the Audit Trail for this transaction"
                             type="button"
                           >
                             {row.transactionId}

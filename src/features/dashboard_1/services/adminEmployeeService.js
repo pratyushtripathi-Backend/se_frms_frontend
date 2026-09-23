@@ -99,6 +99,19 @@ export function getAccessList({ page = 0, size = 20, accessName = "" } = {}) {
   });
 }
 
+// Unpaginated - returns every Access Master entry in one call (backed by a
+// dedicated dropdown endpoint on the backend), for pickers like the Role
+// Access "Access" selector where every option must be available to choose,
+// not just the first page.
+export function getAllAccessList({ accessName = "" } = {}) {
+  return apiClient.get("/access/get-all-access", {
+    params: {
+      ...(accessName.trim() ? { accessName: accessName.trim() } : {}),
+    },
+    skipAuthRedirect: true,
+  });
+}
+
 export function createAccessName(payload) {
   return apiClient.post("/access/access-name", payload, {
     skipAuthRedirect: true,

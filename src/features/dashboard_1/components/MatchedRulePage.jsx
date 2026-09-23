@@ -25,6 +25,16 @@ export default function MatchedRulePage() {
   const [errorMessage, setErrorMessage] = useState("");
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
+  const pageScrollRef = useRef(null);
+
+  // Keeps the current page's button scrolled into view within the
+  // horizontally-scrollable page-number strip (e.g. after using the
+  // prev/next arrows to move past what's currently visible).
+  useEffect(() => {
+    const container = pageScrollRef.current;
+    const activeButton = container?.querySelector(`[data-page="${currentPage}"]`);
+    activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [currentPage, totalPages]);
 
   const loadMatchedRules = useCallback(async () => {
     setIsLoading(true);
@@ -81,7 +91,6 @@ export default function MatchedRulePage() {
       "Sr.no",
       "Transaction ID",
       "Scoring ID",
-      "Rule ID",
       "Rule Code",
       "Rule Name",
       "Rule Expression",
@@ -99,7 +108,6 @@ export default function MatchedRulePage() {
       row.srNo,
       row.transactionId,
       row.scoringId,
-      row.ruleId,
       row.ruleCode,
       row.ruleName,
       row.ruleExpression,
@@ -368,6 +376,19 @@ export default function MatchedRulePage() {
       gap: "8px",
     },
 
+    // Page-number strip shows 5 buttons at a time (32px button + 8px gap
+    // each) and scrolls horizontally for the rest, same as Recent
+    // Transactions on the dashboard.
+    pageNumberScroll: {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      overflowX: "auto",
+      scrollBehavior: "smooth",
+      maxWidth: `${5 * 32 + 4 * 8}px`,
+      scrollbarWidth: "thin",
+    },
+
     pageArrow: {
       width: "34px",
       height: "34px",
@@ -379,11 +400,13 @@ export default function MatchedRulePage() {
       justifyContent: "center",
       cursor: "pointer",
       color: "#555555",
+      flexShrink: 0,
     },
 
     pageNumber: (isActive) => ({
       width: "32px",
       height: "32px",
+      flexShrink: 0,
       borderRadius: "6px",
       fontSize: "12px",
       fontWeight: 500,
@@ -553,7 +576,6 @@ export default function MatchedRulePage() {
                   "Sr.no",
                   "Transaction ID",
                   "Scoring ID",
-                  "Rule ID",
                   "Rule Code",
                   "Rule Name",
                   "Rule Expression",
@@ -580,7 +602,7 @@ export default function MatchedRulePage() {
               {errorMessage && (
                 <tr style={styles.tr}>
                   <td
-                    colSpan={13}
+                    colSpan={12}
                     style={{ ...styles.td, color: "#FF4D4F", textAlign: "center" }}
                   >
                     {errorMessage}
@@ -601,7 +623,6 @@ export default function MatchedRulePage() {
                   <td style={styles.td}>{row.srNo}</td>
                   <td style={styles.td}>{row.transactionId}</td>
                   <td style={styles.td}>{row.scoringId}</td>
-                  <td style={styles.td}>{row.ruleId}</td>
                   <td style={styles.td}>{row.ruleCode}</td>
                   <td style={styles.td}>{row.ruleName}</td>
                   <td style={styles.expressionTd}>{row.ruleExpression}</td>
@@ -656,18 +677,21 @@ export default function MatchedRulePage() {
               <FiChevronLeft />
             </button>
 
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-              (page) => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  style={styles.pageNumber(page === currentPage)}
-                  type="button"
-                >
-                  {page}
-                </button>
-              )
-            )}
+            <div ref={pageScrollRef} style={styles.pageNumberScroll}>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => (
+                  <button
+                    key={page}
+                    data-page={page}
+                    onClick={() => setCurrentPage(page)}
+                    style={styles.pageNumber(page === currentPage)}
+                    type="button"
+                  >
+                    {page}
+                  </button>
+                )
+              )}
+            </div>
 
             <button
               onClick={() =>

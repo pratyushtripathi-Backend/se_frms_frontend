@@ -133,7 +133,7 @@ export default function StatCards() {
   const stats = buildStats(summary, isLoading);
 
   return (
-    <div className="grid grid-cols-2 gap-3 px-6 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       {stats.map(({ label, value, icon: Icon, bg }) => (
         <div
           key={label}

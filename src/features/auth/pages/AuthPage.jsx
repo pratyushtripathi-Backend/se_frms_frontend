@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import BrandMark from '../../../components/BrandMark'
 import DashboardPage from '../../dashboard_1/DashboardPage'
 import AuthLayout from '../components/AuthLayout'
+import { NotificationProvider } from '../../../context/NotificationContext.jsx'
 import { AUTH_STEPS } from '../constants/authFlow'
 import { logout } from '../services/authService'
 import {
@@ -119,12 +120,22 @@ function AuthPage() {
   const goToForgotPassword = () => navigateToStep(AUTH_STEPS.FORGOT_PASSWORD)
   const goToPasswordUpdated = () => navigateToStep(AUTH_STEPS.PASSWORD_UPDATED)
   const goToDashboard = () => navigateToStep(AUTH_STEPS.DASHBOARD)
-  const goToOtpVerification = (email = loginEmail, credentials = null) => {
-    setLoginEmail(email)
-    setLoginCredentials(credentials)
-    window.sessionStorage.setItem('frmsLoginEmail', email)
-    navigateToStep(AUTH_STEPS.OTP_VERIFICATION)
+  const goToOtpVerification = (
+  email = loginEmail,
+  credentials = null,
+  options = {},
+) => {
+  setLoginEmail(email)
+  setLoginCredentials(credentials)
+
+  if (options.directLogin) {
+    navigateToStep(AUTH_STEPS.DASHBOARD)
+    return
   }
+
+  window.sessionStorage.setItem('frmsLoginEmail', email)
+  navigateToStep(AUTH_STEPS.OTP_VERIFICATION)
+}
   const goToLogout = async () => {
     try {
       await logout()
@@ -151,7 +162,11 @@ function AuthPage() {
       return null
     }
 
-    return <DashboardPage onLogout={goToLogout} />
+    return (
+      <NotificationProvider>
+        <DashboardPage onLogout={goToLogout} />
+      </NotificationProvider>
+    )
   }
 
   if (step === AUTH_STEPS.FORGOT_PASSWORD) {

@@ -11,7 +11,7 @@ import {
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import {
   createRoleAccess,
-  getAccessList,
+  getAllAccessList,
   getAdminRoles,
   getRoleAccessByRole,
   updateRoleAccess,
@@ -58,6 +58,15 @@ function AddAccessModal({
 
       return [...currentAccessIds, normalizedAccessId];
     });
+  };
+
+  const allAccessValues = accessOptions.map((opt) => String(opt.value));
+  const isAllAccessSelected =
+    allAccessValues.length > 0 &&
+    allAccessValues.every((value) => accessIds.includes(value));
+
+  const toggleSelectAllAccess = () => {
+    setAccessIds(isAllAccessSelected ? [] : allAccessValues);
   };
 
   return (
@@ -121,9 +130,11 @@ function AddAccessModal({
                 <span className={selectedAccessLabels.length ? "" : "text-[#8A8A8A]"}>
                   {isLoadingAccesses
                     ? "Loading access..."
-                    : selectedAccessLabels.length
-                      ? selectedAccessLabels.join(", ")
-                      : "Select Access"}
+                    : isAllAccessSelected
+                      ? "All Access Selected"
+                      : selectedAccessLabels.length
+                        ? selectedAccessLabels.join(", ")
+                        : "Select Access"}
                 </span>
               </button>
 
@@ -139,29 +150,48 @@ function AddAccessModal({
                       {isLoadingAccesses ? "Loading access..." : "No access found"}
                     </div>
                   ) : (
-                    accessOptions.map((opt) => {
-                      const isSelected = accessIds.includes(String(opt.value));
-
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => toggleAccess(opt.value)}
-                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13px] text-[#202224] hover:bg-[#F8F9FB]"
+                    <>
+                      <button
+                        type="button"
+                        onClick={toggleSelectAllAccess}
+                        className="flex w-full items-center gap-3 border-b border-[#ECECEC] px-4 py-2.5 text-left text-[13px] font-semibold text-[#202224] hover:bg-[#F8F9FB]"
+                      >
+                        <span
+                          className={`flex h-5 w-5 items-center justify-center rounded border ${
+                            isAllAccessSelected
+                              ? "border-[#FF0D0D] bg-[#FF0D0D] text-white"
+                              : "border-[#D1D5DB] bg-white text-transparent"
+                          }`}
                         >
-                          <span
-                            className={`flex h-5 w-5 items-center justify-center rounded border ${
-                              isSelected
-                                ? "border-[#FF0D0D] bg-[#FF0D0D] text-white"
-                                : "border-[#D1D5DB] bg-white text-transparent"
-                            }`}
+                          <Check size={14} strokeWidth={3} />
+                        </span>
+                        <span>Select All</span>
+                      </button>
+
+                      {accessOptions.map((opt) => {
+                        const isSelected = accessIds.includes(String(opt.value));
+
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => toggleAccess(opt.value)}
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13px] text-[#202224] hover:bg-[#F8F9FB]"
                           >
-                            <Check size={14} strokeWidth={3} />
-                          </span>
-                          <span>{opt.label}</span>
-                        </button>
-                      );
-                    })
+                            <span
+                              className={`flex h-5 w-5 items-center justify-center rounded border ${
+                                isSelected
+                                  ? "border-[#FF0D0D] bg-[#FF0D0D] text-white"
+                                  : "border-[#D1D5DB] bg-white text-transparent"
+                              }`}
+                            >
+                              <Check size={14} strokeWidth={3} />
+                            </span>
+                            <span>{opt.label}</span>
+                          </button>
+                        );
+                      })}
+                    </>
                   )}
                 </div>
               )}
@@ -420,10 +450,9 @@ export default function RoleAccessPage() {
       setIsLoadingAccesses(true);
 
       try {
-        const response = await getAccessList({
-          page: 1,
-          size: 10,
-        });
+        // Unpaginated - every Access Master entry needs to be selectable
+        // here, not just the first page.
+        const response = await getAllAccessList();
         const normalizedOptions = normalizeAccessOptions(response.data);
 
         if (isActive) setAccessOptions(normalizedOptions);

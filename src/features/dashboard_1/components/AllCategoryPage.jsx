@@ -7,7 +7,6 @@ import {
   X,
   RotateCcw,
 } from "lucide-react";
-import ExportFile from "./ExportFile";
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import {
   createRuleCategory,
@@ -343,8 +342,6 @@ export default function AllCategoryPage({ searchQuery = "" }) {
               <RotateCcw size={15} />
               Reset
             </button>
-
-            <ExportFile rows={filteredData} />
 
             <button
               type="button"

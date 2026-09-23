@@ -37,7 +37,7 @@ function normalizeTrendResponse(responseData) {
 
 export default function FraudDetectionTrend() {
   const [activeSeries, setActiveSeries] = useState("fraud");
-  const [groupBy, setGroupBy] = useState("month");
+  const [groupBy, setGroupBy] = useState("day");
   const [chartData, setChartData] = useState([]);
   const requestIdRef = useRef(0);
 

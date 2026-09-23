@@ -26,3 +26,11 @@ export function removeBlacklistEntry(id) {
     skipAuthRedirect: true,
   });
 }
+
+// Powers the Status toggle on the Black List Entry page.
+export function updateBlacklistStatus(id, status) {
+  return apiClient.patch(`${BLACKLIST_ENTRIES_PATH}/${id}/status`, null, {
+    params: { status },
+    skipAuthRedirect: true,
+  });
+}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Search, Bell, ChevronDown, User, Lock, Mail } from "lucide-react";
 import { getAuthUser } from "../../auth/services/authUserSession";
+import { useNotificationBell } from "../../../context/NotificationContext.jsx";
 
 export default function Header({
   onSearchChange,
@@ -13,6 +14,8 @@ export default function Header({
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const { name = "Admin User", role = "Admin" } = getAuthUser();
+  const { unreadCount, markNotificationsSeen } = useNotificationBell();
+  const displayUnreadCount = unreadCount > 99 ? "99+" : unreadCount;
   const profileMenuItems = [
     { label: "My Profile", icon: User, page: "profile" },
     { label: "Change Password", icon: Lock, page: "change-password" },
@@ -64,14 +67,19 @@ export default function Header({
           {/* Notification */}
           <button
             type="button"
-            onClick={() => setCurrentPage?.("notifications")}
+            onClick={() => {
+              setCurrentPage?.("notifications");
+              markNotificationsSeen();
+            }}
             className="relative grid h-9 w-9 place-items-center rounded-full text-brand-ink transition-colors hover:bg-brand-bg"
           >
             <Bell size={20} strokeWidth={1.8} />
 
-            <span className="absolute -top-1 right-0 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand-red px-1 text-[10px] font-bold text-white">
-              12
-            </span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 right-0 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand-red px-1 text-[10px] font-bold text-white">
+                {displayUnreadCount}
+              </span>
+            )}
           </button>
 
           <div className="h-8 w-px bg-brand-border" />

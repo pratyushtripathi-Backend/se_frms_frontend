@@ -74,27 +74,19 @@ export function normalizeTransactionRow(row, index, pageOffset) {
     ]) ??
     "-";
 
-  const location =
-    row.location ??
-    row.city ??
-    row.address ??
-    row.geoLocation ??
-    findFirstString(row, [
-      "location",
-      "city",
-      "geolocation",
-      "geo_location",
-      "place",
-      "region",
-      "area",
-      "locationname",
-      "location_name",
-      "userlocation",
-      "user_location",
-      "state",
-      "country",
-    ]) ??
-    "-";
+  // Location is derived from the transaction's own latitude/longitude
+  // (reverse-geocoded into a place name via OpenStreetMap Nominatim, see
+  // enrichRowsWithLocationNames below) rather than a separate
+  // "location"/"city"/"address" string field, so it always reflects the same
+  // coordinates shown in the Latitude/Longitude columns instead of a
+  // possibly-stale or inconsistent label from the API. The name itself is
+  // resolved asynchronously after the row is created, so it starts out as a
+  // placeholder here.
+  const latitude = row.latitude ?? row.lat ?? "-";
+  const longitude = row.longitude ?? row.lng ?? row.long ?? "-";
+  const longitude2 = row.longitude2 ?? row.destinationLongitude ?? row.longitude ?? "-";
+  const hasCoordinates = isUsableCoordinate(latitude) && isUsableCoordinate(longitude);
+  const location = hasCoordinates ? "Locating..." : "-";
 
   const deviceId =
     row.deviceId ??
@@ -125,9 +117,9 @@ export function normalizeTransactionRow(row, index, pageOffset) {
       row.amount ?? row.transactionAmount ?? row.txnAmount ?? row.amountValue,
     ),
     currency: row.currency ?? row.currencyCode ?? "-",
-    latitude: row.latitude ?? row.lat ?? "-",
-    longitude: row.longitude ?? row.lng ?? row.long ?? "-",
-    longitude2: row.longitude2 ?? row.destinationLongitude ?? row.longitude ?? "-",
+    latitude,
+    longitude,
+    longitude2,
     ipAddress,
     location,
     deviceId,
@@ -140,6 +132,148 @@ export function normalizeTransactionRow(row, index, pageOffset) {
     updatedDate: updated.date,
     updatedTime: updated.time,
   };
+}
+
+function isUsableCoordinate(value) {
+  if (value === null || value === undefined || value === "" || value === "-") {
+    return false;
+  }
+
+  return !Number.isNaN(Number(value));
+}
+
+// --- Reverse geocoding (OpenStreetMap Nominatim) ---------------------------
+//
+// The Location column shows a human-readable place name resolved from a
+// transaction's own latitude/longitude, rather than raw coordinates or a
+// separate (possibly stale) location field from the API. Name resolution
+// requires an HTTP call, so it happens asynchronously via
+// `enrichRowsWithLocationNames` after rows are normalized, backed by a
+// shared cache and a throttled request queue so repeat coordinates (and
+// polling/auto-refresh) don't refetch or exceed Nominatim's usage-policy
+// rate limit of ~1 request/second. Attribution: (c) OpenStreetMap
+// contributors, https://www.openstreetmap.org/copyright.
+const LOCATION_NAME_CACHE = new Map(); // "lat,lon" -> resolved name string
+const LOCATION_NAME_PENDING = new Map(); // "lat,lon" -> in-flight Promise<string>
+const NOMINATIM_MIN_INTERVAL_MS = 1100;
+let lastNominatimRequestAt = 0;
+let nominatimQueueTail = Promise.resolve();
+
+function roundCoordinate(value) {
+  // ~11m precision at the equator - coarse enough that nearby transactions
+  // reuse the same cached lookup instead of re-hitting Nominatim.
+  return Math.round(Number(value) * 10000) / 10000;
+}
+
+function locationCacheKey(latitude, longitude) {
+  return `${roundCoordinate(latitude)},${roundCoordinate(longitude)}`;
+}
+
+function pickPrimaryPlaceName(address) {
+  return (
+    address.city ||
+    address.town ||
+    address.village ||
+    address.suburb ||
+    address.county ||
+    address.state_district ||
+    address.state ||
+    null
+  );
+}
+
+async function fetchNominatimLocationName(latitude, longitude) {
+  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`;
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Nominatim request failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  const address = data?.address ?? {};
+  const primary = pickPrimaryPlaceName(address);
+  const region = address.state || address.state_district || null;
+  const country = address.country || null;
+
+  const parts = [primary, primary !== region ? region : null, country].filter(Boolean);
+
+  if (parts.length > 0) {
+    return parts.join(", ");
+  }
+
+  return data?.display_name ?? null;
+}
+
+// Runs Nominatim lookups one at a time, spacing them out to respect the
+// ~1 request/second usage-policy limit, and de-dupes concurrent requests
+// for the same coordinates.
+function queueNominatimLookup(latitude, longitude) {
+  const key = locationCacheKey(latitude, longitude);
+
+  if (LOCATION_NAME_CACHE.has(key)) {
+    return Promise.resolve(LOCATION_NAME_CACHE.get(key));
+  }
+
+  if (LOCATION_NAME_PENDING.has(key)) {
+    return LOCATION_NAME_PENDING.get(key);
+  }
+
+  const task = nominatimQueueTail.then(async () => {
+    const waitMs = Math.max(
+      0,
+      NOMINATIM_MIN_INTERVAL_MS - (Date.now() - lastNominatimRequestAt),
+    );
+
+    if (waitMs > 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, waitMs));
+    }
+
+    lastNominatimRequestAt = Date.now();
+
+    let resolvedName = "-";
+
+    try {
+      resolvedName = (await fetchNominatimLocationName(latitude, longitude)) || "-";
+    } catch {
+      resolvedName = "-";
+    }
+
+    LOCATION_NAME_CACHE.set(key, resolvedName);
+    LOCATION_NAME_PENDING.delete(key);
+    return resolvedName;
+  });
+
+  // Keep the queue moving even if this lookup failed, and never let a
+  // rejection here surface as an unhandled promise rejection.
+  nominatimQueueTail = task.catch(() => {});
+  LOCATION_NAME_PENDING.set(key, task);
+  return task;
+}
+
+// Resolves a place name for each row's latitude/longitude and reports it
+// back via onUpdate(transactionId, locationName) as each lookup settles
+// (already-cached coordinates resolve immediately), so callers can patch
+// their row state incrementally instead of blocking on every row.
+export function enrichRowsWithLocationNames(rows, onUpdate) {
+  rows.forEach((row) => {
+    if (!isUsableCoordinate(row.latitude) || !isUsableCoordinate(row.longitude)) {
+      return;
+    }
+
+    const key = locationCacheKey(row.latitude, row.longitude);
+
+    if (LOCATION_NAME_CACHE.has(key)) {
+      onUpdate(row.transactionId, LOCATION_NAME_CACHE.get(key));
+      return;
+    }
+
+    queueNominatimLookup(row.latitude, row.longitude).then((name) => {
+      onUpdate(row.transactionId, name);
+    });
+  });
 }
 
 export function formatTransactionAmount(value) {
