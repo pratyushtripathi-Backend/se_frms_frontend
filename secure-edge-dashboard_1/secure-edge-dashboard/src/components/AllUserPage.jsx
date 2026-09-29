@@ -412,7 +412,7 @@ const AllUserPage = () => {
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={styles.headerRow}>
-          <div style={styles.title}>All Users Details Here</div>
+          <div style={styles.title}>All Users Details Her</div>
 
           <div style={styles.searchBox}>
             <input
@@ -735,7 +735,7 @@ const AllUserPage = () => {
               style={styles.backToPageButton}
               onClick={handleBackToPage}
             >
-              Back to Page
+              Back to Pag
             </button>
           </div>
         </div>

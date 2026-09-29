@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react'
 import BrandMark from '../../../components/BrandMark'
 import DashboardPage from '../../dashboard_1/DashboardPage'
@@ -41,45 +42,77 @@ const ROUTE_STEPS = {
 }
 
 function getStepFromPathname() {
-  if (window.location.pathname.startsWith('/dashboard') && !getAuthToken()) {
-    window.history.replaceState({}, '', '/')
-    return AUTH_STEPS.LOGIN
-  }
+  const pathname = window.location.pathname
 
-  if (window.location.pathname.startsWith('/dashboard')) {
+  /*
+   * Every /dashboard/* route belongs to DashboardPage.
+   *
+   * DashboardPage itself handles:
+   * /dashboard
+   * /dashboard/transaction-data
+   * /dashboard/case-management
+   * /dashboard/scoring-table
+   * etc.
+   */
+  if (pathname.startsWith('/dashboard')) {
+    if (!getAuthToken()) {
+      window.history.replaceState({}, '', '/')
+      return AUTH_STEPS.LOGIN
+    }
+
     return AUTH_STEPS.DASHBOARD
   }
 
-  return ROUTE_STEPS[window.location.pathname] ?? AUTH_STEPS.LOGIN
+  return ROUTE_STEPS[pathname] ?? AUTH_STEPS.LOGIN
 }
 
 function AuthPage() {
   const [step, setStep] = useState(getStepFromPathname)
+
   const [loginEmail, setLoginEmail] = useState(
     () => window.sessionStorage.getItem('frmsLoginEmail') ?? '',
   )
+
   const [loginCredentials, setLoginCredentials] = useState(null)
-  const [loginNotice, setLoginNotice] = useState(consumeAuthRedirectMessage)
+
+  const [loginNotice, setLoginNotice] = useState(
+    consumeAuthRedirectMessage,
+  )
 
   useEffect(() => {
-    const handlePopState = () => setStep(getStepFromPathname())
+    const handlePopState = () => {
+      setStep(getStepFromPathname())
+    }
 
     window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
   }, [])
 
   useEffect(() => {
     const handleSessionExpired = (event) => {
       setLoginEmail('')
-      setLoginNotice(event.detail?.message || consumeAuthRedirectMessage())
+
+      setLoginNotice(
+        event.detail?.message || consumeAuthRedirectMessage(),
+      )
+
       window.history.replaceState({}, '', '/')
       setStep(AUTH_STEPS.LOGIN)
     }
 
-    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired)
+    window.addEventListener(
+      AUTH_SESSION_EXPIRED_EVENT,
+      handleSessionExpired,
+    )
 
     return () => {
-      window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired)
+      window.removeEventListener(
+        AUTH_SESSION_EXPIRED_EVENT,
+        handleSessionExpired,
+      )
     }
   }, [])
 
@@ -98,7 +131,10 @@ function AuthPage() {
       return undefined
     }
 
-    const expiryTimer = window.setTimeout(expireAuthSession, remainingTime)
+    const expiryTimer = window.setTimeout(
+      expireAuthSession,
+      remainingTime,
+    )
 
     return () => window.clearTimeout(expiryTimer)
   }, [step])
@@ -106,7 +142,10 @@ function AuthPage() {
   const navigateToStep = (nextStep) => {
     const nextPath = STEP_ROUTES[nextStep]
 
-    if (nextPath && window.location.pathname !== nextPath) {
+    if (
+      nextPath &&
+      window.location.pathname !== nextPath
+    ) {
       window.history.pushState({}, '', nextPath)
     }
 
@@ -117,25 +156,40 @@ function AuthPage() {
     setLoginNotice('')
     navigateToStep(AUTH_STEPS.LOGIN)
   }
-  const goToForgotPassword = () => navigateToStep(AUTH_STEPS.FORGOT_PASSWORD)
-  const goToPasswordUpdated = () => navigateToStep(AUTH_STEPS.PASSWORD_UPDATED)
-  const goToDashboard = () => navigateToStep(AUTH_STEPS.DASHBOARD)
-  const goToOtpVerification = (
-  email = loginEmail,
-  credentials = null,
-  options = {},
-) => {
-  setLoginEmail(email)
-  setLoginCredentials(credentials)
 
-  if (options.directLogin) {
-    navigateToStep(AUTH_STEPS.DASHBOARD)
-    return
+  const goToForgotPassword = () => {
+    navigateToStep(AUTH_STEPS.FORGOT_PASSWORD)
   }
 
-  window.sessionStorage.setItem('frmsLoginEmail', email)
-  navigateToStep(AUTH_STEPS.OTP_VERIFICATION)
-}
+  const goToPasswordUpdated = () => {
+    navigateToStep(AUTH_STEPS.PASSWORD_UPDATED)
+  }
+
+  const goToDashboard = () => {
+    navigateToStep(AUTH_STEPS.DASHBOARD)
+  }
+
+  const goToOtpVerification = (
+    email = loginEmail,
+    credentials = null,
+    options = {},
+  ) => {
+    setLoginEmail(email)
+    setLoginCredentials(credentials)
+
+    if (options.directLogin) {
+      navigateToStep(AUTH_STEPS.DASHBOARD)
+      return
+    }
+
+    window.sessionStorage.setItem(
+      'frmsLoginEmail',
+      email,
+    )
+
+    navigateToStep(AUTH_STEPS.OTP_VERIFICATION)
+  }
+
   const goToLogout = async () => {
     try {
       await logout()
@@ -157,6 +211,11 @@ function AuthPage() {
     )
   }
 
+  /*
+   * IMPORTANT:
+   *
+   * DashboardPage handles all dashboard child routes itself.
+   */
   if (step === AUTH_STEPS.DASHBOARD) {
     if (!getAuthToken()) {
       return null
@@ -170,15 +229,27 @@ function AuthPage() {
   }
 
   if (step === AUTH_STEPS.FORGOT_PASSWORD) {
-    return <ForgotPasswordPage onBackToLogin={goToLogin} />
+    return (
+      <ForgotPasswordPage
+        onBackToLogin={goToLogin}
+      />
+    )
   }
 
   if (step === AUTH_STEPS.NEW_PASSWORD) {
-    return <NewPasswordPage onComplete={goToPasswordUpdated} />
+    return (
+      <NewPasswordPage
+        onComplete={goToPasswordUpdated}
+      />
+    )
   }
 
   if (step === AUTH_STEPS.PASSWORD_UPDATED) {
-    return <PasswordUpdatedPage onContinue={goToLogin} />
+    return (
+      <PasswordUpdatedPage
+        onContinue={goToLogin}
+      />
+    )
   }
 
   return (
@@ -196,8 +267,11 @@ function AuthPage() {
             onLogout={goToLogout}
           />
         )}
+
         {step === AUTH_STEPS.LOGOUT && (
-          <LogoutPage onBackToLogin={goToLogin} />
+          <LogoutPage
+            onBackToLogin={goToLogin}
+          />
         )}
       </section>
     </AuthLayout>
@@ -205,3 +279,4 @@ function AuthPage() {
 }
 
 export default AuthPage
+

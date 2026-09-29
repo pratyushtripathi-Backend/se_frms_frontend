@@ -71,7 +71,7 @@ const PAGE_TITLES = {
   profile: "Profile",
   "change-password": "Change Password",
   "email-format": "Email Format",
-  "all-employee": "All Employee",
+ 
   "all-users": "All Users",
   "add-user": "Add User",
   "manage-role": "Manage Role",
@@ -217,7 +217,7 @@ export default function App({ onLogout }) {
 
         {currentPage === "dashboard" && (
           <div className="flex flex-col gap-3 px-6 pb-10">
-            <StatCards />
+           <StatCards setCurrentPage={setCurrentPage} />
 
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_300px]">
               <TransactionMonitoring />

@@ -33,7 +33,7 @@ const LOGIN_DETAILS_ITEMS = [
 ];
 
 const USER_MANAGEMENT_ITEMS = [
-  { label: "All Employee", page: "all-employee" },
+  
   { label: "All Users", page: "all-users" },
   { label: "Add User", page: "add-user" },
   { label: "Manage Role", page: "manage-role" },

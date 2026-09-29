@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FiChevronDown,
   FiChevronLeft,
@@ -8,132 +8,317 @@ import { CalendarDays, RotateCcw } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import {
-  getAdminEmployees,
-  updateAdminEmployee,
-  updateAdminEmployeeStatus,
+  getUsers,
+  updateUser,
+  updateUserStatus,
 } from "../services/adminEmployeeService";
-import DashboardEditButton from "./DashboardEditButton";
+
 import DashboardSuccessModal from "./DashboardSuccessModal";
+import DashboardEditButton from "./DashboardEditButton";
 import DashboardStatusToggle from "./DashboardStatusToggle";
 
 import { openDashboardDatePicker } from "./dashboardDatePicker";
-const AllEmployeePage = ({ searchQuery = "" }) => {
+
+const rowsPerPage = 10;
+
+export default function AllUsersPage({ searchQuery = "" }) {
+  // =========================================================
+  // FILTER STATES
+  // =========================================================
+
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [role, setRole] = useState("");
+
+  // =========================================================
+  // PAGE STATES
+  // =========================================================
+
   const [currentPage, setCurrentPage] = useState(1);
   const [openMenu, setOpenMenu] = useState(null);
-  const [employees, setEmployees] = useState([]);
-  const [totalEmployees, setTotalEmployees] = useState(0);
-  const [totalApiPages, setTotalApiPages] = useState(1);
+  const [users, setUsers] = useState([]);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [editingEmployeeId, setEditingEmployeeId] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // =========================================================
+  // EDIT STATES
+  // =========================================================
+
+  const [editingUser, setEditingUser] = useState(null);
+
   const [editForm, setEditForm] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
-    mobile: "",
-    designation: "",
+    phoneNumber: "",
   });
-  const [savingEmployeeId, setSavingEmployeeId] = useState(null);
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+
+  const [editError, setEditError] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [successModalMessage, setSuccessModalMessage] = useState("");
+
+  // =========================================================
+  // DATE INPUT REFS
+  // =========================================================
+
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
 
-  const rowsPerPage = 10;
-  const isLocalFilterActive = Boolean(year || fromDate || toDate);
+  // =========================================================
+  // LOCAL FILTER CHECK
+  // =========================================================
+
+  const isLocalFilterActive = Boolean(
+    year || fromDate || toDate || role
+  );
+
+  // =========================================================
+  // SEARCH PAGE RESET
+  // =========================================================
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
 
+  // =========================================================
+  // LOAD USERS
+  // =========================================================
+
   useEffect(() => {
     let isActive = true;
 
-    async function loadEmployees() {
+    async function loadUsers() {
       setIsLoading(true);
-      setError("");
+      setErrorMessage("");
 
       try {
-        const normalizedResponse = await fetchEmployeePage(
-          isLocalFilterActive ? 1 : currentPage,
-          rowsPerPage,
-          searchQuery,
-        );
-        const normalizedRows = [...normalizedResponse.rows];
+        /*
+         * If any local filter is active,
+         * fetch all pages first.
+         */
+        const requestedPage = isLocalFilterActive
+          ? 0
+          : currentPage - 1;
 
-        if (isLocalFilterActive && normalizedResponse.totalPages > 1) {
+        const response = await getUsers({
+          page: requestedPage,
+          search: searchQuery,
+          size: rowsPerPage,
+        });
+
+        const normalizedResponse = normalizeUsersResponse(
+          response.data
+        );
+
+        const normalizedRows = [
+          ...normalizedResponse.rows,
+        ];
+
+        /*
+         * Fetch remaining pages when
+         * local filtering is active.
+         */
+        if (
+          isLocalFilterActive &&
+          normalizedResponse.totalPages > 1
+        ) {
           const remainingResponses = await Promise.all(
-            Array.from({ length: normalizedResponse.totalPages - 1 }, (_, index) =>
-              fetchEmployeePage(index + 2, rowsPerPage, searchQuery),
-            ),
+            Array.from(
+              {
+                length:
+                  normalizedResponse.totalPages - 1,
+              },
+              (_, index) =>
+                getUsers({
+                  page: index + 1,
+                  search: searchQuery,
+                  size: rowsPerPage,
+                })
+            )
           );
 
-          remainingResponses.forEach((pageResponse) => {
-            normalizedRows.push(...pageResponse.rows);
-          });
+          remainingResponses.forEach(
+            (pageResponse) => {
+              normalizedRows.push(
+                ...normalizeUsersResponse(
+                  pageResponse.data
+                ).rows
+              );
+            }
+          );
         }
 
         if (!isActive) return;
 
-        setEmployees(normalizedRows);
-        setTotalEmployees(normalizedResponse.totalRecords);
-        setTotalApiPages(normalizedResponse.totalPages);
-        if (currentPage > normalizedResponse.totalPages) {
-          setCurrentPage(normalizedResponse.totalPages);
-        }
-      } catch (employeeError) {
-        if (!isActive) return;
+        setUsers(normalizedRows);
 
-        setError(
-          getAuthErrorMessage(
-            employeeError,
-            "Unable to load employees. Please try again.",
-          ),
+        setTotalRecords(
+          isLocalFilterActive
+            ? normalizedRows.length
+            : normalizedResponse.totalRecords
         );
-        setEmployees([]);
-        setTotalEmployees(0);
-        setTotalApiPages(1);
+
+        setTotalPages(
+          normalizedResponse.totalPages
+        );
+      } catch (error) {
+        if (!isActive) return;
+
+        setUsers([]);
+        setTotalRecords(0);
+        setTotalPages(1);
+
+        setErrorMessage(
+          getAuthErrorMessage(
+            error,
+            "Unable to load users. Please try again."
+          )
+        );
       } finally {
-        if (isActive) setIsLoading(false);
+        if (isActive) {
+          setIsLoading(false);
+        }
       }
     }
 
-    loadEmployees();
+    loadUsers();
 
     return () => {
       isActive = false;
     };
-  }, [currentPage, isLocalFilterActive, searchQuery]);
+  }, [
+    currentPage,
+    isLocalFilterActive,
+    searchQuery,
+  ]);
 
-  const currentEmployees = useMemo(() => {
-    return employees.filter((employee) =>
-      isDateWithinRange(employee.createdDate, fromDate, toDate, year),
+  // =========================================================
+  // FILTER USERS
+  // =========================================================
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      // -----------------------------
+      // ROLE FILTER
+      // -----------------------------
+
+      const userRole = String(
+        user.role ?? ""
+      )
+        .trim()
+        .toUpperCase();
+
+      const selectedRole = String(
+        role ?? ""
+      )
+        .trim()
+        .toUpperCase();
+
+      const matchesRole =
+        !selectedRole ||
+        userRole === selectedRole;
+
+      // -----------------------------
+      // DATE FILTER
+      // -----------------------------
+
+      const matchesDate =
+        isDateWithinRange(
+          user.createdDate,
+          fromDate,
+          toDate,
+          year
+        );
+
+      return matchesRole && matchesDate;
+    });
+  }, [
+    fromDate,
+    toDate,
+    users,
+    year,
+    role,
+  ]);
+
+  // =========================================================
+  // PAGINATION
+  // =========================================================
+
+  const effectiveTotalRecords =
+    isLocalFilterActive
+      ? filteredUsers.length
+      : totalRecords;
+
+  const effectiveTotalPages = Math.max(
+    Math.ceil(
+      effectiveTotalRecords / rowsPerPage
+    ),
+    1
+  );
+
+  const visibleUsers = isLocalFilterActive
+    ? filteredUsers.slice(
+        (currentPage - 1) * rowsPerPage,
+        currentPage * rowsPerPage
+      )
+    : filteredUsers;
+
+  const visiblePages = useMemo(() => {
+    const pageCount = Math.max(
+      effectiveTotalPages,
+      1
     );
-  }, [employees, fromDate, toDate, year]);
-  const effectiveTotalEmployees = isLocalFilterActive ? currentEmployees.length : totalEmployees;
-  const totalPages = isLocalFilterActive
-    ? Math.max(Math.ceil(effectiveTotalEmployees / rowsPerPage), 1)
-    : totalApiPages;
-  const visibleEmployees = isLocalFilterActive
-    ? currentEmployees.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
-    : currentEmployees;
-  const visiblePageNumbers = useMemo(() => {
-    const pageCount = Math.max(totalPages, 1);
-    const startPage = Math.max(Math.min(currentPage - 2, pageCount - 4), 1);
-    const endPage = Math.min(startPage + 4, pageCount);
+
+    const start = Math.max(
+      Math.min(
+        currentPage - 2,
+        pageCount - 4
+      ),
+      1
+    );
+
+    const end = Math.min(
+      start + 4,
+      pageCount
+    );
 
     return Array.from(
-      { length: endPage - startPage + 1 },
-      (_, index) => startPage + index,
+      {
+        length: end - start + 1,
+      },
+      (_, index) => start + index
     );
-  }, [currentPage, totalPages]);
-  const showingFrom = effectiveTotalEmployees === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
-  const showingTo = Math.min(currentPage * rowsPerPage, effectiveTotalEmployees);
+  }, [
+    currentPage,
+    effectiveTotalPages,
+  ]);
+
+  const showingFrom =
+    effectiveTotalRecords === 0
+      ? 0
+      : (currentPage - 1) *
+          rowsPerPage +
+        1;
+
+  const showingTo = Math.min(
+    currentPage * rowsPerPage,
+    effectiveTotalRecords
+  );
+
+  // =========================================================
+  // FILTER HANDLERS
+  // =========================================================
 
   const handleYearChange = (value) => {
     setYear(value);
+    setCurrentPage(1);
+  };
+
+  const handleRoleChange = (value) => {
+    setRole(value);
     setCurrentPage(1);
   };
 
@@ -148,834 +333,816 @@ const AllEmployeePage = ({ searchQuery = "" }) => {
   };
 
   const handleResetFilters = () => {
+    setRole("");
     setYear("");
     setFromDate("");
     setToDate("");
     setCurrentPage(1);
   };
 
-  const handleEditEmployee = (employee) => {
-    setEditingEmployeeId(employee.id);
-    setEditForm({
-      name: employee.name === "-" ? "" : employee.name,
-      email: employee.email === "-" ? "" : employee.email,
-      mobile: employee.mobile === "-" ? "" : employee.mobile,
-      designation: employee.designation === "-" ? "" : employee.designation,
-    });
+  // =========================================================
+  // EDIT USER
+  // =========================================================
+
+  const handleOpenEdit = (user) => {
     setOpenMenu(null);
-    setSuccessMessage("");
-    setError("");
+    setEditingUser(user);
+    setEditError("");
+
+    setEditForm({
+      firstName:
+        user.firstName === "-"
+          ? ""
+          : user.firstName,
+
+      lastName:
+        user.lastName === "-"
+          ? ""
+          : user.lastName,
+
+      email:
+        user.email === "-"
+          ? ""
+          : user.email,
+
+      phoneNumber:
+        user.phoneNumber === "-"
+          ? ""
+          : user.phoneNumber,
+    });
   };
 
-  const handleEditFormChange = (field, value) => {
-    setEditForm((prev) => ({
-      ...prev,
+  const handleCloseEdit = ({
+    force = false,
+  } = {}) => {
+    if (isSavingEdit && !force) return;
+
+    setEditingUser(null);
+    setEditError("");
+
+    setEditForm({
+      firstName: "",
+      lastName: "",
+      email: "",
+      phoneNumber: "",
+    });
+  };
+
+  const handleEditFormChange = (
+    field,
+    value
+  ) => {
+    setEditForm((previousForm) => ({
+      ...previousForm,
       [field]: value,
     }));
   };
 
-  const handleCancelEdit = () => {
-    setEditingEmployeeId(null);
-    setEditForm({
-      name: "",
-      email: "",
-      mobile: "",
-      designation: "",
-    });
-    setError("");
-  };
+  const handleSaveEdit = async () => {
+    if (!editingUser) return;
 
-  const handleSaveEmployee = async () => {
-    const employee = employees.find((item) => item.id === editingEmployeeId);
-
-    if (!employee) {
-      setError("Unable to update employee because the selected row was not found.");
-      return;
-    }
-
-    const employeeId = employee.apiEmployeeId ?? employee.employeeId ?? employee.id;
-    const [firstName, ...lastNameParts] = editForm.name.trim().split(/\s+/);
     const payload = {
-      name: editForm.name.trim(),
-      firstName: firstName ?? "",
-      lastName: lastNameParts.join(" "),
-      email: editForm.email.trim(),
-      mobile: editForm.mobile.trim(),
-      phoneNumber: editForm.mobile.trim(),
-      designation: editForm.designation.trim(),
-      role: editForm.designation.trim(),
+      firstName:
+        editForm.firstName.trim(),
+
+      lastName:
+        editForm.lastName.trim(),
+
+      email:
+        editForm.email.trim(),
+
+      phoneNumber:
+        editForm.phoneNumber.trim(),
     };
 
-    if (!payload.name || !payload.email || !payload.phoneNumber || !payload.designation) {
-      setError("Name, email, mobile, and designation are required.");
+    if (
+      !payload.firstName ||
+      !payload.lastName ||
+      !payload.email ||
+      !payload.phoneNumber
+    ) {
+      setEditError(
+        "First name, last name, email, and phone number are required."
+      );
+
       return;
     }
 
-    setSavingEmployeeId(employee.id);
-    setError("");
-    setSuccessMessage("");
+    setIsSavingEdit(true);
+    setEditError("");
 
     try {
-      const response = await updateAdminEmployee(employeeId, payload);
-      const normalizedResponse = await fetchEmployeePage(
-        currentPage,
-        rowsPerPage,
-        searchQuery,
+      const userId =
+        editingUser.userId ??
+        editingUser.id;
+
+      const response = await updateUser(
+        userId,
+        payload
       );
 
-      setEmployees(normalizedResponse.rows);
-      setTotalEmployees(normalizedResponse.totalRecords);
-      setTotalApiPages(normalizedResponse.totalPages);
-      setEditingEmployeeId(null);
-      setEditForm({
-        name: "",
-        email: "",
-        mobile: "",
-        designation: "",
+      const updatedUser =
+        normalizeUserRow(
+          response.data?.responseData ??
+            response.data?.data ?? {
+              ...editingUser.raw,
+              ...payload,
+              id: userId,
+            }
+        );
+
+      setUsers((currentUsers) =>
+        currentUsers.map((user) =>
+          (user.userId ?? user.id) ===
+          userId
+            ? {
+                ...user,
+                ...updatedUser,
+                userId,
+                id: user.id,
+              }
+            : user
+        )
+      );
+
+      setSuccessModalMessage(
+        response.data?.responseMessage || ""
+      );
+
+      handleCloseEdit({
+        force: true,
       });
-      const nextMessage =
-        response.data?.responseMessage || "Employee updated successfully.";
-      setSuccessMessage(nextMessage);
-      setSuccessModalMessage(nextMessage);
-    } catch (saveError) {
-      setError(
-        getAuthErrorMessage(saveError, "Unable to update employee. Please try again."),
+    } catch (error) {
+      setEditError(
+        getAuthErrorMessage(
+          error,
+          "Unable to update user. Please try again."
+        )
       );
     } finally {
-      setSavingEmployeeId(null);
+      setIsSavingEdit(false);
     }
   };
 
-  const styles = {
-    page: {
-      background: "#F4F5F9",
-      width: "100%",
-      minHeight: "calc(100vh - 92px)",
-      padding: "20px 24px 20px 24px",
-      fontFamily: "Inter, sans-serif",
-      boxSizing: "border-box",
-    },
-
-    card: {
-      width: "100%",
-      background: "#FFFFFF",
-      border: "1px solid #E5E7EB",
-      borderRadius: "12px",
-      position: "relative",
-      overflow: "visible",
-      boxShadow: "0 2px 10px rgba(0,0,0,.03)",
-      padding: "20px 24px 24px 24px",
-      boxSizing: "border-box",
-    },
-
-    headerRow: {
-      display: "flex",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
-      marginBottom: "16px",
-    },
-
-    title: {
-      fontSize: "20px",
-      fontWeight: 700,
-      color: "#202224",
-    },
-
-    subTitle: {
-      fontSize: "13px",
-      color: "#7B7B7B",
-      marginTop: "6px",
-    },
-
-    searchBox: {
-      width: "220px",
-      height: "38px",
-      border: "1px solid #E5E7EB",
-      borderRadius: "8px",
-      display: "flex",
-      alignItems: "center",
-      padding: "0 14px",
-      background: "#fff",
-      gap: "8px",
-    },
-
-    searchInput: {
-      width: "100%",
-      border: "none",
-      outline: "none",
-      background: "#FFFFFF",
-      color: "#202224",
-      WebkitTextFillColor: "#202224",
-      colorScheme: "light",
-      fontSize: "13px",
-    },
-
-    tableContainer: {
-      border: "1px solid #E5E7EB",
-      borderRadius: "10px",
-      overflowX: "auto",
-      overflowY: "visible",
-      background: "#fff",
-    },
-
-    table: {
-      width: "100%",
-      minWidth: "1420px",
-      borderCollapse: "collapse",
-    },
-
-    header: {
-      height: "42px",
-      background: "#F9FAFB",
-      borderBottom: "1px solid #E5E7EB",
-    },
-
-    th: {
-      textAlign: "left",
-      padding: "10px 18px",
-      fontSize: "13px",
-      fontWeight: 600,
-      color: "#555",
-      whiteSpace: "nowrap",
-    },
-
-    tr: {
-      height: "40px",
-      borderBottom: "1px solid #F1F1F1",
-      position: "relative",
-    },
-
-    td: {
-      padding: "10px 18px",
-      fontSize: "13px",
-      color: "#555",
-      whiteSpace: "nowrap",
-    },
-
-    badge: {
-      padding: "6px 12px",
-      borderRadius: "20px",
-      fontSize: "12px",
-      fontWeight: 600,
-      background: "#EEF8FF",
-      color: "#0A84FF",
-      display: "inline-block",
-    },
-
-    menu: {
-      position: "absolute",
-      right: "0px",
-      marginTop: "5px",
-      width: "130px",
-      background: "#fff",
-      border: "1px solid #E5E7EB",
-      borderRadius: "8px",
-      boxShadow: "0 8px 20px rgba(0,0,0,.08)",
-      zIndex: 9999,
-      overflow: "hidden",
-      padding: "6px 0",
-    },
-
-    menuItem: {
-      padding: "6px 15px",
-      cursor: "pointer",
-      fontSize: "13px",
-      color: "#3A3A3A",
-    },
-
-    editInput: {
-      width: "160px",
-      height: "34px",
-      border: "1px solid #C9CDD4",
-      borderRadius: "6px",
-      padding: "0 10px",
-      fontSize: "13px",
-      color: "#202224",
-      outline: "none",
-      background: "#fff",
-    },
-
-    actionGroup: {
-      display: "flex",
-      alignItems: "center",
-      gap: "8px",
-    },
-
-    saveButton: {
-      padding: "6px 12px",
-      borderRadius: "6px",
-      border: "none",
-      background: "#0A84FF",
-      color: "#fff",
-      fontSize: "12px",
-      fontWeight: 600,
-      cursor: "pointer",
-    },
-
-    cancelButton: {
-      padding: "6px 12px",
-      borderRadius: "6px",
-      border: "1px solid #E5E7EB",
-      background: "#fff",
-      color: "#4B4B4B",
-      fontSize: "12px",
-      fontWeight: 600,
-      cursor: "pointer",
-    },
-
-    footerRow: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      marginTop: "16px",
-    },
-
-    footerText: {
-      fontSize: "13px",
-      color: "#7B7B7B",
-    },
-
-    pagination: {
-      display: "flex",
-      alignItems: "center",
-      gap: "10px",
-    },
-
-    modalOverlay: {
-      position: "fixed",
-      inset: 0,
-      background: "rgba(17, 24, 39, 0.45)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 1000,
-      padding: "24px",
-    },
-
-    modalCard: {
-      width: "620px",
-      maxWidth: "92vw",
-      background: "#FFFFFF",
-      borderRadius: "14px",
-      boxShadow: "0 20px 60px rgba(0,0,0,.22)",
-      padding: "32px 36px 34px",
-      boxSizing: "border-box",
-      position: "relative",
-    },
-
-    modalHeader: {
-      display: "flex",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
-      marginBottom: "26px",
-    },
-
-    modalTitle: {
-      fontSize: "18px",
-      fontWeight: 700,
-      color: "#202224",
-      marginBottom: "6px",
-    },
-
-    modalSubtitle: {
-      fontSize: "13px",
-      color: "#7A7A7A",
-    },
-
-    modalCloseButton: {
-      width: "32px",
-      height: "32px",
-      borderRadius: "50%",
-      border: "none",
-      background: "#111827",
-      color: "#FFFFFF",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      cursor: "pointer",
-      fontSize: "18px",
-      lineHeight: 1,
-    },
-
-    modalGrid: {
-      display: "grid",
-      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-      gap: "18px",
-    },
-
-    modalField: {
-      display: "flex",
-      flexDirection: "column",
-      gap: "8px",
-    },
-
-    modalLabel: {
-      fontSize: "13px",
-      fontWeight: 600,
-      color: "#333333",
-    },
-
-    modalInput: {
-      height: "46px",
-      border: "1px solid #E5E7EB",
-      borderRadius: "8px",
-      padding: "0 14px",
-      fontSize: "13px",
-      color: "#202224",
-      background: "#FFFFFF",
-      outline: "none",
-      boxSizing: "border-box",
-      colorScheme: "light",
-    },
-
-    modalActions: {
-      display: "flex",
-      justifyContent: "flex-end",
-      gap: "12px",
-      marginTop: "28px",
-    },
-
-    dateButton: {
-      width: "125px",
-      height: "40px",
-      border: "1px solid #E5E7EB",
-      borderRadius: "8px",
-      padding: "0 12px",
-      fontSize: "12px",
-      background: "#FFFFFF",
-      color: "#808080",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      cursor: "pointer",
-    },
-
-    yearSelect: {
-      width: "105px",
-      height: "40px",
-      appearance: "none",
-      border: "1px solid #E5E7EB",
-      borderRadius: "8px",
-      padding: "0 32px 0 12px",
-      fontSize: "12px",
-      background: "#FFFFFF",
-      color: "#202224",
-      outline: "none",
-    },
-  };
+  // =========================================================
+  // UI
+  // =========================================================
 
   return (
-    <div style={styles.page}>
-      <style>
-        {`
-          .all-employee-search-field {
-            background-color: #ffffff !important;
-            color: #FFFF !important;
-            -webkit-text-fill-color: #202224 !important;
-            color-scheme: light;
-          }
+    <div className="min-h-full bg-[#F4F5F9] px-6 py-5 font-['Inter',sans-serif]">
+      <div className="overflow-visible rounded-xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
 
-          .all-employee-search-field::placeholder {
-            color: #9CA3AF !important;
-            -webkit-text-fill-color: #9CA3AF !important;
-          }
+        {/* =====================================================
+            HEADER
+        ====================================================== */}
 
-          .all-employee-search-field:-webkit-autofill,
-          .all-employee-search-field:-webkit-autofill:hover,
-          .all-employee-search-field:-webkit-autofill:focus {
-            -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
-            box-shadow: 0 0 0 1000px #ffffff inset !important;
-            -webkit-text-fill-color: #202224 !important;
-          }
-        `}
-      </style>
-      <div style={styles.card}>
-        <div style={styles.headerRow}>
-          <div style={styles.title}>All Employee Details Here</div>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{ position: "relative" }}>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+
+          <h2 className="text-[20px] font-bold text-[#202224]">
+            All Users Details Her
+          </h2>
+
+          {/* ===================================================
+              FILTERS
+          ==================================================== */}
+
+          <div className="flex flex-wrap items-center gap-3">
+
+            {/* =================================================
+                ROLE FILTER
+            ================================================== */}
+
+            <div className="relative">
+
               <select
-                onChange={(event) => handleYearChange(event.target.value)}
-                style={styles.yearSelect}
-                value={year}
+                className="h-10 w-[130px] appearance-none rounded-lg border border-[#E5E7EB] bg-white pl-3 pr-8 text-[12px] font-medium text-[#202224] outline-none focus:border-[#2F80ED]"
+                onChange={(event) =>
+                  handleRoleChange(
+                    event.target.value
+                  )
+                }
+                value={role}
               >
-                <option value="">Year</option>
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
+                <option value="">
+                  All Roles
+                </option>
+
+                <option value="ADMIN">
+                  ADMIN
+                </option>
+
+                <option value="EMPLOYEE">
+                  EMPLOYEE
+                </option>
               </select>
+
               <FiChevronDown
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#808080]"
                 size={15}
-                style={{
-                  color: "#808080",
-                  pointerEvents: "none",
-                  position: "absolute",
-                  right: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                }}
               />
+
             </div>
 
+            {/* =================================================
+                YEAR FILTER
+            ================================================== */}
+
+            <div className="relative">
+
+              <select
+                className="h-10 w-[105px] appearance-none rounded-lg border border-[#E5E7EB] bg-white pl-3 pr-8 text-[12px] text-[#202224] outline-none focus:border-[#2F80ED]"
+                onChange={(event) =>
+                  handleYearChange(
+                    event.target.value
+                  )
+                }
+                value={year}
+              >
+                <option value="">
+                  Year
+                </option>
+
+                <option value="2026">
+                  2026
+                </option>
+
+                <option value="2025">
+                  2025
+                </option>
+
+                <option value="2024">
+                  2024
+                </option>
+              </select>
+
+              <FiChevronDown
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#808080]"
+                size={15}
+              />
+
+            </div>
+
+            {/* =================================================
+                FROM DATE
+            ================================================== */}
+
             <input
+              className="hidden"
+              onChange={(event) =>
+                handleFromDateChange(
+                  event.target.value
+                )
+              }
               ref={fromInputRef}
               type="date"
               value={fromDate}
-              onChange={(event) => handleFromDateChange(event.target.value)}
-              style={{ display: "none" }}
             />
+
             <button
-              onClick={(event) => openDashboardDatePicker(fromInputRef.current, event.currentTarget)}
-              style={styles.dateButton}
+              className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
+              onClick={(event) =>
+                openDashboardDatePicker(
+                  fromInputRef.current,
+                  event.currentTarget
+                )
+              }
               type="button"
             >
-              <span>{fromDate || "From"}</span>
+              <span>
+                {fromDate || "From"}
+              </span>
+
               <CalendarDays size={15} />
             </button>
 
+            {/* =================================================
+                TO DATE
+            ================================================== */}
+
             <input
+              className="hidden"
+              onChange={(event) =>
+                handleToDateChange(
+                  event.target.value
+                )
+              }
               ref={toInputRef}
               type="date"
               value={toDate}
-              onChange={(event) => handleToDateChange(event.target.value)}
-              style={{ display: "none" }}
             />
+
             <button
-              onClick={(event) => openDashboardDatePicker(toInputRef.current, event.currentTarget)}
-              style={styles.dateButton}
+              className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
+              onClick={(event) =>
+                openDashboardDatePicker(
+                  toInputRef.current,
+                  event.currentTarget
+                )
+              }
               type="button"
             >
-              <span>{toDate || "To"}</span>
+              <span>
+                {toDate || "To"}
+              </span>
+
               <CalendarDays size={15} />
             </button>
+
+            {/* =================================================
+                RESET
+            ================================================== */}
+
             <button
               type="button"
               onClick={handleResetFilters}
               className="flex h-10 items-center gap-2 rounded-lg bg-[#333333] px-8 text-[12px] font-semibold text-white"
             >
               <RotateCcw size={15} />
+
               Reset
             </button>
+
           </div>
         </div>
 
-        {error && (
+        {/* =====================================================
+            ERROR
+        ====================================================== */}
+
+        {errorMessage && (
           <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-[13px] font-semibold text-[#E0453C]">
-            {error}
+            {errorMessage}
           </div>
         )}
 
-        {successMessage && (
-          <div className="mb-4 rounded-lg bg-green-50 px-4 py-3 text-[13px] font-semibold text-[#027A48]">
-            {successMessage}
-          </div>
-        )}
+        {/* =====================================================
+            TABLE
+        ====================================================== */}
 
-        <div style={styles.tableContainer}>
-          <table style={styles.table}>
-            <thead style={styles.header}>
+        <div className="overflow-x-auto overflow-y-visible rounded-[10px] border border-[#E5E7EB] bg-white">
+
+          <table className="w-full min-w-[1280px] border-collapse">
+
+            <thead className="h-[42px] border-b border-[#E5E7EB] bg-[#F9FAFB]">
+
               <tr>
-                <th style={styles.th}>Sr No</th>
-                <th style={styles.th}>Employee Name</th>
-                <th style={styles.th}>Email</th>
-                <th style={styles.th}>Mobile</th>
-                <th style={styles.th}>Designation</th>
-                <th style={styles.th}>Status</th>
-                <th style={styles.th}>Created By</th>
-                <th style={styles.th}>Created Date</th>
-                <th style={styles.th}>Updated At</th>
-                <th style={styles.th}>Action</th>
+                {[
+                  "Sr No",
+                  "User Name",
+                  "Email",
+                  "Phone Number",
+                  "Role",
+                  "Status",
+                  "Created By",
+                  "Created Date",
+                  "Updated At",
+                  "Action",
+                ].map((column) => (
+                  <th
+                    key={column}
+                    className="whitespace-nowrap px-[18px] py-2.5 text-left text-[13px] font-semibold text-[#555555]"
+                  >
+                    {column}
+                  </th>
+                ))}
               </tr>
+
             </thead>
 
             <tbody>
+
+              {/* =================================================
+                  LOADING
+              ================================================== */}
+
               {isLoading && (
-                <tr style={styles.tr}>
-                  <td colSpan={10} style={{ ...styles.td, textAlign: "center" }}>
-                    Loading employees...
-                  </td>
-                </tr>
-              )}
-
-              {!isLoading && visibleEmployees.length === 0 && (
-                <tr style={styles.tr}>
-                  <td colSpan={10} style={{ ...styles.td, textAlign: "center" }}>
-                    No employees found.
-                  </td>
-                </tr>
-              )}
-
-              {!isLoading && visibleEmployees.map((employee, index) => (
-                <tr
-                  key={employee.id}
-                  style={{
-                    ...styles.tr,
-                    zIndex: openMenu === employee.id ? 50 : 1,
-                  }}
-                >
-                  <td style={styles.td}>
-                    {(currentPage - 1) * rowsPerPage + index + 1}
-                  </td>
-
-                  <td style={styles.td}>
-                    {employee.name}
-                  </td>
-
-                  <td style={styles.td}>
-                    {employee.email}
-                  </td>
-
-                  <td style={styles.td}>
-                    {employee.mobile}
-                  </td>
-
-                  <td style={styles.td}>
-                    {employee.designation}
-                  </td>
-
-                  <td style={styles.td}>
-                    <DashboardStatusToggle
-                      onToggle={(nextStatus) =>
-                        updateAdminEmployeeStatus(
-                          employee.apiEmployeeId ?? employee.employeeId ?? employee.id,
-                          nextStatus,
-                        )
-                      }
-                      status={employee.status}
-                    />
-                  </td>
-
-                  <td style={styles.td}>{employee.createdBy}</td>
-
-                  <td style={styles.td}>
-                    <EmployeeDateTime
-                      date={employee.createdDate}
-                      time={employee.createdTime}
-                    />
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <EmployeeDateTime
-                      date={employee.updatedDate}
-                      time={employee.updatedTime}
-                    />
-                  </td>
-
+                <tr className="h-12 border-b border-[#F1F1F1]">
                   <td
-                    style={{
-                      ...styles.td,
-                      position: "relative",
-                    }}
+                    className="px-[18px] py-5 text-center text-[13px] text-[#555555]"
+                    colSpan={10}
                   >
-                    <DashboardEditButton
-                      onClick={() => handleEditEmployee(employee)}
-                    >
-                      Edit
-                    </DashboardEditButton>
+                    Loading users...
                   </td>
                 </tr>
-              ))}
+              )}
+
+              {/* =================================================
+                  NO USERS
+              ================================================== */}
+
+              {!isLoading &&
+                visibleUsers.length === 0 && (
+                  <tr className="h-12 border-b border-[#F1F1F1]">
+                    <td
+                      className="px-[18px] py-5 text-center text-[13px] text-[#555555]"
+                      colSpan={10}
+                    >
+                      No users found.
+                    </td>
+                  </tr>
+                )}
+
+              {/* =================================================
+                  USER ROWS
+              ================================================== */}
+
+              {!isLoading &&
+                visibleUsers.map(
+                  (user, index) => (
+                    <tr
+                      key={user.id}
+                      className="relative h-12 border-b border-[#F1F1F1]"
+                    >
+
+                      {/* Sr No */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                        {(currentPage - 1) *
+                          rowsPerPage +
+                          index +
+                          1}
+                      </td>
+
+                      {/* User Name */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                        {user.name}
+                      </td>
+
+                      {/* Email */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                        {user.email}
+                      </td>
+
+                      {/* Phone */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                        {user.phoneNumber}
+                      </td>
+
+                      {/* Role */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] font-medium text-[#555555]">
+                        {user.role}
+                      </td>
+
+                      {/* Status */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5">
+                        <DashboardStatusToggle
+                          onToggle={(
+                            nextStatus
+                          ) =>
+                            updateUserStatus(
+                              user.userId ??
+                                user.id,
+                              nextStatus
+                            )
+                          }
+                          status={user.status}
+                        />
+                      </td>
+
+                      {/* Created By */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                        {user.createdBy}
+                      </td>
+
+                      {/* Created Date */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5">
+                        <DateTime
+                          date={
+                            user.createdDate
+                          }
+                          time={
+                            user.createdTime
+                          }
+                        />
+                      </td>
+
+                      {/* Updated At */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5">
+                        <DateTime
+                          date={
+                            user.updatedDate
+                          }
+                          time={
+                            user.updatedTime
+                          }
+                        />
+                      </td>
+
+                      {/* Action */}
+                      <td className="relative whitespace-nowrap px-[18px] py-2.5">
+                        <DashboardEditButton
+                          onClick={() =>
+                            handleOpenEdit(
+                              user
+                            )
+                          }
+                        >
+                          Edit
+                        </DashboardEditButton>
+                      </td>
+
+                    </tr>
+                  )
+                )}
+
             </tbody>
           </table>
         </div>
 
-        {/* Footer + Pagination */}
+        {/* =====================================================
+            PAGINATION
+        ====================================================== */}
 
-        <div style={styles.footerRow}>
-          <div style={styles.footerText}>
+        <div className="mt-4 flex items-center justify-between">
+
+          <p className="text-[13px] text-[#7B7B7B]">
             Showing{" "}
             <strong>
               {showingFrom}
             </strong>{" "}
-            -
-            <strong> {showingTo}</strong>{" "}
-            of <strong>{effectiveTotalEmployees}</strong> Employees
-          </div>
+            -{" "}
+            <strong>
+              {showingTo}
+            </strong>{" "}
+            of{" "}
+            <strong>
+              {effectiveTotalRecords}
+            </strong>{" "}
+            Users
+          </p>
 
-          <div style={styles.pagination}>
+          <div className="flex items-center gap-2.5">
+
+            {/* Previous */}
             <button
+              className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-[#E5E7EB] bg-white disabled:cursor-not-allowed disabled:opacity-50"
               disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
-              style={{
-                width: "38px",
-                height: "38px",
-                border: "1px solid #E5E7EB",
-                background: "#fff",
-                borderRadius: "8px",
-                cursor: currentPage <= 1 ? "not-allowed" : "pointer",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                opacity: currentPage <= 1 ? 0.5 : 1,
-              }}
+              onClick={() =>
+                setCurrentPage(
+                  (page) =>
+                    Math.max(
+                      page - 1,
+                      1
+                    )
+                )
+              }
               type="button"
             >
               <FiChevronLeft />
             </button>
 
-            {visiblePageNumbers.map((page) => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                type="button"
-                className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium transition ${
-                  page === currentPage
-                    ? "bg-[#F3F4F6] text-[#111827]"
-                    : "text-[#6B7280] hover:bg-[#F8F8F8]"
-                }`}
-              >
-                {page}
-              </button>
-            ))}
+            {/* Page Numbers */}
+            {visiblePages.map(
+              (page) => (
+                <button
+                  className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium ${
+                    page === currentPage
+                      ? "bg-[#F3F4F6] text-[#111827]"
+                      : "text-[#6B7280] hover:bg-[#F8F8F8]"
+                  }`}
+                  key={page}
+                  onClick={() =>
+                    setCurrentPage(
+                      page
+                    )
+                  }
+                  type="button"
+                >
+                  {page}
+                </button>
+              )
+            )}
 
+            {/* Next */}
             <button
-              disabled={currentPage >= totalPages}
-              onClick={() =>
-                setCurrentPage((page) => Math.min(page + 1, totalPages))
+              className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-[#E5E7EB] bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={
+                currentPage >=
+                effectiveTotalPages
               }
-              style={{
-                width: "38px",
-                height: "38px",
-                border: "1px solid #E5E7EB",
-                background: "#fff",
-                borderRadius: "8px",
-                cursor: currentPage >= totalPages ? "not-allowed" : "pointer",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                opacity: currentPage >= totalPages ? 0.5 : 1,
-              }}
+              onClick={() =>
+                setCurrentPage(
+                  (page) =>
+                    Math.min(
+                      page + 1,
+                      effectiveTotalPages
+                    )
+                )
+              }
               type="button"
             >
               <FiChevronRight />
             </button>
+
           </div>
         </div>
       </div>
 
-      {editingEmployeeId && (
-        <div style={styles.modalOverlay} onClick={handleCancelEdit}>
-          <div style={styles.modalCard} onClick={(event) => event.stopPropagation()}>
-            <div style={styles.modalHeader}>
+      {/* =======================================================
+          EDIT USER MODAL
+      ======================================================== */}
+
+      {editingUser && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center px-4"
+          onClick={handleCloseEdit}
+        >
+          <div
+            className="w-full max-w-[520px] rounded-xl bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,.22)]"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+
+            {/* Modal Header */}
+            <div className="mb-5 flex items-center justify-between">
+
               <div>
-                <div style={styles.modalTitle}>Edit Employee</div>
-                <div style={styles.modalSubtitle}>
-                  Update employee details and save changes.
-                </div>
+                <h3 className="text-[20px] font-bold text-[#202224]">
+                  Edit User
+                </h3>
+
+                <p className="mt-1 text-[13px] text-[#6B7280]">
+                  Update user profile information.
+                </p>
               </div>
 
               <button
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#E5E7EB] text-[18px] text-[#6B7280] hover:bg-[#F9FAFB]"
+                onClick={handleCloseEdit}
                 type="button"
-                style={styles.modalCloseButton}
-                onClick={handleCancelEdit}
-                disabled={savingEmployeeId === editingEmployeeId}
               >
                 x
               </button>
             </div>
 
-            <div style={styles.modalGrid}>
-              <label style={styles.modalField}>
-                <span style={styles.modalLabel}>Name</span>
+            {/* Edit Error */}
+            {editError && (
+              <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-[13px] font-semibold text-[#E0453C]">
+                {editError}
+              </div>
+            )}
+
+            {/* Form */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+              {/* First Name */}
+              <label className="text-[13px] font-semibold text-[#374151]">
+                First Name
+
                 <input
-                  style={styles.modalInput}
-                  value={editForm.name}
+                  className="mt-2 h-11 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[14px] font-medium text-[#202224] outline-none focus:border-[#2F80ED]"
                   onChange={(event) =>
-                    handleEditFormChange("name", event.target.value)
+                    handleEditFormChange(
+                      "firstName",
+                      event.target.value
+                    )
+                  }
+                  value={
+                    editForm.firstName
                   }
                 />
               </label>
 
-              <label style={styles.modalField}>
-                <span style={styles.modalLabel}>Email</span>
+              {/* Last Name */}
+              <label className="text-[13px] font-semibold text-[#374151]">
+                Last Name
+
                 <input
-                  style={styles.modalInput}
+                  className="mt-2 h-11 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[14px] font-medium text-[#202224] outline-none focus:border-[#2F80ED]"
+                  onChange={(event) =>
+                    handleEditFormChange(
+                      "lastName",
+                      event.target.value
+                    )
+                  }
+                  value={
+                    editForm.lastName
+                  }
+                />
+              </label>
+
+              {/* Email */}
+              <label className="text-[13px] font-semibold text-[#374151] sm:col-span-2">
+                Email
+
+                <input
+                  className="mt-2 h-11 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[14px] font-medium text-[#202224] outline-none focus:border-[#2F80ED]"
+                  onChange={(event) =>
+                    handleEditFormChange(
+                      "email",
+                      event.target.value
+                    )
+                  }
                   type="email"
-                  value={editForm.email}
-                  onChange={(event) =>
-                    handleEditFormChange("email", event.target.value)
+                  value={
+                    editForm.email
                   }
                 />
               </label>
 
-              <label style={styles.modalField}>
-                <span style={styles.modalLabel}>Mobile</span>
+              {/* Phone */}
+              <label className="text-[13px] font-semibold text-[#374151] sm:col-span-2">
+                Phone Number
+
                 <input
-                  style={styles.modalInput}
-                  value={editForm.mobile}
+                  className="mt-2 h-11 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[14px] font-medium text-[#202224] outline-none focus:border-[#2F80ED]"
                   onChange={(event) =>
-                    handleEditFormChange("mobile", event.target.value)
+                    handleEditFormChange(
+                      "phoneNumber",
+                      event.target.value
+                    )
+                  }
+                  value={
+                    editForm.phoneNumber
                   }
                 />
               </label>
 
-              <label style={styles.modalField}>
-                <span style={styles.modalLabel}>Designation</span>
-                <input
-                  style={styles.modalInput}
-                  value={editForm.designation}
-                  onChange={(event) =>
-                    handleEditFormChange("designation", event.target.value)
-                  }
-                />
-              </label>
             </div>
 
-            <div style={styles.modalActions}>
+            {/* Buttons */}
+            <div className="mt-6 flex justify-end gap-3">
+
               <button
+                className="h-10 rounded-lg border border-[#E5E7EB] px-5 text-[13px] font-semibold text-[#4B5563] hover:bg-[#F9FAFB]"
+                disabled={isSavingEdit}
+                onClick={handleCloseEdit}
                 type="button"
-                style={styles.cancelButton}
-                onClick={handleCancelEdit}
-                disabled={savingEmployeeId === editingEmployeeId}
               >
                 Cancel
               </button>
 
               <button
+                className="h-10 rounded-lg bg-[#2F80ED] px-5 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isSavingEdit}
+                onClick={handleSaveEdit}
                 type="button"
-                style={styles.saveButton}
-                onClick={handleSaveEmployee}
-                disabled={savingEmployeeId === editingEmployeeId}
               >
-                {savingEmployeeId === editingEmployeeId ? "Saving..." : "Save"}
+                {isSavingEdit
+                  ? "Saving..."
+                  : "Save Changes"}
               </button>
+
             </div>
           </div>
         </div>
       )}
 
+      {/* =======================================================
+          SUCCESS MODAL
+      ======================================================== */}
+
       {successModalMessage && (
         <DashboardSuccessModal
-          message={successModalMessage}
-          onClose={() => setSuccessModalMessage("")}
-          title="Edit Successful"
+          message={
+            successModalMessage
+          }
+          onClose={() =>
+            setSuccessModalMessage("")
+          }
+          title="Updated Successfully"
         />
       )}
     </div>
   );
-};
-
-export default AllEmployeePage;
-
-async function fetchEmployeePage(currentPage, rowsPerPage, search = "") {
-  const response = await getAdminEmployees({
-    page: currentPage - 1,
-    size: rowsPerPage,
-    search,
-  });
-
-  return normalizeEmployeeResponse(response.data, rowsPerPage);
 }
 
-function normalizeEmployeeResponse(responseData, pageSize) {
+// =============================================================
+// DATE TIME COMPONENT
+// =============================================================
+
+function DateTime({ date, time }) {
+  return (
+    <div className="flex flex-col text-[13px] leading-5">
+      <span className="font-medium text-[#2F80ED]">
+        {date}
+      </span>
+
+      <span className="text-[#27AE60]">
+        {time}
+      </span>
+    </div>
+  );
+}
+
+// =============================================================
+// NORMALIZE USERS RESPONSE
+// =============================================================
+
+function normalizeUsersResponse(
+  responseData
+) {
   const payload =
     responseData?.responseData ??
     responseData?.data?.responseData ??
     responseData?.data ??
     responseData;
-  const rows = findFirstArray(payload)
-    .filter(hasEmployeeIdentity)
-    .map(normalizeEmployeeRow);
+
+  const rows =
+    findFirstArray(payload).map(
+      normalizeUserRow
+    );
+
   const totalRecords =
     findFirstNumber(payload, [
       "totalElements",
@@ -984,172 +1151,410 @@ function normalizeEmployeeResponse(responseData, pageSize) {
       "total",
       "count",
     ]) ?? rows.length;
+
   const totalPages =
-    findFirstNumber(payload, ["totalPages", "pages"]) ??
-    Math.max(Math.ceil(totalRecords / pageSize), 1);
+    findFirstNumber(payload, [
+      "totalPages",
+      "pages",
+    ]) ??
+    Math.max(
+      Math.ceil(
+        totalRecords / rowsPerPage
+      ),
+      1
+    );
 
   return {
     rows,
     totalRecords,
-    totalPages: Math.max(totalPages, 1),
+    totalPages: Math.max(
+      totalPages,
+      1
+    ),
   };
 }
 
-function normalizeEmployeeRow(row, index = 0) {
-  const firstName = row.firstName ?? "";
-  const lastName = row.lastName ?? "";
-  const fullName = [firstName, lastName].filter(Boolean).join(" ");
+// =============================================================
+// NORMALIZE USER ROW
+// =============================================================
+
+function normalizeUserRow(
+  row,
+  index = 0
+) {
+  const firstName =
+    row.firstName ??
+    row.first_name ??
+    "";
+
+  const lastName =
+    row.lastName ??
+    row.last_name ??
+    "";
+
+  const name =
+    row.name ??
+    row.userName ??
+    row.employeeName ??
+    [firstName, lastName]
+      .filter(Boolean)
+      .join(" ") ??
+    "-";
+
+  const createdAt =
+    row.createdAt ??
+    row.createdDate;
+
+  const updatedAt =
+    row.updatedAt ??
+    row.updatedDate;
 
   return {
-    id: row.id ?? index + 1,
-    apiEmployeeId: row.id ?? index + 1,
-    employeeId: row.id ?? "-",
-    firstName: firstName || "-",
-    lastName: lastName || "-",
-    name: fullName || "-",
-    email: row.email ?? "-",
-    mobile: row.phoneNumber ?? "-",
-    designation: row.role ?? "-",
-    status: normalizeEmployeeStatus(row.status),
-    createdBy: row.createdBy ?? "-",
-    ...splitEmployeeDateTime(row.createdAt ?? row.createdDate),
-    ...splitEmployeeDateTime(row.updatedAt ?? row.updatedDate, "updated"),
+    id:
+      row.id ??
+      row.userId ??
+      index + 1,
+
+    userId:
+      row.userId ??
+      row.id ??
+      index + 1,
+
+    firstName:
+      firstName || "-",
+
+    lastName:
+      lastName || "-",
+
+    name:
+      name || "-",
+
+    email:
+      row.email ?? "-",
+
+    phoneNumber:
+      row.phoneNumber ??
+      row.mobile ??
+      row.mobileNumber ??
+      "-",
+
+    // IMPORTANT: Role
+    role:
+      row.role ??
+      row.roleName ??
+      "-",
+
+    createdBy:
+      row.createdBy ??
+      row.createdByName ??
+      "-",
+
+    ...splitDateTime(
+      createdAt
+    ),
+
+    ...splitDateTime(
+      updatedAt,
+      "updated"
+    ),
+
+    status: row.status,
+
+    raw: row,
   };
 }
 
-function normalizeEmployeeStatus(status) {
-  if (typeof status === "boolean") return status ? "Active" : "Inactive";
-  if (status === null || status === undefined || status === "") return "-";
-  return String(status);
-}
+// =============================================================
+// SPLIT DATE TIME
+// =============================================================
 
-function formatEmployeeDate(value) {
-  if (!value) return "-";
-  return String(value).replace("T", " ").split(".")[0];
-}
+function splitDateTime(
+  value,
+  prefix = "created"
+) {
+  const formattedValue =
+    formatDateTime(value);
 
-function EmployeeDateTime({ date, time }) {
-  return (
-    <div className="flex flex-col text-[13px] leading-5">
-      <span className="font-medium text-[#2F80ED]">{date}</span>
-      <span className="text-[#27AE60]">{time}</span>
-    </div>
-  );
-}
-
-function splitEmployeeDateTime(value, prefix = "created") {
-  const formattedValue = formatEmployeeDate(value);
-  const [date, time = "-"] = formattedValue.split(" ");
+  const [
+    date,
+    time = "-",
+  ] =
+    formattedValue.split(" ");
 
   return prefix === "updated"
-    ? { updatedDate: date, updatedTime: time }
-    : { createdDate: date, createdTime: time };
+    ? {
+        updatedDate: date,
+        updatedTime: time,
+      }
+    : {
+        createdDate: date,
+        createdTime: time,
+      };
 }
 
-function isDateWithinRange(value, fromDate, toDate, year) {
-  if (!fromDate && !toDate && !year) return true;
+// =============================================================
+// DATE FILTER
+// =============================================================
 
-  const normalizedDate = normalizeDateValue(value);
-  if (!normalizedDate) return false;
+function isDateWithinRange(
+  value,
+  fromDate,
+  toDate,
+  year
+) {
+  if (
+    !fromDate &&
+    !toDate &&
+    !year
+  ) {
+    return true;
+  }
 
-  if (year && normalizedDate.slice(0, 4) !== year) return false;
-  if (fromDate && normalizedDate < fromDate) return false;
-  if (toDate && normalizedDate > toDate) return false;
+  const normalizedDate =
+    normalizeDateValue(value);
+
+  if (!normalizedDate) {
+    return false;
+  }
+
+  if (
+    year &&
+    normalizedDate.slice(
+      0,
+      4
+    ) !== year
+  ) {
+    return false;
+  }
+
+  if (
+    fromDate &&
+    normalizedDate < fromDate
+  ) {
+    return false;
+  }
+
+  if (
+    toDate &&
+    normalizedDate > toDate
+  ) {
+    return false;
+  }
 
   return true;
 }
 
-function normalizeDateValue(value) {
-  if (!value || value === "-") return "";
+// =============================================================
+// NORMALIZE DATE
+// =============================================================
 
-  const stringValue = String(value).trim();
-  const isoMatch = stringValue.match(/^\d{4}-\d{2}-\d{2}/);
-  if (isoMatch) return isoMatch[0];
+function normalizeDateValue(
+  value
+) {
+  if (
+    !value ||
+    value === "-"
+  ) {
+    return "";
+  }
 
-  const parsedDate = new Date(stringValue);
-  if (Number.isNaN(parsedDate.getTime())) return "";
+  const stringValue =
+    String(value).trim();
 
-  return parsedDate.toISOString().slice(0, 10);
+  const isoMatch =
+    stringValue.match(
+      /^\d{4}-\d{2}-\d{2}/
+    );
+
+  if (isoMatch) {
+    return isoMatch[0];
+  }
+
+  const parsedDate =
+    new Date(stringValue);
+
+  if (
+    Number.isNaN(
+      parsedDate.getTime()
+    )
+  ) {
+    return "";
+  }
+
+  return parsedDate
+    .toISOString()
+    .slice(0, 10);
 }
 
-function findFirstArray(value, visited = new Set()) {
-  if (!value) return [];
+// =============================================================
+// FORMAT DATE TIME
+// =============================================================
 
-  if (Array.isArray(value)) return value;
+function formatDateTime(
+  value
+) {
+  if (!value) {
+    return "-";
+  }
 
-  if (typeof value !== "object" || visited.has(value)) return [];
+  return String(value)
+    .replace("T", " ")
+    .split(".")[0];
+}
+
+// =============================================================
+// FIND FIRST ARRAY
+// =============================================================
+
+function findFirstArray(
+  value,
+  visited = new Set()
+) {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (
+    typeof value !== "object" ||
+    visited.has(value)
+  ) {
+    return [];
+  }
 
   visited.add(value);
 
-  const preferredKeys = [
+  for (const key of [
     "content",
     "records",
     "items",
     "rows",
     "list",
-    "employees",
-    "employeeList",
     "users",
     "data",
-  ];
+  ]) {
+    const childArray =
+      findFirstArray(
+        value[key],
+        visited
+      );
 
-  for (const key of preferredKeys) {
-    const childArray = findFirstArray(value[key], visited);
-
-    if (childArray.length > 0) return childArray;
+    if (
+      childArray.length > 0
+    ) {
+      return childArray;
+    }
   }
 
-  for (const childValue of Object.values(value)) {
-    const childArray = findFirstArray(childValue, visited);
+  for (const childValue of Object.values(
+    value
+  )) {
+    const childArray =
+      findFirstArray(
+        childValue,
+        visited
+      );
 
-    if (childArray.length > 0) return childArray;
+    if (
+      childArray.length > 0
+    ) {
+      return childArray;
+    }
   }
 
-  if (hasEmployeeIdentity(value)) return [value];
-
-  return [];
+  return hasUserIdentity(
+    value
+  )
+    ? [value]
+    : [];
 }
 
-function hasEmployeeIdentity(row) {
-  if (!row || typeof row !== "object") return false;
+// =============================================================
+// USER IDENTITY CHECK
+// =============================================================
+
+function hasUserIdentity(row) {
+  if (
+    !row ||
+    typeof row !== "object"
+  ) {
+    return false;
+  }
 
   return [
     row.id,
-    row.firstName,
-    row.lastName,
+    row.userId,
     row.email,
-    row.phoneNumber,
-    row.role,
-    row.status,
-    row.createdBy,
-    row.createdDate,
-    row.updatedAt,
-  ].some((value) => value !== null && value !== undefined && value !== "");
+    row.firstName,
+    row.userName,
+  ].some(
+    (value) =>
+      value !== null &&
+      value !== undefined &&
+      value !== ""
+  );
 }
 
-function findFirstNumber(value, keys, visited = new Set()) {
-  if (!value || typeof value !== "object" || visited.has(value)) return undefined;
+// =============================================================
+// FIND FIRST NUMBER
+// =============================================================
+
+function findFirstNumber(
+  value,
+  keys,
+  visited = new Set()
+) {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    visited.has(value)
+  ) {
+    return undefined;
+  }
 
   visited.add(value);
 
   for (const key of keys) {
-    const candidate = value[key];
-
-    if (typeof candidate === "number") return candidate;
+    const candidate =
+      value[key];
 
     if (
-      typeof candidate === "string" &&
+      typeof candidate ===
+      "number"
+    ) {
+      return candidate;
+    }
+
+    if (
+      typeof candidate ===
+        "string" &&
       candidate.trim() &&
-      !Number.isNaN(Number(candidate))
+      !Number.isNaN(
+        Number(candidate)
+      )
     ) {
       return Number(candidate);
     }
   }
 
-  for (const childValue of Object.values(value)) {
-    const candidate = findFirstNumber(childValue, keys, visited);
+  for (const childValue of Object.values(
+    value
+  )) {
+    const candidate =
+      findFirstNumber(
+        childValue,
+        keys,
+        visited
+      );
 
-    if (candidate !== undefined) return candidate;
+    if (
+      candidate !== undefined
+    ) {
+      return candidate;
+    }
   }
 
   return undefined;

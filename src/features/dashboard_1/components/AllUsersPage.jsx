@@ -7,18 +7,27 @@ import {
 import { CalendarDays, RotateCcw } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../auth/services/authError";
-import { getUsers, updateUser, updateUserStatus } from "../services/adminEmployeeService";
+import {
+  getUsers,
+  updateUser,
+  updateUserStatus,
+} from "../services/adminEmployeeService";
 import DashboardSuccessModal from "./DashboardSuccessModal";
 import DashboardEditButton from "./DashboardEditButton";
 import DashboardStatusToggle from "./DashboardStatusToggle";
 
 import { openDashboardDatePicker } from "./dashboardDatePicker";
+
 const rowsPerPage = 10;
 
 export default function AllUsersPage({ searchQuery = "" }) {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+
+  // Role filter
+  const [role, setRole] = useState("");
+
   const [currentPage, setCurrentPage] = useState(1);
   const [openMenu, setOpenMenu] = useState(null);
   const [users, setUsers] = useState([]);
@@ -27,18 +36,28 @@ export default function AllUsersPage({ searchQuery = "" }) {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [editingUser, setEditingUser] = useState(null);
+
   const [editForm, setEditForm] = useState({
     firstName: "",
     lastName: "",
     email: "",
     phoneNumber: "",
   });
+
   const [editError, setEditError] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [successModalMessage, setSuccessModalMessage] = useState("");
+
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
-  const isLocalFilterActive = Boolean(year || fromDate || toDate);
+
+  /*
+   * When any local filter is selected, we load all pages
+   * and apply filtering on the frontend.
+   */
+  const isLocalFilterActive = Boolean(
+    year || fromDate || toDate || role,
+  );
 
   useEffect(() => {
     setCurrentPage(1);
@@ -52,28 +71,45 @@ export default function AllUsersPage({ searchQuery = "" }) {
       setErrorMessage("");
 
       try {
-        const requestedPage = isLocalFilterActive ? 0 : currentPage - 1;
+        const requestedPage = isLocalFilterActive
+          ? 0
+          : currentPage - 1;
+
         const response = await getUsers({
           page: requestedPage,
           search: searchQuery,
           size: rowsPerPage,
         });
+
         const normalizedResponse = normalizeUsersResponse(response.data);
         const normalizedRows = [...normalizedResponse.rows];
 
-        if (isLocalFilterActive && normalizedResponse.totalPages > 1) {
+        /*
+         * If any local filter is active, load all pages so that
+         * filtering is performed against the complete user list.
+         */
+        if (
+          isLocalFilterActive &&
+          normalizedResponse.totalPages > 1
+        ) {
           const remainingResponses = await Promise.all(
-            Array.from({ length: normalizedResponse.totalPages - 1 }, (_, index) =>
-              getUsers({
-                page: index + 1,
-                search: searchQuery,
-                size: rowsPerPage,
-              }),
+            Array.from(
+              {
+                length: normalizedResponse.totalPages - 1,
+              },
+              (_, index) =>
+                getUsers({
+                  page: index + 1,
+                  search: searchQuery,
+                  size: rowsPerPage,
+                }),
             ),
           );
 
           remainingResponses.forEach((pageResponse) => {
-            normalizedRows.push(...normalizeUsersResponse(pageResponse.data).rows);
+            normalizedRows.push(
+              ...normalizeUsersResponse(pageResponse.data).rows,
+            );
           });
         }
 
@@ -88,11 +124,17 @@ export default function AllUsersPage({ searchQuery = "" }) {
         setUsers([]);
         setTotalRecords(0);
         setTotalPages(1);
+
         setErrorMessage(
-          getAuthErrorMessage(error, "Unable to load users. Please try again."),
+          getAuthErrorMessage(
+            error,
+            "Unable to load users. Please try again.",
+          ),
         );
       } finally {
-        if (isActive) setIsLoading(false);
+        if (isActive) {
+          setIsLoading(false);
+        }
       }
     }
 
@@ -101,27 +143,86 @@ export default function AllUsersPage({ searchQuery = "" }) {
     return () => {
       isActive = false;
     };
-  }, [currentPage, isLocalFilterActive, searchQuery]);
+  }, [
+    currentPage,
+    isLocalFilterActive,
+    searchQuery,
+  ]);
 
+  /*
+   * Apply Role + Date filters.
+   */
   const filteredUsers = useMemo(() => {
-    return users.filter((user) =>
-      isDateWithinRange(user.createdDate, fromDate, toDate, year),
-    );
-  }, [fromDate, toDate, users, year]);
-  const effectiveTotalRecords = isLocalFilterActive ? filteredUsers.length : totalRecords;
-  const effectiveTotalPages = Math.max(Math.ceil(effectiveTotalRecords / rowsPerPage), 1);
+    return users.filter((user) => {
+      const matchesRole =
+        !role ||
+        String(user.role ?? "")
+          .trim()
+          .toUpperCase() === role.toUpperCase();
+
+      const matchesDate = isDateWithinRange(
+        user.createdDate,
+        fromDate,
+        toDate,
+        year,
+      );
+
+      return matchesRole && matchesDate;
+    });
+  }, [
+    fromDate,
+    toDate,
+    users,
+    year,
+    role,
+  ]);
+
+  const effectiveTotalRecords = isLocalFilterActive
+    ? filteredUsers.length
+    : totalRecords;
+
+  const effectiveTotalPages = Math.max(
+    Math.ceil(effectiveTotalRecords / rowsPerPage),
+    1,
+  );
+
   const visibleUsers = isLocalFilterActive
-    ? filteredUsers.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+    ? filteredUsers.slice(
+        (currentPage - 1) * rowsPerPage,
+        currentPage * rowsPerPage,
+      )
     : filteredUsers;
+
   const visiblePages = useMemo(() => {
     const pageCount = Math.max(effectiveTotalPages, 1);
-    const start = Math.max(Math.min(currentPage - 2, pageCount - 4), 1);
+
+    const start = Math.max(
+      Math.min(currentPage - 2, pageCount - 4),
+      1,
+    );
+
     const end = Math.min(start + 4, pageCount);
 
-    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
-  }, [currentPage, effectiveTotalPages]);
-  const showingFrom = effectiveTotalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
-  const showingTo = Math.min(currentPage * rowsPerPage, effectiveTotalRecords);
+    return Array.from(
+      {
+        length: end - start + 1,
+      },
+      (_, index) => start + index,
+    );
+  }, [
+    currentPage,
+    effectiveTotalPages,
+  ]);
+
+  const showingFrom =
+    effectiveTotalRecords === 0
+      ? 0
+      : (currentPage - 1) * rowsPerPage + 1;
+
+  const showingTo = Math.min(
+    currentPage * rowsPerPage,
+    effectiveTotalRecords,
+  );
 
   const handleYearChange = (value) => {
     setYear(value);
@@ -138,10 +239,22 @@ export default function AllUsersPage({ searchQuery = "" }) {
     setCurrentPage(1);
   };
 
+  /*
+   * Role filter handler.
+   */
+  const handleRoleChange = (value) => {
+    setRole(value);
+    setCurrentPage(1);
+  };
+
+  /*
+   * Reset all filters.
+   */
   const handleResetFilters = () => {
     setYear("");
     setFromDate("");
     setToDate("");
+    setRole("");
     setCurrentPage(1);
   };
 
@@ -149,18 +262,33 @@ export default function AllUsersPage({ searchQuery = "" }) {
     setOpenMenu(null);
     setEditingUser(user);
     setEditError("");
+
     setEditForm({
-      firstName: user.firstName === "-" ? "" : user.firstName,
-      lastName: user.lastName === "-" ? "" : user.lastName,
-      email: user.email === "-" ? "" : user.email,
-      phoneNumber: user.phoneNumber === "-" ? "" : user.phoneNumber,
+      firstName:
+        user.firstName === "-"
+          ? ""
+          : user.firstName,
+      lastName:
+        user.lastName === "-"
+          ? ""
+          : user.lastName,
+      email:
+        user.email === "-"
+          ? ""
+          : user.email,
+      phoneNumber:
+        user.phoneNumber === "-"
+          ? ""
+          : user.phoneNumber,
     });
   };
 
   const handleCloseEdit = ({ force = false } = {}) => {
     if (isSavingEdit && !force) return;
+
     setEditingUser(null);
     setEditError("");
+
     setEditForm({
       firstName: "",
       lastName: "",
@@ -186,8 +314,15 @@ export default function AllUsersPage({ searchQuery = "" }) {
       phoneNumber: editForm.phoneNumber.trim(),
     };
 
-    if (!payload.firstName || !payload.lastName || !payload.email || !payload.phoneNumber) {
-      setEditError("First name, last name, email, and phone number are required.");
+    if (
+      !payload.firstName ||
+      !payload.lastName ||
+      !payload.email ||
+      !payload.phoneNumber
+    ) {
+      setEditError(
+        "First name, last name, email, and phone number are required.",
+      );
       return;
     }
 
@@ -195,14 +330,22 @@ export default function AllUsersPage({ searchQuery = "" }) {
     setEditError("");
 
     try {
-      const userId = editingUser.userId ?? editingUser.id;
-      const response = await updateUser(userId, payload);
+      const userId =
+        editingUser.userId ??
+        editingUser.id;
+
+      const response = await updateUser(
+        userId,
+        payload,
+      );
+
       const updatedUser = normalizeUserRow(
-        response.data?.responseData ?? response.data?.data ?? {
-          ...editingUser.raw,
-          ...payload,
-          id: userId,
-        },
+        response.data?.responseData ??
+          response.data?.data ?? {
+            ...editingUser.raw,
+            ...payload,
+            id: userId,
+          },
       );
 
       setUsers((currentUsers) =>
@@ -217,12 +360,19 @@ export default function AllUsersPage({ searchQuery = "" }) {
             : user,
         ),
       );
+
       setSuccessModalMessage(
         response.data?.responseMessage || "",
       );
+
       handleCloseEdit({ force: true });
     } catch (error) {
-      setEditError(getAuthErrorMessage(error, "Unable to update user. Please try again."));
+      setEditError(
+        getAuthErrorMessage(
+          error,
+          "Unable to update user. Please try again.",
+        ),
+      );
     } finally {
       setIsSavingEdit(false);
     }
@@ -231,76 +381,175 @@ export default function AllUsersPage({ searchQuery = "" }) {
   return (
     <div className="min-h-full bg-[#F4F5F9] px-6 py-5 font-['Inter',sans-serif]">
       <div className="overflow-visible rounded-xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[20px] font-bold text-[#202224]">
-            All Users Details Here
-          </h2>
 
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <select
-                className="h-10 w-[105px] appearance-none rounded-lg border border-[#E5E7EB] bg-white pl-3 pr-8 text-[12px] text-[#202224] outline-none"
-                onChange={(event) => handleYearChange(event.target.value)}
-                value={year}
-              >
-                <option value="">Year</option>
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-              </select>
-              <FiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#808080]" size={15} />
-            </div>
+        {/* =========================================================
+    HEADER + FILTERS
+========================================================= */}
+<div className="mb-4 flex flex-wrap items-center justify-between gap-4">
 
-            <input
-              className="hidden"
-              onChange={(event) => handleFromDateChange(event.target.value)}
-              ref={fromInputRef}
-              type="date"
-              value={fromDate}
-            />
-            <button
-              className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
-              onClick={(event) => openDashboardDatePicker(fromInputRef.current, event.currentTarget)}
-              type="button"
-            >
-              <span>{fromDate || "From"}</span>
-              <CalendarDays size={15} />
-            </button>
+  <h2 className="text-[20px] font-bold text-[#202224]">
+    All Users Details Here
+  </h2>
 
-            <input
-              className="hidden"
-              onChange={(event) => handleToDateChange(event.target.value)}
-              ref={toInputRef}
-              type="date"
-              value={toDate}
-            />
-            <button
-              className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
-              onClick={(event) => openDashboardDatePicker(toInputRef.current, event.currentTarget)}
-              type="button"
-            >
-              <span>{toDate || "To"}</span>
-              <CalendarDays size={15} />
-            </button>
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              className="flex h-10 items-center gap-2 rounded-lg bg-[#333333] px-8 text-[12px] font-semibold text-white"
-            >
-              <RotateCcw size={15} />
-              Reset
-            </button>
-          </div>
-        </div>
+  <div className="flex flex-wrap items-center gap-3">
 
+    {/* =====================================================
+        ROLE FILTER
+    ===================================================== */}
+    <div className="relative">
+      <select
+        className="h-10 w-[125px] appearance-none rounded-lg border border-[#E5E7EB] bg-white pl-3 pr-8 text-[12px] text-[#202224] outline-none focus:border-[#2F80ED]"
+        onChange={(event) =>
+          handleRoleChange(event.target.value)
+        }
+        value={role}
+      >
+        <option value="">
+          All Roles
+        </option>
+
+        <option value="ADMIN">
+          ADMIN
+        </option>
+
+        <option value="EMPLOYEE">
+          EMPLOYEE
+        </option>
+      </select>
+
+      <FiChevronDown
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#808080]"
+        size={15}
+      />
+    </div>
+
+    {/* =====================================================
+        YEAR FILTER
+    ===================================================== */}
+    <div className="relative">
+      <select
+        className="h-10 w-[105px] appearance-none rounded-lg border border-[#E5E7EB] bg-white pl-3 pr-8 text-[12px] text-[#202224] outline-none focus:border-[#2F80ED]"
+        onChange={(event) =>
+          handleYearChange(event.target.value)
+        }
+        value={year}
+      >
+        <option value="">
+          Year
+        </option>
+
+        <option value="2026">
+          2026
+        </option>
+
+        <option value="2025">
+          2025
+        </option>
+
+        <option value="2024">
+          2024
+        </option>
+      </select>
+
+      <FiChevronDown
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#808080]"
+        size={15}
+      />
+    </div>
+
+    {/* =====================================================
+        FROM DATE
+    ===================================================== */}
+    <input
+      className="hidden"
+      onChange={(event) =>
+        handleFromDateChange(
+          event.target.value,
+        )
+      }
+      ref={fromInputRef}
+      type="date"
+      value={fromDate}
+    />
+
+    <button
+      className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
+      onClick={(event) =>
+        openDashboardDatePicker(
+          fromInputRef.current,
+          event.currentTarget,
+        )
+      }
+      type="button"
+    >
+      <span>
+        {fromDate || "From"}
+      </span>
+
+      <CalendarDays size={15} />
+    </button>
+
+    {/* =====================================================
+        TO DATE
+    ===================================================== */}
+    <input
+      className="hidden"
+      onChange={(event) =>
+        handleToDateChange(
+          event.target.value,
+        )
+      }
+      ref={toInputRef}
+      type="date"
+      value={toDate}
+    />
+
+    <button
+      className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[12px] text-[#808080]"
+      onClick={(event) =>
+        openDashboardDatePicker(
+          toInputRef.current,
+          event.currentTarget,
+        )
+      }
+      type="button"
+    >
+      <span>
+        {toDate || "To"}
+      </span>
+
+      <CalendarDays size={15} />
+    </button>
+
+    {/* =====================================================
+        RESET
+    ===================================================== */}
+    <button
+      type="button"
+      onClick={handleResetFilters}
+      className="flex h-10 items-center gap-2 rounded-lg bg-[#333333] px-8 text-[12px] font-semibold text-white"
+    >
+      <RotateCcw size={15} />
+      Reset
+    </button>
+
+  </div>
+</div>
+        {/* =========================================================
+            ERROR MESSAGE
+        ========================================================= */}
         {errorMessage && (
           <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-[13px] font-semibold text-[#E0453C]">
             {errorMessage}
           </div>
         )}
 
+        {/* =========================================================
+            USERS TABLE
+        ========================================================= */}
         <div className="overflow-x-auto overflow-y-visible rounded-[10px] border border-[#E5E7EB] bg-white">
           <table className="w-full min-w-[1280px] border-collapse">
+
             <thead className="h-[42px] border-b border-[#E5E7EB] bg-[#F9FAFB]">
               <tr>
                 {[
@@ -326,6 +575,10 @@ export default function AllUsersPage({ searchQuery = "" }) {
             </thead>
 
             <tbody>
+
+              {/* ===================================================
+                  LOADING
+              =================================================== */}
               {isLoading && (
                 <tr className="h-12 border-b border-[#F1F1F1]">
                   <td
@@ -337,84 +590,160 @@ export default function AllUsersPage({ searchQuery = "" }) {
                 </tr>
               )}
 
-              {!isLoading && visibleUsers.length === 0 && (
-                <tr className="h-12 border-b border-[#F1F1F1]">
-                  <td
-                    className="px-[18px] py-5 text-center text-[13px] text-[#555555]"
-                    colSpan={10}
-                  >
-                    No users found.
-                  </td>
-                </tr>
-              )}
-
+              {/* ===================================================
+                  NO USERS
+              =================================================== */}
               {!isLoading &&
-                visibleUsers.map((user, index) => (
-                  <tr
-                    key={user.id}
-                    className="relative h-12 border-b border-[#F1F1F1]"
-                  >
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
-                      {(currentPage - 1) * rowsPerPage + index + 1}
-                    </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
-                      {user.name}
-                    </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
-                      {user.email}
-                    </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
-                      {user.phoneNumber}
-                    </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
-                      {user.role}
-                    </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5">
-                      <DashboardStatusToggle
-                        onToggle={(nextStatus) =>
-                          updateUserStatus(user.userId ?? user.id, nextStatus)
-                        }
-                        status={user.status}
-                      />
-                    </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
-                      {user.createdBy}
-                    </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5">
-                      <DateTime date={user.createdDate} time={user.createdTime} />
-                    </td>
-                    <td className="whitespace-nowrap px-[18px] py-2.5">
-                      <DateTime date={user.updatedDate} time={user.updatedTime} />
-                    </td>
-                    <td className="relative whitespace-nowrap px-[18px] py-2.5">
-                      <DashboardEditButton
-                        onClick={() => handleOpenEdit(user)}
-                      >
-                        Edit
-                      </DashboardEditButton>
+                visibleUsers.length === 0 && (
+                  <tr className="h-12 border-b border-[#F1F1F1]">
+                    <td
+                      className="px-[18px] py-5 text-center text-[13px] text-[#555555]"
+                      colSpan={10}
+                    >
+                      No users found.
                     </td>
                   </tr>
-                ))}
+                )}
+
+              {/* ===================================================
+                  USER ROWS
+              =================================================== */}
+              {!isLoading &&
+                visibleUsers.map(
+                  (user, index) => (
+                    <tr
+                      key={user.id}
+                      className="relative h-12 border-b border-[#F1F1F1]"
+                    >
+
+                      {/* Sr No */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                        {(currentPage - 1) *
+                          rowsPerPage +
+                          index +
+                          1}
+                      </td>
+
+                      {/* User Name */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                        {user.name}
+                      </td>
+
+                      {/* Email */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                        {user.email}
+                      </td>
+
+                      {/* Phone */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                        {user.phoneNumber}
+                      </td>
+
+                      {/* Role */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] font-medium text-[#555555]">
+                        {user.role}
+                      </td>
+
+                      {/* Status */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5">
+                        <DashboardStatusToggle
+                          onToggle={(nextStatus) =>
+                            updateUserStatus(
+                              user.userId ??
+                                user.id,
+                              nextStatus,
+                            )
+                          }
+                          status={user.status}
+                        />
+                      </td>
+
+                      {/* Created By */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5 text-[13px] text-[#555555]">
+                        {user.createdBy}
+                      </td>
+
+                      {/* Created Date */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5">
+                        <DateTime
+                          date={
+                            user.createdDate
+                          }
+                          time={
+                            user.createdTime
+                          }
+                        />
+                      </td>
+
+                      {/* Updated At */}
+                      <td className="whitespace-nowrap px-[18px] py-2.5">
+                        <DateTime
+                          date={
+                            user.updatedDate
+                          }
+                          time={
+                            user.updatedTime
+                          }
+                        />
+                      </td>
+
+                      {/* Action */}
+                      <td className="relative whitespace-nowrap px-[18px] py-2.5">
+                        <DashboardEditButton
+                          onClick={() =>
+                            handleOpenEdit(
+                              user,
+                            )
+                          }
+                        >
+                          Edit
+                        </DashboardEditButton>
+                      </td>
+                    </tr>
+                  ),
+                )}
             </tbody>
           </table>
         </div>
 
+        {/* =========================================================
+            PAGINATION
+        ========================================================= */}
         <div className="mt-4 flex items-center justify-between">
+
           <p className="text-[13px] text-[#7B7B7B]">
-            Showing <strong>{showingFrom}</strong> - <strong>{showingTo}</strong>{" "}
-            of <strong>{effectiveTotalRecords}</strong> Users
+            Showing{" "}
+            <strong>{showingFrom}</strong>{" "}
+            -{" "}
+            <strong>{showingTo}</strong>{" "}
+            of{" "}
+            <strong>
+              {effectiveTotalRecords}
+            </strong>{" "}
+            Users
           </p>
 
           <div className="flex items-center gap-2.5">
+
+            {/* Previous */}
             <button
               className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-[#E5E7EB] bg-white disabled:cursor-not-allowed disabled:opacity-50"
               disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+              onClick={() =>
+                setCurrentPage(
+                  (page) =>
+                    Math.max(
+                      page - 1,
+                      1,
+                    ),
+                )
+              }
               type="button"
             >
               <FiChevronLeft />
             </button>
 
+            {/* Page numbers */}
             {visiblePages.map((page) => (
               <button
                 className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium ${
@@ -423,17 +752,31 @@ export default function AllUsersPage({ searchQuery = "" }) {
                     : "text-[#6B7280] hover:bg-[#F8F8F8]"
                 }`}
                 key={page}
-                onClick={() => setCurrentPage(page)}
+                onClick={() =>
+                  setCurrentPage(page)
+                }
                 type="button"
               >
                 {page}
               </button>
             ))}
 
+            {/* Next */}
             <button
               className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-[#E5E7EB] bg-white disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={currentPage >= effectiveTotalPages}
-              onClick={() => setCurrentPage((page) => Math.min(page + 1, effectiveTotalPages))}
+              disabled={
+                currentPage >=
+                effectiveTotalPages
+              }
+              onClick={() =>
+                setCurrentPage(
+                  (page) =>
+                    Math.min(
+                      page + 1,
+                      effectiveTotalPages,
+                    ),
+                )
+              }
               type="button"
             >
               <FiChevronRight />
@@ -442,6 +785,9 @@ export default function AllUsersPage({ searchQuery = "" }) {
         </div>
       </div>
 
+      {/* ===========================================================
+          EDIT USER MODAL
+      =========================================================== */}
       {editingUser && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center px-4"
@@ -449,15 +795,25 @@ export default function AllUsersPage({ searchQuery = "" }) {
         >
           <div
             className="w-full max-w-[520px] rounded-xl bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,.22)]"
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) =>
+              event.stopPropagation()
+            }
           >
+
+            {/* Modal Header */}
             <div className="mb-5 flex items-center justify-between">
+
               <div>
-                <h3 className="text-[20px] font-bold text-[#202224]">Edit User</h3>
+                <h3 className="text-[20px] font-bold text-[#202224]">
+                  Edit User
+                </h3>
+
                 <p className="mt-1 text-[13px] text-[#6B7280]">
-                  Update user profile information.
+                  Update user profile
+                  information.
                 </p>
               </div>
+
               <button
                 className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#E5E7EB] text-[18px] text-[#6B7280] hover:bg-[#F9FAFB]"
                 onClick={handleCloseEdit}
@@ -467,60 +823,91 @@ export default function AllUsersPage({ searchQuery = "" }) {
               </button>
             </div>
 
+            {/* Edit Error */}
             {editError && (
               <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-[13px] font-semibold text-[#E0453C]">
                 {editError}
               </div>
             )}
 
+            {/* Form */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+              {/* First Name */}
               <label className="text-[13px] font-semibold text-[#374151]">
                 First Name
+
                 <input
                   className="mt-2 h-11 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[14px] font-medium text-[#202224] outline-none [color-scheme:light] autofill:shadow-[inset_0_0_0_1000px_#ffffff] focus:border-[#2F80ED]"
                   onChange={(event) =>
-                    handleEditFormChange("firstName", event.target.value)
+                    handleEditFormChange(
+                      "firstName",
+                      event.target.value,
+                    )
                   }
-                  value={editForm.firstName}
+                  value={
+                    editForm.firstName
+                  }
                 />
               </label>
 
+              {/* Last Name */}
               <label className="text-[13px] font-semibold text-[#374151]">
                 Last Name
+
                 <input
                   className="mt-2 h-11 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[14px] font-medium text-[#202224] outline-none [color-scheme:light] autofill:shadow-[inset_0_0_0_1000px_#ffffff] focus:border-[#2F80ED]"
                   onChange={(event) =>
-                    handleEditFormChange("lastName", event.target.value)
+                    handleEditFormChange(
+                      "lastName",
+                      event.target.value,
+                    )
                   }
-                  value={editForm.lastName}
+                  value={
+                    editForm.lastName
+                  }
                 />
               </label>
 
+              {/* Email */}
               <label className="text-[13px] font-semibold text-[#374151] sm:col-span-2">
                 Email
+
                 <input
                   className="mt-2 h-11 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[14px] font-medium text-[#202224] outline-none [color-scheme:light] autofill:shadow-[inset_0_0_0_1000px_#ffffff] focus:border-[#2F80ED]"
                   onChange={(event) =>
-                    handleEditFormChange("email", event.target.value)
+                    handleEditFormChange(
+                      "email",
+                      event.target.value,
+                    )
                   }
                   type="email"
                   value={editForm.email}
                 />
               </label>
 
+              {/* Phone Number */}
               <label className="text-[13px] font-semibold text-[#374151] sm:col-span-2">
                 Phone Number
+
                 <input
                   className="mt-2 h-11 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[14px] font-medium text-[#202224] outline-none [color-scheme:light] autofill:shadow-[inset_0_0_0_1000px_#ffffff] focus:border-[#2F80ED]"
                   onChange={(event) =>
-                    handleEditFormChange("phoneNumber", event.target.value)
+                    handleEditFormChange(
+                      "phoneNumber",
+                      event.target.value,
+                    )
                   }
-                  value={editForm.phoneNumber}
+                  value={
+                    editForm.phoneNumber
+                  }
                 />
               </label>
             </div>
 
+            {/* Modal Buttons */}
             <div className="mt-6 flex justify-end gap-3">
+
               <button
                 className="h-10 rounded-lg border border-[#E5E7EB] px-5 text-[13px] font-semibold text-[#4B5563] hover:bg-[#F9FAFB]"
                 disabled={isSavingEdit}
@@ -529,23 +916,31 @@ export default function AllUsersPage({ searchQuery = "" }) {
               >
                 Cancel
               </button>
+
               <button
                 className="h-10 rounded-lg bg-[#2F80ED] px-5 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isSavingEdit}
                 onClick={handleSaveEdit}
                 type="button"
               >
-                {isSavingEdit ? "Saving..." : "Save Changes"}
+                {isSavingEdit
+                  ? "Saving..."
+                  : "Save Changes"}
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* ===========================================================
+          SUCCESS MODAL
+      =========================================================== */}
       {successModalMessage && (
         <DashboardSuccessModal
           message={successModalMessage}
-          onClose={() => setSuccessModalMessage("")}
+          onClose={() =>
+            setSuccessModalMessage("")
+          }
           title="Updated Successfully"
         />
       )}
@@ -553,14 +948,27 @@ export default function AllUsersPage({ searchQuery = "" }) {
   );
 }
 
+/* ===============================================================
+   DATE/TIME COMPONENT
+================================================================ */
+
 function DateTime({ date, time }) {
   return (
     <div className="flex flex-col text-[13px] leading-5">
-      <span className="font-medium text-[#2F80ED]">{date}</span>
-      <span className="text-[#27AE60]">{time}</span>
+      <span className="font-medium text-[#2F80ED]">
+        {date}
+      </span>
+
+      <span className="text-[#27AE60]">
+        {time}
+      </span>
     </div>
   );
 }
+
+/* ===============================================================
+   NORMALIZE USERS RESPONSE
+================================================================ */
 
 function normalizeUsersResponse(responseData) {
   const payload =
@@ -568,7 +976,12 @@ function normalizeUsersResponse(responseData) {
     responseData?.data?.responseData ??
     responseData?.data ??
     responseData;
-  const rows = findFirstArray(payload).map(normalizeUserRow);
+
+  const rows =
+    findFirstArray(payload).map(
+      normalizeUserRow,
+    );
+
   const totalRecords =
     findFirstNumber(payload, [
       "totalElements",
@@ -577,131 +990,395 @@ function normalizeUsersResponse(responseData) {
       "total",
       "count",
     ]) ?? rows.length;
-  const totalPages =
-    findFirstNumber(payload, ["totalPages", "pages"]) ??
-    Math.max(Math.ceil(totalRecords / rowsPerPage), 1);
 
-  return { rows, totalRecords, totalPages: Math.max(totalPages, 1) };
+  const totalPages =
+    findFirstNumber(payload, [
+      "totalPages",
+      "pages",
+    ]) ??
+    Math.max(
+      Math.ceil(
+        totalRecords / rowsPerPage,
+      ),
+      1,
+    );
+
+  return {
+    rows,
+    totalRecords,
+    totalPages: Math.max(
+      totalPages,
+      1,
+    ),
+  };
 }
 
-function normalizeUserRow(row, index = 0) {
-  const firstName = row.firstName ?? row.first_name ?? "";
-  const lastName = row.lastName ?? row.last_name ?? "";
+/* ===============================================================
+   NORMALIZE USER ROW
+================================================================ */
+
+function normalizeUserRow(
+  row,
+  index = 0,
+) {
+  const firstName =
+    row.firstName ??
+    row.first_name ??
+    "";
+
+  const lastName =
+    row.lastName ??
+    row.last_name ??
+    "";
+
   const name =
     row.name ??
     row.userName ??
     row.employeeName ??
-    [firstName, lastName].filter(Boolean).join(" ") ??
+    [firstName, lastName]
+      .filter(Boolean)
+      .join(" ") ??
     "-";
-  const createdAt = row.createdAt ?? row.createdDate;
-  const updatedAt = row.updatedAt ?? row.updatedDate;
+
+  const createdAt =
+    row.createdAt ??
+    row.createdDate;
+
+  const updatedAt =
+    row.updatedAt ??
+    row.updatedDate;
 
   return {
-    id: row.id ?? row.userId ?? index + 1,
-    userId: row.userId ?? row.id ?? index + 1,
-    firstName: firstName || "-",
-    lastName: lastName || "-",
-    name: name || "-",
-    email: row.email ?? "-",
-    phoneNumber: row.phoneNumber ?? row.mobile ?? row.mobileNumber ?? "-",
-    role: row.role ?? row.roleName ?? "-",
-    createdBy: row.createdBy ?? row.createdByName ?? "-",
-    ...splitDateTime(createdAt),
-    ...splitDateTime(updatedAt, "updated"),
+    id:
+      row.id ??
+      row.userId ??
+      index + 1,
+
+    userId:
+      row.userId ??
+      row.id ??
+      index + 1,
+
+    firstName:
+      firstName || "-",
+
+    lastName:
+      lastName || "-",
+
+    name:
+      name || "-",
+
+    email:
+      row.email ?? "-",
+
+    phoneNumber:
+      row.phoneNumber ??
+      row.mobile ??
+      row.mobileNumber ??
+      "-",
+
+    /*
+     * Role supports both possible backend fields:
+     * role
+     * roleName
+     */
+    role:
+      row.role ??
+      row.roleName ??
+      "-",
+
+    createdBy:
+      row.createdBy ??
+      row.createdByName ??
+      "-",
+
+    ...splitDateTime(
+      createdAt,
+    ),
+
+    ...splitDateTime(
+      updatedAt,
+      "updated",
+    ),
+
     status: row.status,
+
     raw: row,
   };
 }
 
-function splitDateTime(value, prefix = "created") {
-  const formattedValue = formatDateTime(value);
-  const [date, time = "-"] = formattedValue.split(" ");
+/* ===============================================================
+   SPLIT DATE TIME
+================================================================ */
+
+function splitDateTime(
+  value,
+  prefix = "created",
+) {
+  const formattedValue =
+    formatDateTime(value);
+
+  const [
+    date,
+    time = "-",
+  ] = formattedValue.split(" ");
 
   return prefix === "updated"
-    ? { updatedDate: date, updatedTime: time }
-    : { createdDate: date, createdTime: time };
+    ? {
+        updatedDate: date,
+        updatedTime: time,
+      }
+    : {
+        createdDate: date,
+        createdTime: time,
+      };
 }
 
-function isDateWithinRange(value, fromDate, toDate, year) {
-  if (!fromDate && !toDate && !year) return true;
+/* ===============================================================
+   DATE RANGE FILTER
+================================================================ */
 
-  const normalizedDate = normalizeDateValue(value);
-  if (!normalizedDate) return false;
+function isDateWithinRange(
+  value,
+  fromDate,
+  toDate,
+  year,
+) {
+  if (
+    !fromDate &&
+    !toDate &&
+    !year
+  ) {
+    return true;
+  }
 
-  if (year && normalizedDate.slice(0, 4) !== year) return false;
-  if (fromDate && normalizedDate < fromDate) return false;
-  if (toDate && normalizedDate > toDate) return false;
+  const normalizedDate =
+    normalizeDateValue(value);
+
+  if (!normalizedDate) {
+    return false;
+  }
+
+  if (
+    year &&
+    normalizedDate.slice(0, 4) !== year
+  ) {
+    return false;
+  }
+
+  if (
+    fromDate &&
+    normalizedDate < fromDate
+  ) {
+    return false;
+  }
+
+  if (
+    toDate &&
+    normalizedDate > toDate
+  ) {
+    return false;
+  }
 
   return true;
 }
 
+/* ===============================================================
+   NORMALIZE DATE
+================================================================ */
+
 function normalizeDateValue(value) {
-  if (!value || value === "-") return "";
+  if (!value || value === "-") {
+    return "";
+  }
 
-  const stringValue = String(value).trim();
-  const isoMatch = stringValue.match(/^\d{4}-\d{2}-\d{2}/);
-  if (isoMatch) return isoMatch[0];
+  const stringValue =
+    String(value).trim();
 
-  const parsedDate = new Date(stringValue);
-  if (Number.isNaN(parsedDate.getTime())) return "";
+  const isoMatch =
+    stringValue.match(
+      /^\d{4}-\d{2}-\d{2}/,
+    );
 
-  return parsedDate.toISOString().slice(0, 10);
+  if (isoMatch) {
+    return isoMatch[0];
+  }
+
+  const parsedDate =
+    new Date(stringValue);
+
+  if (
+    Number.isNaN(
+      parsedDate.getTime(),
+    )
+  ) {
+    return "";
+  }
+
+  return parsedDate
+    .toISOString()
+    .slice(0, 10);
 }
+
+/* ===============================================================
+   FORMAT DATE TIME
+================================================================ */
 
 function formatDateTime(value) {
-  if (!value) return "-";
-  return String(value).replace("T", " ").split(".")[0];
+  if (!value) {
+    return "-";
+  }
+
+  return String(value)
+    .replace("T", " ")
+    .split(".")[0];
 }
 
-function findFirstArray(value, visited = new Set()) {
-  if (!value) return [];
-  if (Array.isArray(value)) return value;
-  if (typeof value !== "object" || visited.has(value)) return [];
+/* ===============================================================
+   FIND FIRST ARRAY
+================================================================ */
+
+function findFirstArray(
+  value,
+  visited = new Set(),
+) {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (
+    typeof value !== "object" ||
+    visited.has(value)
+  ) {
+    return [];
+  }
 
   visited.add(value);
 
-  for (const key of ["content", "records", "items", "rows", "list", "users", "data"]) {
-    const childArray = findFirstArray(value[key], visited);
-    if (childArray.length > 0) return childArray;
+  for (const key of [
+    "content",
+    "records",
+    "items",
+    "rows",
+    "list",
+    "users",
+    "data",
+  ]) {
+    const childArray =
+      findFirstArray(
+        value[key],
+        visited,
+      );
+
+    if (childArray.length > 0) {
+      return childArray;
+    }
   }
 
-  for (const childValue of Object.values(value)) {
-    const childArray = findFirstArray(childValue, visited);
-    if (childArray.length > 0) return childArray;
+  for (const childValue of Object.values(
+    value,
+  )) {
+    const childArray =
+      findFirstArray(
+        childValue,
+        visited,
+      );
+
+    if (childArray.length > 0) {
+      return childArray;
+    }
   }
 
-  return hasUserIdentity(value) ? [value] : [];
+  return hasUserIdentity(value)
+    ? [value]
+    : [];
 }
 
-function hasUserIdentity(row) {
-  if (!row || typeof row !== "object") return false;
+/* ===============================================================
+   CHECK USER IDENTITY
+================================================================ */
 
-  return [row.id, row.userId, row.email, row.firstName, row.userName].some(
-    (value) => value !== null && value !== undefined && value !== "",
+function hasUserIdentity(row) {
+  if (
+    !row ||
+    typeof row !== "object"
+  ) {
+    return false;
+  }
+
+  return [
+    row.id,
+    row.userId,
+    row.email,
+    row.firstName,
+    row.userName,
+  ].some(
+    (value) =>
+      value !== null &&
+      value !== undefined &&
+      value !== "",
   );
 }
 
-function findFirstNumber(value, keys, visited = new Set()) {
-  if (!value || typeof value !== "object" || visited.has(value)) return undefined;
+/* ===============================================================
+   FIND FIRST NUMBER
+================================================================ */
+
+function findFirstNumber(
+  value,
+  keys,
+  visited = new Set(),
+) {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    visited.has(value)
+  ) {
+    return undefined;
+  }
 
   visited.add(value);
 
   for (const key of keys) {
-    const candidate = value[key];
+    const candidate =
+      value[key];
 
-    if (typeof candidate === "number") return candidate;
+    if (
+      typeof candidate === "number"
+    ) {
+      return candidate;
+    }
+
     if (
       typeof candidate === "string" &&
       candidate.trim() &&
-      !Number.isNaN(Number(candidate))
+      !Number.isNaN(
+        Number(candidate),
+      )
     ) {
       return Number(candidate);
     }
   }
 
-  for (const childValue of Object.values(value)) {
-    const candidate = findFirstNumber(childValue, keys, visited);
-    if (candidate !== undefined) return candidate;
+  for (const childValue of Object.values(
+    value,
+  )) {
+    const candidate =
+      findFirstNumber(
+        childValue,
+        keys,
+        visited,
+      );
+
+    if (
+      candidate !== undefined
+    ) {
+      return candidate;
+    }
   }
 
   return undefined;

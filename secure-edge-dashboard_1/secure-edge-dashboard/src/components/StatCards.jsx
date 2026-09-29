@@ -1,4 +1,7 @@
 import { RefreshCw, AlertTriangle, Ban, FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+
 
 const STATS = [
   {
@@ -6,6 +9,7 @@ const STATS = [
     value: "+12,54,500",
     icon: RefreshCw,
     bg: "#2E9E5C",
+    path: "/transactions",
   },
   {
     label: "Fraud Alert",
@@ -34,12 +38,25 @@ const STATS = [
 ];
 
 export default function StatCards() {
+  const navigate = useNavigate();
+
+  const handleCardClick = (path) => {
+    if (path) {
+      navigate(path);
+    }
+  };
+
   return (
     <div className="grid grid-cols-2 gap-4 px-7 sm:grid-cols-3 lg:grid-cols-5">
-      {STATS.map(({ label, value, icon: Icon, bg }) => (
+      {STATS.map(({ label, value, icon: Icon, bg, path }) => (
         <div
           key={label}
-          className="flex items-center gap-3 rounded-2xl bg-white px-5 py-5"
+          onClick={() => handleCardClick(path)}
+          className={`flex items-center gap-3 rounded-2xl bg-white px-5 py-5 ${
+            path
+              ? "cursor-pointer transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg"
+              : ""
+          }`}
           style={{
             boxShadow:
               "0 18px 30px -16px rgba(15, 23, 42, 0.28), 0 6px 10px -6px rgba(15, 23, 42, 0.08)",
@@ -60,6 +77,7 @@ export default function StatCards() {
             >
               {label}
             </div>
+
             <div
               className="mt-0.5 truncate font-bold text-gray-900"
               style={{ fontSize: "clamp(14px, 9cqw, 19px)" }}

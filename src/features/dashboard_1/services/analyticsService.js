@@ -4,7 +4,13 @@ const analyticsApiBaseUrl =
   import.meta.env.VITE_ANALYTICS_API_BASE_URL ?? "http://localhost:8085/api/v1";
 
 export function getAnalyticsSummary() {
+  const today = new Date().toISOString().split("T")[0];
+
   return apiClient.get(`${analyticsApiBaseUrl}/analytics/summary`, {
+    params: {
+      fromDate: today,
+      toDate: today,
+    },
     skipAuthRedirect: true,
   });
 }
