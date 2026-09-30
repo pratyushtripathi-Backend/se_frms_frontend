@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   FiChevronDown,
   FiChevronLeft,
   FiChevronRight,
 } from "react-icons/fi";
-import { CalendarDays, Download, RotateCcw } from "lucide-react";
+import { CalendarDays, Download, RotateCcw, X } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import { getMatchedRules } from "../services/fraudDetailsService";
@@ -23,6 +24,7 @@ export default function MatchedRulePage() {
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [rulesModalRow, setRulesModalRow] = useState(null);
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
   const pageScrollRef = useRef(null);
@@ -91,11 +93,7 @@ export default function MatchedRulePage() {
       "Sr.no",
       "Transaction ID",
       "Scoring ID",
-      "Rule Code",
-      "Rule Name",
-      "Rule Expression",
-      "Rule Score",
-      "Calculated Score",
+      "Matched Rule",
       "Status",
       "Created By",
       "Created Date",
@@ -108,11 +106,7 @@ export default function MatchedRulePage() {
       row.srNo,
       row.transactionId,
       row.scoringId,
-      row.ruleCode,
-      row.ruleName,
-      row.ruleExpression,
-      row.ruleScore,
-      row.calculatedScore,
+      row.matchedRule,
       row.status,
       row.createdBy,
       row.createdDate,
@@ -278,7 +272,7 @@ export default function MatchedRulePage() {
 
     table: {
       width: "100%",
-      minWidth: "1680px",
+      minWidth: "1300px",
       borderCollapse: "collapse",
     },
 
@@ -309,14 +303,15 @@ export default function MatchedRulePage() {
       whiteSpace: "nowrap",
     },
 
-    expressionTd: {
+    matchedRuleTd: {
       padding: "10px 18px",
       fontSize: "13px",
-      color: "#555555",
-      whiteSpace: "normal",
-      wordBreak: "break-word",
-      maxWidth: "280px",
-      minWidth: "220px",
+      fontWeight: 600,
+      color: "#2563EB",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      maxWidth: "360px",
     },
 
     statusPill: (isActive) => ({
@@ -417,6 +412,95 @@ export default function MatchedRulePage() {
       background: isActive ? "#F3F4F6" : "transparent",
       color: isActive ? "#111827" : "#6B7280",
       border: "none",
+    }),
+
+    modalOverlay: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(15, 23, 42, 0.45)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 9999,
+      padding: "24px",
+    },
+
+    modalCardWrapper: {
+      position: "relative",
+      width: "min(680px, 82%)",
+      height: "min(380px, 58vh)",
+    },
+
+    modalCard: {
+      background: "#FFFFFF",
+      borderRadius: "12px",
+      boxShadow: "0 20px 45px rgba(0,0,0,.18)",
+      height: "100%",
+      overflow: "hidden",
+    },
+
+    modalCardScroll: {
+      height: "100%",
+      overflow: "auto",
+      padding: "48px 24px 24px",
+      boxSizing: "border-box",
+    },
+
+    modalCloseButton: {
+      position: "absolute",
+      top: "12px",
+      right: "12px",
+      width: "28px",
+      height: "28px",
+      borderRadius: "50%",
+      background: "#111111",
+      color: "#FFFFFF",
+      border: "none",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      cursor: "pointer",
+      boxShadow: "0 2px 6px rgba(0,0,0,.25)",
+    },
+
+    modalTableContainer: {
+      border: "1px solid #E5E7EB",
+      borderRadius: "10px",
+      overflow: "hidden",
+    },
+
+    modalTable: {
+      width: "100%",
+      minWidth: "0",
+      tableLayout: "fixed",
+      borderCollapse: "collapse",
+    },
+
+    modalTh: {
+      textAlign: "left",
+      padding: "8px 10px",
+      fontSize: "11px",
+      fontWeight: 600,
+      color: "#555555",
+      whiteSpace: "normal",
+      wordBreak: "break-word",
+      borderBottom: "1px solid #ECECEC",
+      position: "sticky",
+      top: 0,
+      background: "#FAFAFA",
+    },
+
+    modalTd: {
+      padding: "8px 10px",
+      fontSize: "11px",
+      color: "#555555",
+      whiteSpace: "normal",
+      wordBreak: "break-word",
+      borderBottom: "1px solid #ECECEC",
+    },
+
+    modalRow: (isEven) => ({
+      background: isEven ? "#FAFAFA" : "#FFFFFF",
     }),
   };
 
@@ -576,11 +660,7 @@ export default function MatchedRulePage() {
                   "Sr.no",
                   "Transaction ID",
                   "Scoring ID",
-                  "Rule Code",
-                  "Rule Name",
-                  "Rule Expression",
-                  "Rule Score",
-                  "Calculated Score",
+                  "Matched Rule",
                   "Status",
                   "Created By",
                   "Created date",
@@ -602,7 +682,7 @@ export default function MatchedRulePage() {
               {errorMessage && (
                 <tr style={styles.tr}>
                   <td
-                    colSpan={12}
+                    colSpan={8}
                     style={{ ...styles.td, color: "#FF4D4F", textAlign: "center" }}
                   >
                     {errorMessage}
@@ -612,7 +692,7 @@ export default function MatchedRulePage() {
 
               {!errorMessage && currentRows.length === 0 && (
                 <tr style={styles.tr}>
-                  <td colSpan={13} style={{ ...styles.td, textAlign: "center" }}>
+                  <td colSpan={8} style={{ ...styles.td, textAlign: "center" }}>
                     {isLoading ? " " : "No matched rules found."}
                   </td>
                 </tr>
@@ -623,11 +703,13 @@ export default function MatchedRulePage() {
                   <td style={styles.td}>{row.srNo}</td>
                   <td style={styles.td}>{row.transactionId}</td>
                   <td style={styles.td}>{row.scoringId}</td>
-                  <td style={styles.td}>{row.ruleCode}</td>
-                  <td style={styles.td}>{row.ruleName}</td>
-                  <td style={styles.expressionTd}>{row.ruleExpression}</td>
-                  <td style={styles.td}>{row.ruleScore}</td>
-                  <td style={styles.td}>{row.calculatedScore}</td>
+                  <td
+                    style={{ ...styles.matchedRuleTd, cursor: "pointer" }}
+                    title={row.matchedRule}
+                    onClick={() => setRulesModalRow(row)}
+                  >
+                    Matched Rule....
+                  </td>
                   <td style={styles.td}>
                     <span style={styles.statusPill(row.status === "Active")}>
                       <span>{row.status}</span>
@@ -707,6 +789,64 @@ export default function MatchedRulePage() {
         </div>
       </div>
 
+      {rulesModalRow &&
+        createPortal(
+          <div
+            style={styles.modalOverlay}
+            onClick={() => setRulesModalRow(null)}
+          >
+            <div
+              style={styles.modalCardWrapper}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setRulesModalRow(null)}
+                style={styles.modalCloseButton}
+                aria-label="Close"
+              >
+                <X size={14} />
+              </button>
+
+              <div style={styles.modalCard}>
+                <div style={styles.modalCardScroll}>
+                  <div style={styles.modalTableContainer}>
+                  <table style={styles.modalTable}>
+                    <thead>
+                      <tr>
+                        {[
+                          "Rule Code",
+                          "Rule Name",
+                          "Rule Expression",
+                          "Rule Score",
+                          "Calculated Score",
+                        ].map((column) => (
+                          <th key={column} style={styles.modalTh}>
+                            {column}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {rulesModalRow.matchedRulesList.map((rule, index) => (
+                        <tr key={index} style={styles.modalRow(index % 2 === 0)}>
+                          <td style={styles.modalTd}>{rule.ruleCode}</td>
+                          <td style={styles.modalTd}>{rule.ruleName}</td>
+                          <td style={styles.modalTd}>{rule.ruleExpression}</td>
+                          <td style={styles.modalTd}>{rule.ruleScore}</td>
+                          <td style={styles.modalTd}>{rule.calculatedScore}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -751,27 +891,8 @@ function normalizeMatchedRuleRow(row, srNo) {
       "-",
     scoringId: row.scoringId ?? row.scoreId ?? row.scoring?.id ?? "-",
     ruleId: row.ruleId ?? row.fraudRuleId ?? row.rule?.id ?? "-",
-    ruleCode: row.ruleCode ?? row.code ?? row.rule?.code ?? "-",
-    ruleName: row.ruleName ?? row.name ?? row.rule?.name ?? "-",
-    ruleExpression:
-      row.ruleExpression ??
-      row.expression ??
-      row.condition ??
-      row.ruleCondition ??
-      row.rule?.expression ??
-      row.rule?.condition ??
-      findFirstString(row, [
-        "ruleexpression",
-        "expression",
-        "condition",
-        "rulecondition",
-        "criteria",
-        "logic",
-      ]) ??
-      "-",
-    ruleScore: row.ruleScore ?? row.score ?? row.rule?.score ?? "-",
-    calculatedScore:
-      row.calculatedScore ?? row.calculatedRiskScore ?? row.finalScore ?? "-",
+    matchedRule: resolveMatchedRuleLabel(row),
+    matchedRulesList: resolveMatchedRulesList(row),
     status: normalizeMatchedRuleStatus(row.status ?? row.ruleStatus ?? row.isActive),
     createdBy: row.createdBy ?? "-",
     createdDate: created.date,
@@ -779,6 +900,86 @@ function normalizeMatchedRuleRow(row, srNo) {
     updatedDate: updated.date,
     updatedTime: updated.time,
   };
+}
+
+// A transaction can match more than one fraud rule at once. When the API
+// nests them (row.matchedRules / row.rules), every one of them is shown in
+// the "Matched Rule" popup; otherwise this row's own flat rule fields are
+// used as the single entry so the popup still has something to show.
+function resolveMatchedRulesList(row) {
+  const nestedList =
+    (Array.isArray(row.matchedRules) && row.matchedRules.length > 0 && row.matchedRules) ||
+    (Array.isArray(row.rules) && row.rules.length > 0 && row.rules) ||
+    null;
+
+  if (nestedList) {
+    return nestedList.map((rule) => ({
+      ruleCode: rule.ruleCode ?? rule.code ?? rule.rule?.code ?? "-",
+      ruleName: rule.ruleName ?? rule.name ?? rule.rule?.name ?? "-",
+      ruleExpression:
+        rule.ruleExpression ??
+        rule.expression ??
+        rule.condition ??
+        rule.ruleCondition ??
+        "-",
+      ruleScore: rule.ruleScore ?? rule.score ?? "-",
+      calculatedScore:
+        rule.calculatedScore ?? rule.calculatedRiskScore ?? rule.finalScore ?? "-",
+    }));
+  }
+
+  return [
+    {
+      ruleCode: row.ruleCode ?? row.code ?? row.rule?.code ?? "-",
+      ruleName: row.ruleName ?? row.name ?? row.rule?.name ?? "-",
+      ruleExpression:
+        row.ruleExpression ??
+        row.expression ??
+        row.condition ??
+        row.ruleCondition ??
+        row.rule?.expression ??
+        row.rule?.condition ??
+        findFirstString(row, [
+          "ruleexpression",
+          "expression",
+          "condition",
+          "rulecondition",
+          "criteria",
+          "logic",
+        ]) ??
+        "-",
+      ruleScore: row.ruleScore ?? row.score ?? row.rule?.score ?? "-",
+      calculatedScore:
+        row.calculatedScore ?? row.calculatedRiskScore ?? row.finalScore ?? "-",
+    },
+  ];
+}
+
+function resolveMatchedRuleLabel(row) {
+  const ruleName = row.ruleName ?? row.name ?? row.rule?.name;
+  if (ruleName) return ruleName;
+
+  const ruleExpression =
+    row.ruleExpression ??
+    row.expression ??
+    row.condition ??
+    row.ruleCondition ??
+    row.rule?.expression ??
+    row.rule?.condition ??
+    findFirstString(row, [
+      "ruleexpression",
+      "expression",
+      "condition",
+      "rulecondition",
+      "criteria",
+      "logic",
+    ]);
+  if (ruleExpression) return ruleExpression;
+
+  const ruleCode = row.ruleCode ?? row.code ?? row.rule?.code;
+  if (ruleCode) return ruleCode;
+
+  return "-";
 }
 
 function normalizeMatchedRuleStatus(value) {

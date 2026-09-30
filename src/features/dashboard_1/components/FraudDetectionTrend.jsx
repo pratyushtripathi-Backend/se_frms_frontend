@@ -13,8 +13,6 @@ import { getFraudTrend } from "../services/analyticsService";
 const RED = "#F0424F";
 const BLUE = "#4C7EF3";
 
-// Same silent-poll pattern as StatCards.jsx / TransactionMonitoring.jsx -
-// keeps the chart close to real-time without hammering the backend.
 const AUTO_REFRESH_INTERVAL_MS = 5000;
 
 const GROUP_BY_OPTIONS = [
@@ -26,8 +24,14 @@ const GROUP_BY_OPTIONS = [
 ];
 
 function normalizeTrendResponse(responseData) {
-  const payload = responseData?.responseData ?? responseData?.data ?? responseData ?? [];
+  const payload =
+    responseData?.responseData ??
+    responseData?.data ??
+    responseData ??
+    [];
+
   const rows = Array.isArray(payload) ? payload : [];
+
   return rows.map((row) => ({
     period: row.period,
     fraudAlertCount: Number(row.fraudAlertCount ?? 0),
@@ -35,35 +39,78 @@ function normalizeTrendResponse(responseData) {
   }));
 }
 
+/**
+ * Format chart X-axis labels.
+ *
+ * Day API response:
+ * 2026-09-25 -> 25 Sep
+ *
+ * Other groupings are kept unchanged.
+ */
+function formatPeriodLabel(value) {
+  if (!value) return "";
+
+  // Day format: YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const date = new Date(`${value}T00:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+    });
+  }
+
+  return value;
+}
+
 export default function FraudDetectionTrend() {
   const [activeSeries, setActiveSeries] = useState("fraud");
   const [groupBy, setGroupBy] = useState("day");
   const [chartData, setChartData] = useState([]);
+
   const requestIdRef = useRef(0);
 
-  const loadTrend = useCallback(async ({ silent = false } = {}) => {
-    const requestId = ++requestIdRef.current;
+  const loadTrend = useCallback(
+    async ({ silent = false } = {}) => {
+      const requestId = ++requestIdRef.current;
 
-    try {
-      const response = await getFraudTrend({ groupBy });
-      if (requestId !== requestIdRef.current) return;
-      setChartData(normalizeTrendResponse(response?.data));
-    } catch (err) {
-      if (requestId !== requestIdRef.current) return;
-      // A silent background refresh failing shouldn't wipe the last good
-      // chart off the screen - only clear it if the very first load fails.
-      if (!silent) {
-        setChartData([]);
+      try {
+        const response = await getFraudTrend({ groupBy });
+
+        // Ignore old API response if a newer request has already completed
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        setChartData(normalizeTrendResponse(response?.data));
+      } catch (err) {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        if (!silent) {
+          setChartData([]);
+        }
+
+        console.error("Failed to load fraud trend", err);
       }
-      console.error("Failed to load fraud trend", err);
-    }
-  }, [groupBy]);
+    },
+    [groupBy]
+  );
 
   useEffect(() => {
     loadTrend();
 
     const intervalId = setInterval(() => {
-      if (document.visibilityState === "hidden") return;
+      // Don't refresh when browser tab is hidden
+      if (document.visibilityState === "hidden") {
+        return;
+      }
+
       loadTrend({ silent: true });
     }, AUTO_REFRESH_INTERVAL_MS);
 
@@ -91,7 +138,7 @@ export default function FraudDetectionTrend() {
         </select>
       </div>
 
-      {/* Legend */}
+      {/* Series Toggle */}
       <div className="mb-2 mt-1.5 flex gap-2 text-[11.5px]">
         <button
           type="button"
@@ -139,6 +186,14 @@ export default function FraudDetectionTrend() {
 
             <XAxis
               dataKey="period"
+
+              // IMPORTANT:
+              // Recharts normally skips some X-axis labels.
+              // interval={0} forces every daily label to display.
+              interval={0}
+
+              tickFormatter={formatPeriodLabel}
+
               padding={{
                 left: 0,
                 right: 0,
@@ -168,9 +223,14 @@ export default function FraudDetectionTrend() {
             <Tooltip
               formatter={(v, name) => [
                 v,
-                name === "fraudAlertCount" ? "Fraud Alert" : "Blocked Transaction",
+                name === "fraudAlertCount"
+                  ? "Fraud Alert"
+                  : "Blocked Transaction",
               ]}
-              cursor={{ fill: "transparent" }}
+              labelFormatter={formatPeriodLabel}
+              cursor={{
+                fill: "transparent",
+              }}
               contentStyle={{
                 borderRadius: 8,
                 border: "1px solid #ECEEF3",
@@ -178,6 +238,7 @@ export default function FraudDetectionTrend() {
               }}
             />
 
+            {/* Fraud Alert */}
             <Bar
               dataKey="fraudAlertCount"
               fill={RED}
@@ -186,6 +247,7 @@ export default function FraudDetectionTrend() {
               hide={activeSeries === "blocked"}
             />
 
+            {/* Block Transaction */}
             <Bar
               dataKey="blockedCount"
               fill={BLUE}

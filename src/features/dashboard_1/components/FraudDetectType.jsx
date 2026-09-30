@@ -69,7 +69,7 @@ export default function FraudDetectType() {
     <div className="rounded-card border border-brand-border bg-brand-panel p-4 shadow-card">
       <div className="mb-1.5 flex items-center justify-between">
         <h2 className="text-[14px] font-bold text-brand-ink">
-          Fraud Detect Type
+          Fraud Detect Typ
         </h2>
 
         <div className="grid h-7 w-7 place-items-center rounded-full border border-brand-redSoft text-brand-orange">

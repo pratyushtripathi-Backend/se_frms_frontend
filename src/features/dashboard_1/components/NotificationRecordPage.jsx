@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, ChevronDown, RotateCcw } from "lucide-react";
+import { createPortal } from "react-dom";
+import { CalendarDays, ChevronDown, RotateCcw, X } from "lucide-react";
 import ExportFile from "./ExportFile";
 import { openDashboardDatePicker } from "./dashboardDatePicker";
 import { getAuthErrorMessage } from "../../auth/services/authError";
@@ -9,7 +10,6 @@ const TABLE_COLUMNS = [
   "Sr no",
   "Transaction ID",
   "Type",
-  "Recipient",
   "Subject",
   "Fraud Decision",
   "Status",
@@ -125,6 +125,61 @@ function normalizeNotificationsResponse(responseData, pageSize) {
   };
 }
 
+// A single transaction can go out over more than one channel (dashboard,
+// SMS, email). The "Type" popup always shows all three rows — Dashboard,
+// SMS, Email — so it's obvious at a glance which channels actually have a
+// destination and which don't, rather than silently dropping a row just
+// because one particular API shape didn't include it.
+function resolveChannelBreakdown(row) {
+  const nestedList =
+    (Array.isArray(row.channels) && row.channels) ||
+    (Array.isArray(row.notificationChannels) && row.notificationChannels) ||
+    (Array.isArray(row.destinations) && row.destinations) ||
+    [];
+
+  // Look up a channel's destination inside the nested list (if the API
+  // sent one), matching loosely on the channel/type name so "sms",
+  // "SMS", "mobile", etc. all resolve to the same bucket.
+  const findNestedDestination = (...aliases) => {
+    const match = nestedList.find((entry) => {
+      const name = String(entry.channel ?? entry.type ?? entry.name ?? "").toLowerCase();
+      return aliases.some((alias) => name.includes(alias));
+    });
+
+    return match?.destination ?? match?.value ?? match?.recipient ?? match?.address;
+  };
+
+  const type = String(row.type ?? row.channel ?? row.notificationType ?? "").toLowerCase();
+  const recipient = row.recipient ?? row.recipientAddress ?? row.to;
+
+  const dashboardDestination =
+    findNestedDestination("dash") ??
+    row.dashboardDestination ??
+    row.page ??
+    (type.includes("dash") ? recipient ?? "Page" : undefined) ??
+    "-";
+  const smsDestination =
+    findNestedDestination("sms", "mobile") ??
+    row.smsDestination ??
+    row.mobile ??
+    row.phone ??
+    row.mobileNumber ??
+    (type.includes("sms") || type.includes("mobile") ? recipient : undefined) ??
+    "-";
+  const emailDestination =
+    findNestedDestination("email") ??
+    row.emailDestination ??
+    row.emailAddress ??
+    (type.includes("email") ? recipient : undefined) ??
+    "-";
+
+  return [
+    { channel: "Dashboard", destination: dashboardDestination },
+    { channel: "SMS", destination: smsDestination },
+    { channel: "Email", destination: emailDestination },
+  ];
+}
+
 function normalizeNotificationRow(row, index, pageOffset) {
   const created = splitRecordDateTime(row.createdAt ?? row.createdDate ?? row.created_at);
   const updated = splitRecordDateTime(row.updatedAt ?? row.updatedDate ?? row.updated_at);
@@ -143,6 +198,7 @@ function normalizeNotificationRow(row, index, pageOffset) {
     srNo: pageOffset + index + 1,
     transactionId: row.transactionId ?? row.txnId ?? row.referenceId ?? "-",
     type: row.type ?? row.channel ?? row.notificationType ?? "-",
+    channelBreakdown: resolveChannelBreakdown(row),
     recipient: row.recipient ?? row.recipientAddress ?? row.to ?? "-",
     subject: row.subject ?? row.title ?? row.message ?? "-",
     fraudDecision: row.fraudDecision ?? row.decision ?? "-",
@@ -175,6 +231,7 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
   const [totalApiPages, setTotalApiPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [channelModalRow, setChannelModalRow] = useState(null);
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
@@ -440,8 +497,12 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
                         : row.srNo}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4">{row.transactionId}</td>
-                    <td className="whitespace-nowrap px-4 py-4">{row.type}</td>
-                    <td className="whitespace-nowrap px-4 py-4">{row.recipient}</td>
+                    <td
+                      className="whitespace-nowrap px-4 py-4 font-semibold text-[#2563EB] cursor-pointer"
+                      onClick={() => setChannelModalRow(row)}
+                    >
+                      Type....
+                    </td>
                     <td className="whitespace-nowrap px-4 py-4">{row.subject}</td>
                     <td
                       className={`whitespace-nowrap px-4 py-4 font-semibold ${
@@ -523,6 +584,48 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
           </div>
         </div>
       </div>
+
+      {channelModalRow &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(15,23,42,0.45)] p-6"
+            onClick={() => setChannelModalRow(null)}
+          >
+            <div
+              className="w-full max-w-[420px] overflow-hidden rounded-xl bg-white shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between bg-[#F4F5F9] px-5 py-3.5">
+                <h3 className="text-[14px] font-semibold text-[#202224]">
+                  Transaction ID -#{channelModalRow.transactionId}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setChannelModalRow(null)}
+                  aria-label="Close"
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-black text-white"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+
+              <div>
+                {channelModalRow.channelBreakdown.map((entry, index) => (
+                  <div
+                    key={entry.channel}
+                    className={`flex items-center justify-between px-5 py-3.5 text-[13px] ${
+                      index % 2 === 1 ? "bg-[#F8F9FB]" : "bg-white"
+                    }`}
+                  >
+                    <span className="font-semibold text-[#202224]">{entry.channel}</span>
+                    <span className="text-[#4B5563]">{entry.destination}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

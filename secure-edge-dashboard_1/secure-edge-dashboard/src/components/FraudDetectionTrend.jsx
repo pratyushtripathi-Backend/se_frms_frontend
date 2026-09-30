@@ -23,6 +23,7 @@ export default function FraudDetectionTrend() {
         </h2>
 
         <select className="rounded-lg border border-brand-border px-3 py-1.5 text-[12.5px] text-brand-ink outline-none">
+          <option>Day</option>
           <option>Month</option>
           <option>Quarter</option>
           <option>Year</option>
@@ -49,7 +50,7 @@ export default function FraudDetectionTrend() {
       </div>
 
       {/* Chart */}
-      <div className="h-[300px] w-full">
+      <div className="h-[320px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={fraudDetectionTrendData}
@@ -57,7 +58,7 @@ export default function FraudDetectionTrend() {
               top: 8,
               right: 10,
               left: 10,
-              bottom: 0,
+              bottom: 45,
             }}
             barCategoryGap="28%"
           >
@@ -68,13 +69,13 @@ export default function FraudDetectionTrend() {
             />
 
             <XAxis
-              dataKey="month"
-              padding={{
-                left: 0,
-                right: 0,
-              }}
+              dataKey="date"
+              interval={0}
+              angle={-45}
+              textAnchor="end"
+              height={60}
               tick={{
-                fontSize: 11.5,
+                fontSize: 11,
                 fill: "#8A90A2",
               }}
               tickMargin={10}
@@ -97,9 +98,9 @@ export default function FraudDetectionTrend() {
             />
 
             <Tooltip
-              formatter={(v, _n, item) => [
-                v,
-                item.payload.type === "fraud"
+              formatter={(value, _name, item) => [
+                value,
+                item?.payload?.type === "fraud"
                   ? "Fraud Alert"
                   : "Blocked Transaction",
               ]}
@@ -116,9 +117,9 @@ export default function FraudDetectionTrend() {
               barSize={50}
               radius={0}
             >
-              {fraudDetectionTrendData.map((item) => (
+              {fraudDetectionTrendData.map((item, index) => (
                 <Cell
-                  key={item.month}
+                  key={`${item.date}-${item.type}-${index}`}
                   fill={item.type === "fraud" ? RED : BLUE}
                 />
               ))}
