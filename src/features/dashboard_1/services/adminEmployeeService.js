@@ -207,7 +207,6 @@ export function updateEmailNotificationTemplateStatus(templateCode, status) {
     },
   );
 }
-
 export function getUsers({ page = 0, size = 10, search = "" } = {}) {
   return apiClient.get("/users", {
     params: {

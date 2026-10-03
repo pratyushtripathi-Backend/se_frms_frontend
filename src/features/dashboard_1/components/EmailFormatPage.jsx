@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   CalendarDays,
   Plus,
@@ -13,19 +14,246 @@ import {
   updateEmailNotificationTemplate,
   updateEmailNotificationTemplateStatus,
 } from "../services/adminEmployeeService";
+import {
+  createNotificationTemplate,
+  getNotificationTemplates,
+  updateNotificationTemplate,
+} from "../services/notificationService";
 import DashboardStatusToggle from "./DashboardStatusToggle";
 
 import { openDashboardDatePicker } from "./dashboardDatePicker";
 
 const YEAR_OPTIONS = ["2026", "2025", "2024", "2023"];
-const TEMPLATE_CODE_OPTIONS = ["LOGIN_OTP", "Forgot Password", "Welcome Email", "OTP Verification", "Account Locked"];
+// The only template codes the backend actually looks up when sending mail
+// (MailServiceImpl: LOGIN_CREDENTIALS, LOGIN_OTP, PASSWORD_RESET). Any other
+// code would be saved but never used.
+const TEMPLATE_CODE_OPTIONS = ["LOGIN_CREDENTIALS", "LOGIN_OTP", "PASSWORD_RESET"];
+
+// Pre-fill for the Forgot Password card's "Create format". POST
+// /auth/forgot-password builds its reset email from the active
+// PASSWORD_RESET template, substituting {{firstName}}, {{resetLink}} and
+// {{minutes}} (the link is valid for 15 minutes).
+const PASSWORD_RESET_TEMPLATE_DEFAULTS = {
+  templateCode: "PASSWORD_RESET",
+  channel: "EMAIL",
+  subject: "FRMS Password Reset",
+  bodyText:
+    "Dear {{firstName}},\n\n" +
+    "We received a request to reset your FRMS password.\n" +
+    "Use the link below to set a new password. It is valid for {{minutes}} minutes.\n\n" +
+    "{{resetLink}}\n\n" +
+    "If you did not request this, you can ignore this email.\n\n" +
+    "Regards,\nSecure Edge Fintech Pvt. Ltd.",
+};
 const CHANNEL_OPTIONS = ["EMAIL", "SMS"];
+const FRAUD_DECISION_OPTIONS = ["Block", "Review"];
+const NOTIFICATION_TEMPLATE_CODE_OPTIONS = ["Block_Alert", "Review_Alert"];
+
+// Create form for the "Notification Review & Block Email format" cards.
+// Same look as the Login/Forgot Password create form, plus a Fraud
+// Decision field. Rendered through a portal into document.body so a
+// transformed/overflow-hidden ancestor in the page layout can't push it
+// off-screen (the cards sit low on the page, below the fold).
+function CreateNotificationFormatModal({ defaults, isEdit = false, isSaving, onClose, onSubmit }) {
+  const [fraudDecision, setFraudDecision] = useState(defaults?.fraudDecision ?? "");
+  const [templateCode, setTemplateCode] = useState(defaults?.templateCode ?? "");
+  const [channel, setChannel] = useState(
+    String(defaults?.channel ?? "EMAIL").toUpperCase() === "SMS" ? "SMS" : "EMAIL",
+  );
+  const [subject, setSubject] = useState(defaults?.subject ?? "");
+  const [bodyText, setBodyText] = useState(defaults?.bodyText ?? "");
+  const [status, setStatus] = useState(
+    defaults?.status === "False" || defaults?.status === "Inactive" ? "false" : "true",
+  );
+
+  const templateCodeOptions = Array.from(
+    new Set([...(templateCode ? [templateCode] : []), ...NOTIFICATION_TEMPLATE_CODE_OPTIONS]),
+  );
+
+  const selectClass =
+    "h-[40px] w-full appearance-none rounded-[8px] border border-[#E5E7EB] bg-white px-3 pr-9 text-[13px] text-[#202224] outline-none disabled:cursor-not-allowed disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF]";
+  const labelClass = "mb-1 block text-[13px] font-semibold text-[#202224]";
+  const chevron = (
+    <ChevronDown
+      size={15}
+      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#808080]"
+    />
+  );
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex max-h-[85vh] w-[92%] max-w-[600px] flex-col overflow-hidden rounded-[16px] bg-white p-7 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="mb-5 flex shrink-0 items-start justify-between">
+          <div>
+            <h3 className="text-[18px] font-semibold text-[#202224]">
+              {isEdit ? "Edit Notification Format" : "Create Notification Format"}
+            </h3>
+            <p className="mt-1 text-[13px] text-[#8A8A8A]">
+              {isEdit ? "Update the subject and body text" : "Fill all field to Format"}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#111827] text-white transition-colors hover:bg-[#2E2E33]"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Fields */}
+        <div className="-mr-2 flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-2">
+          <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+            {/* Fraud Decision */}
+            <div>
+              <label className={labelClass}>Fraud Decision</label>
+              <div className="relative">
+                <select
+                  value={fraudDecision}
+                  onChange={(e) => setFraudDecision(e.target.value)}
+                  disabled={isEdit}
+                  className={selectClass}
+                >
+                  <option value="" disabled>
+                    Select Fraud Decision
+                  </option>
+                  {FRAUD_DECISION_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                {chevron}
+              </div>
+            </div>
+
+            {/* Template Code */}
+            <div>
+              <label className={labelClass}>Template Code</label>
+              <div className="relative">
+                <select
+                  value={templateCode}
+                  onChange={(e) => setTemplateCode(e.target.value)}
+                  disabled={isEdit}
+                  className={selectClass}
+                >
+                  <option value="" disabled>
+                    Select Template Code
+                  </option>
+                  {templateCodeOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                {chevron}
+              </div>
+            </div>
+          </div>
+
+          {/* Notification Type */}
+          <div>
+            <label className={labelClass}>Notification Type</label>
+            <div className="relative">
+              <select
+                value={channel}
+                onChange={(e) => setChannel(e.target.value)}
+                disabled={isEdit}
+                className={selectClass}
+              >
+                {CHANNEL_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              {chevron}
+            </div>
+          </div>
+
+          {/* Subject */}
+          <div>
+            <label className={labelClass}>Subject</label>
+            <input
+              type="text"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Enter Subject"
+              className="h-[40px] w-full rounded-[8px] border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#202224] outline-none placeholder:text-[#A3A3A3]"
+            />
+          </div>
+
+          {/* Body Text */}
+          <div>
+            <label className={labelClass}>Body Text</label>
+            <textarea
+              value={bodyText}
+              onChange={(e) => setBodyText(e.target.value)}
+              placeholder="Enter Message"
+              rows={8}
+              className="min-h-[160px] w-full resize-y rounded-[8px] border border-[#E5E7EB] bg-white px-3 py-2 text-[13px] leading-5 text-[#202224] outline-none placeholder:text-[#A3A3A3]"
+            />
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className={labelClass}>Status</label>
+            <div className="relative">
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                disabled={isEdit}
+                className={selectClass}
+              >
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+              </select>
+              {chevron}
+            </div>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={() =>
+            onSubmit({
+              fraudDecision,
+              templateCode,
+              channel,
+              subject,
+              bodyText,
+              status: status === "true",
+            })
+          }
+          className="mt-6 h-[40px] w-[120px] shrink-0 rounded-[8px] bg-[#4B5563] text-[13px] font-semibold text-white transition-colors hover:bg-[#374151] disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {isSaving ? "Saving..." : isEdit ? "Update" : "Submit"}
+        </button>
+      </div>
+    </div>,
+    document.body,
+  );
+}
 
 // Static placeholder content for the Notification Review/Block cards, per the
-// updated Figma design. The API for these will be wired up separately later.
+// updated Figma design. matchKeywords is how a real template returned by
+// GET /notification-templates gets matched back to the right card (by its
+// templateCode), the same way the Login/Forgot Password cards below match
+// on their own templateCode.
 const NOTIFICATION_CARDS = [
   {
     key: "block",
+    matchKeywords: ["block"],
     title: "Notification Review & Block Email format",
     fraudDecision: "Block",
     templateCode: "Block_Alert",
@@ -42,6 +270,7 @@ const NOTIFICATION_CARDS = [
   },
   {
     key: "review",
+    matchKeywords: ["review"],
     title: "Notification Review & Block Email format",
     fraudDecision: "Review",
     templateCode: "Review_Alert",
@@ -58,13 +287,22 @@ const NOTIFICATION_CARDS = [
   },
 ];
 
-function CreateEmailFormatModal({ initialValues, isSaving, onClose, onSubmit }) {
-  const [templateCode, setTemplateCode] = useState(initialValues?.templateCode ?? "");
-  const [channel, setChannel] = useState(initialValues?.channel ?? "");
-  const [subject, setSubject] = useState(initialValues?.subject ?? "");
-  const [bodyText, setBodyText] = useState(initialValues?.bodyText ?? "");
+// Template lists already loaded on this page, kept across visits (the page
+// unmounts when you leave it), so the cards show instantly when you come back
+// and then refresh quietly. The requests take no inputs, so one entry each.
+// Cleared before the reloads that follow a create/edit, and on a status
+// toggle (which doesn't reload), so a revisit never shows an old value.
+const emailTemplatesCache = { current: null };
+const notificationTemplatesCache = { current: null };
+
+function CreateEmailFormatModal({ initialValues, createDefaults, isSaving, onClose, onSubmit }) {
+  const seedValues = initialValues ?? createDefaults ?? null;
+  const [templateCode, setTemplateCode] = useState(seedValues?.templateCode ?? "");
+  const [channel, setChannel] = useState(seedValues?.channel ?? "");
+  const [subject, setSubject] = useState(seedValues?.subject ?? "");
+  const [bodyText, setBodyText] = useState(seedValues?.bodyText ?? "");
   const [status, setStatus] = useState(
-    initialValues?.status === "False" || initialValues?.status === "Inactive"
+    seedValues?.status === "False" || seedValues?.status === "Inactive"
       ? "false"
       : "true",
   );
@@ -75,17 +313,17 @@ function CreateEmailFormatModal({ initialValues, isSaving, onClose, onSubmit }) 
     ]),
   );
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="relative w-[90%] max-w-[960px] rounded-[20px] bg-white p-12 shadow-2xl">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4">
+      <div className="relative flex max-h-[85vh] w-[92%] max-w-[600px] flex-col overflow-hidden rounded-[16px] bg-white p-7 shadow-2xl">
 
         {/* Header */}
-        <div className="mb-9 flex items-start justify-between">
+        <div className="mb-5 flex shrink-0 items-start justify-between">
           <div>
-            <h3 className="text-[22px] font-semibold text-[#202224]">
+            <h3 className="text-[18px] font-semibold text-[#202224]">
               {initialValues ? "Edit Email Format" : "Create Email Format"}
             </h3>
-            <p className="mt-1.5 text-[14px] text-[#8A8A8A]">
+            <p className="mt-1 text-[13px] text-[#8A8A8A]">
               Fill all filed to Format
             </p>
           </div>
@@ -93,18 +331,18 @@ function CreateEmailFormatModal({ initialValues, isSaving, onClose, onSubmit }) 
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#111827] text-white transition-colors hover:bg-[#2E2E33]"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#111827] text-white transition-colors hover:bg-[#2E2E33]"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Fields */}
-        <div className="flex flex-col gap-5">
+        <div className="-mr-2 flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pr-2">
 
           {/* Template Code */}
           <div>
-            <label className="mb-1.5 block text-[14px] font-semibold text-[#202224]">
+            <label className="mb-1 block text-[13px] font-semibold text-[#202224]">
               Template Code
             </label>
 
@@ -112,7 +350,7 @@ function CreateEmailFormatModal({ initialValues, isSaving, onClose, onSubmit }) 
               <select
                 value={templateCode}
                 onChange={(e) => setTemplateCode(e.target.value)}
-                className="h-[48px] w-full appearance-none rounded-[10px] border border-[#E5E7EB] bg-white px-4 pr-10 text-[14px] text-[#202224] outline-none"
+                className="h-[40px] w-full appearance-none rounded-[8px] border border-[#E5E7EB] bg-white px-3 pr-9 text-[13px] text-[#202224] outline-none"
               >
                 <option value="" disabled>
                   Select Template Code
@@ -125,15 +363,15 @@ function CreateEmailFormatModal({ initialValues, isSaving, onClose, onSubmit }) 
               </select>
 
               <ChevronDown
-                size={17}
-                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#808080]"
+                size={15}
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#808080]"
               />
             </div>
           </div>
 
           {/* Channel */}
           <div>
-            <label className="mb-1.5 block text-[14px] font-semibold text-[#202224]">
+            <label className="mb-1 block text-[13px] font-semibold text-[#202224]">
               Channel
             </label>
 
@@ -141,7 +379,7 @@ function CreateEmailFormatModal({ initialValues, isSaving, onClose, onSubmit }) 
               <select
                 value={channel}
                 onChange={(e) => setChannel(e.target.value)}
-                className="h-[48px] w-full appearance-none rounded-[10px] border border-[#E5E7EB] bg-white px-4 pr-10 text-[14px] text-[#202224] outline-none"
+                className="h-[40px] w-full appearance-none rounded-[8px] border border-[#E5E7EB] bg-white px-3 pr-9 text-[13px] text-[#202224] outline-none"
               >
                 <option value="" disabled>
                   Select Channel
@@ -154,15 +392,15 @@ function CreateEmailFormatModal({ initialValues, isSaving, onClose, onSubmit }) 
               </select>
 
               <ChevronDown
-                size={17}
-                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#808080]"
+                size={15}
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#808080]"
               />
             </div>
           </div>
 
           {/* Subject */}
           <div>
-            <label className="mb-1.5 block text-[14px] font-semibold text-[#202224]">
+            <label className="mb-1 block text-[13px] font-semibold text-[#202224]">
               Subject
             </label>
 
@@ -171,13 +409,13 @@ function CreateEmailFormatModal({ initialValues, isSaving, onClose, onSubmit }) 
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Enter Subject"
-              className="h-[48px] w-full rounded-[10px] border border-[#E5E7EB] bg-white px-4 text-[14px] text-[#202224] outline-none placeholder:text-[#A3A3A3]"
+              className="h-[40px] w-full rounded-[8px] border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#202224] outline-none placeholder:text-[#A3A3A3]"
             />
           </div>
 
           {/* Body Text */}
           <div>
-            <label className="mb-1.5 block text-[14px] font-semibold text-[#202224]">
+            <label className="mb-1 block text-[13px] font-semibold text-[#202224]">
               Body Text
             </label>
 
@@ -185,14 +423,14 @@ function CreateEmailFormatModal({ initialValues, isSaving, onClose, onSubmit }) 
               value={bodyText}
               onChange={(e) => setBodyText(e.target.value)}
               placeholder="Enter Message"
-              rows={4}
-              className="w-full resize-none rounded-[10px] border border-[#E5E7EB] bg-white px-4 py-3 text-[14px] text-[#202224] outline-none placeholder:text-[#A3A3A3]"
+              rows={8}
+              className="min-h-[160px] w-full resize-y rounded-[8px] border border-[#E5E7EB] bg-white px-3 py-2 text-[13px] leading-5 text-[#202224] outline-none placeholder:text-[#A3A3A3]"
             />
           </div>
 
           {/* Status */}
           <div>
-            <label className="mb-1.5 block text-[14px] font-semibold text-[#202224]">
+            <label className="mb-1 block text-[13px] font-semibold text-[#202224]">
               Status
             </label>
 
@@ -200,15 +438,15 @@ function CreateEmailFormatModal({ initialValues, isSaving, onClose, onSubmit }) 
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="h-[48px] w-full appearance-none rounded-[10px] border border-[#E5E7EB] bg-white px-4 pr-10 text-[14px] text-[#202224] outline-none"
+                className="h-[40px] w-full appearance-none rounded-[8px] border border-[#E5E7EB] bg-white px-3 pr-9 text-[13px] text-[#202224] outline-none"
               >
                 <option value="true">Active</option>
                 <option value="false">Inactive</option>
               </select>
 
               <ChevronDown
-                size={17}
-                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#808080]"
+                size={15}
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#808080]"
               />
             </div>
           </div>
@@ -227,12 +465,13 @@ function CreateEmailFormatModal({ initialValues, isSaving, onClose, onSubmit }) 
               templateCode,
             })
           }
-          className="mt-8 h-[48px] w-[140px] rounded-[10px] bg-[#4B5563] text-[14px] font-semibold text-white transition-colors hover:bg-[#374151] disabled:cursor-not-allowed disabled:opacity-70"
+          className="mt-6 h-[40px] w-[120px] shrink-0 rounded-[8px] bg-[#4B5563] text-[13px] font-semibold text-white transition-colors hover:bg-[#374151] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isSaving ? "Saving..." : initialValues ? "Update" : "Submit"}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -241,12 +480,12 @@ function SuccessModal({ message, onClose }) {
     message || "Email template saved successfully.",
   ).toUpperCase();
 
-  return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 px-4">
-      <div className="w-[90%] max-w-[900px] rounded-[20px] bg-white px-10 py-20 text-center shadow-2xl">
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 px-4">
+      <div className="w-[92%] max-w-[480px] rounded-[16px] bg-white px-8 py-10 text-center shadow-2xl">
 
         {/* Animated checkmark */}
-        <div className="mx-auto mb-8 flex h-[140px] w-[140px] items-center justify-center">
+        <div className="mx-auto mb-5 flex h-[88px] w-[88px] items-center justify-center">
           <svg viewBox="0 0 100 100" className="h-full w-full">
             <circle
               cx="50"
@@ -279,14 +518,14 @@ function SuccessModal({ message, onClose }) {
           </svg>
         </div>
 
-        <h3 className="mx-auto max-w-[520px] text-[24px] font-bold uppercase leading-8 text-[#202224]">
+        <h3 className="mx-auto max-w-[380px] text-[17px] font-bold uppercase leading-6 text-[#202224]">
           {displayMessage}
         </h3>
 
         <button
           type="button"
           onClick={onClose}
-          className="mt-9 h-[48px] rounded-[10px] bg-[#111827] px-8 text-[15px] font-semibold text-white transition-colors hover:bg-[#2E2E33]"
+          className="mt-6 h-[40px] rounded-[8px] bg-[#111827] px-6 text-[13px] font-semibold text-white transition-colors hover:bg-[#2E2E33]"
         >
           Back to Page
         </button>
@@ -302,7 +541,8 @@ function SuccessModal({ message, onClose }) {
           50% { opacity: 0; }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -380,18 +620,27 @@ function EmailFormatCard({
             <p className="text-[13px] leading-5 text-[#4B5563]">{bodyText}</p>
           </div>
 
+          {/* min-w-0 lets each column shrink to its share of the row instead of
+              growing to fit its content, so a long Created By value (an email
+              or user id with no spaces) wraps in its own column rather than
+              running into Created date. */}
           <div className="grid grid-cols-4 gap-4 border-t border-[#F1F1F1] pt-4">
-            <div>
+            <div className="min-w-0">
               <p className="mb-1 text-[12px] text-[#9CA3AF]">Status</p>
               <DashboardStatusToggle onToggle={onToggleStatus} status={status} />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <p className="mb-1 text-[12px] text-[#9CA3AF]">Created By</p>
-              <p className="text-[13px] text-[#4B5563]">{createdBy}</p>
+              <p
+                className="text-[13px] leading-5 text-[#4B5563] [overflow-wrap:anywhere]"
+                title={createdBy}
+              >
+                {createdBy}
+              </p>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <p className="mb-1 text-[12px] text-[#9CA3AF]">Created date</p>
               <div className="flex flex-col text-[13px] leading-5">
                 <span className="font-medium text-[#2F80ED]">{createdDate}</span>
@@ -399,7 +648,7 @@ function EmailFormatCard({
               </div>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <p className="mb-1 text-[12px] text-[#9CA3AF]">Updated At</p>
               <div className="flex flex-col text-[13px] leading-5">
                 <span className="font-medium text-[#2F80ED]">{updatedDate}</span>
@@ -417,10 +666,24 @@ export default function EmailFormatPage() {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [emailTemplates, setEmailTemplates] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [emailTemplates, setEmailTemplates] = useState(
+    () => emailTemplatesCache.current ?? [],
+  );
+  // Start true when nothing is cached, so the first paint shows "Loading…"
+  // rather than flashing empty/placeholder values.
+  const [isLoading, setIsLoading] = useState(() => !emailTemplatesCache.current);
+  const [notificationTemplates, setNotificationTemplates] = useState(
+    () => notificationTemplatesCache.current ?? [],
+  );
+  const [isLoadingNotificationTemplates, setIsLoadingNotificationTemplates] = useState(
+    () => !notificationTemplatesCache.current,
+  );
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
+  // Defaults for the Notification Review/Block create form (null = closed).
+  const [notificationFormDefaults, setNotificationFormDefaults] = useState(null);
+  // Pre-fill for the Login/Forgot Password create form (null = empty form).
+  const [emailCreateDefaults, setEmailCreateDefaults] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -429,17 +692,38 @@ export default function EmailFormatPage() {
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
+  // Drop responses from an older load (e.g. the initial load finishing after
+  // the reload that follows a create/edit), so stale data can't overwrite
+  // newer data.
+  const loadRequestIdRef = useRef(0);
+  const notificationLoadRequestIdRef = useRef(0);
 
   async function loadEmailTemplates() {
-    setIsLoading(true);
+    const requestId = ++loadRequestIdRef.current;
+    const cached = emailTemplatesCache.current;
+
+    if (cached) {
+      setEmailTemplates(cached);
+      setIsLoading(false);
+    } else {
+      // Any cards already on screen stay visible until the new data arrives.
+      setIsLoading(true);
+    }
     setErrorMessage("");
 
     try {
       const response = await getEmailNotificationTemplates();
       const templates = normalizeEmailTemplateResponse(response.data);
 
+      if (requestId !== loadRequestIdRef.current) return;
+
+      emailTemplatesCache.current = templates;
       setEmailTemplates(templates);
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return;
+      // Keep showing the cached templates if a background refresh fails.
+      if (cached) return;
+
       setEmailTemplates([]);
       setErrorMessage(
         getAuthErrorMessage(
@@ -448,42 +732,52 @@ export default function EmailFormatPage() {
         ),
       );
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestIdRef.current) setIsLoading(false);
+    }
+  }
+
+  async function loadNotificationTemplates() {
+    const requestId = ++notificationLoadRequestIdRef.current;
+    const cached = notificationTemplatesCache.current;
+
+    if (cached) {
+      setNotificationTemplates(cached);
+      setIsLoadingNotificationTemplates(false);
+    } else {
+      setIsLoadingNotificationTemplates(true);
+    }
+
+    try {
+      const response = await getNotificationTemplates();
+      const templates = normalizeEmailTemplateResponse(response.data);
+
+      if (requestId !== notificationLoadRequestIdRef.current) return;
+
+      notificationTemplatesCache.current = templates;
+      setNotificationTemplates(templates);
+    } catch (error) {
+      if (requestId !== notificationLoadRequestIdRef.current) return;
+      // Keep showing the cached templates if a background refresh fails.
+      if (cached) return;
+
+      // Non-fatal: the Notification Review/Block cards just keep showing
+      // their placeholder values when this list can't be loaded.
+      setNotificationTemplates([]);
+    } finally {
+      if (requestId === notificationLoadRequestIdRef.current) {
+        setIsLoadingNotificationTemplates(false);
+      }
     }
   }
 
   useEffect(() => {
-    let isActive = true;
+    loadNotificationTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    async function loadInitialTemplates() {
-      setIsLoading(true);
-      setErrorMessage("");
-
-      try {
-        const response = await getEmailNotificationTemplates();
-        const templates = normalizeEmailTemplateResponse(response.data);
-
-        if (isActive) setEmailTemplates(templates);
-      } catch (error) {
-        if (isActive) {
-          setEmailTemplates([]);
-          setErrorMessage(
-            getAuthErrorMessage(
-              error,
-              "Unable to load email templates. Please try again.",
-            ),
-          );
-        }
-      } finally {
-        if (isActive) setIsLoading(false);
-      }
-    }
-
-    loadInitialTemplates();
-
-    return () => {
-      isActive = false;
-    };
+  useEffect(() => {
+    loadEmailTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loginCredentialTemplate = useMemo(
@@ -497,10 +791,39 @@ export default function EmailFormatPage() {
   const forgotPasswordTemplate = useMemo(
     () =>
       emailTemplates.find((item) =>
-        matchesTemplateType(item.templateCode, ["forgotpassword", "forgot"]),
+        // Backend code is PASSWORD_RESET (used by POST /auth/forgot-password).
+        matchesTemplateType(item.templateCode, ["passwordreset", "resetpassword", "forgotpassword", "forgot"]),
       ) ?? null,
     [emailTemplates],
   );
+
+  // The backend identifies these templates by fraudDecision (BLOCK/REVIEW);
+  // templateCode is only a fallback in case the response carries one.
+  const findNotificationTemplate = (decision) =>
+    notificationTemplates.find(
+      (item) => String(item.fraudDecision ?? "").toUpperCase() === decision,
+    ) ??
+    notificationTemplates.find((item) =>
+      matchesTemplateType(item.templateCode, [decision.toLowerCase()]),
+    ) ??
+    null;
+
+  const blockNotificationTemplate = useMemo(
+    () => findNotificationTemplate("BLOCK"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [notificationTemplates],
+  );
+
+  const reviewNotificationTemplate = useMemo(
+    () => findNotificationTemplate("REVIEW"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [notificationTemplates],
+  );
+
+  const NOTIFICATION_CARD_TEMPLATES = {
+    block: blockNotificationTemplate,
+    review: reviewNotificationTemplate,
+  };
 
   const handleSubmit = async (formValues) => {
     setErrorMessage("");
@@ -531,6 +854,7 @@ export default function EmailFormatPage() {
             "Email template created successfully.",
         );
         setShowSuccessModal(true);
+        emailTemplatesCache.current = null;
         await loadEmailTemplates();
         return;
       }
@@ -553,6 +877,7 @@ export default function EmailFormatPage() {
         response.data?.responseMessage || "Email template updated successfully.",
       );
       setShowSuccessModal(true);
+      emailTemplatesCache.current = null;
       await loadEmailTemplates();
     } catch (error) {
       setErrorMessage(
@@ -566,11 +891,106 @@ export default function EmailFormatPage() {
     }
   };
 
-  const handleOpenCreateFormat = () => {
+  // POST /api/v1/notification-templates — Notification Review & Block
+  // Email format "Create format" form.
+  const handleNotificationSubmit = async (formValues) => {
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    const editingTemplateId = notificationFormDefaults?.editingTemplateId ?? null;
+
+    // Backend: subjectTemplate and bodyTemplate are @NotBlank on both create
+    // and update; fraudDecision is @NotBlank on create.
+    if (!formValues.subject?.trim() || !formValues.bodyText?.trim()) {
+      setErrorMessage("Subject and body text are required.");
+      return;
+    }
+
+    if (!editingTemplateId && !formValues.fraudDecision) {
+      setErrorMessage("Fraud decision is required.");
+      return;
+    }
+
+    setIsSavingTemplate(true);
+
+    try {
+      // Edit: PATCH /notification-templates/{templateId} only updates the
+      // subject and body, with the field names the backend expects.
+      const response = editingTemplateId
+        ? await updateNotificationTemplate(editingTemplateId, {
+            subjectTemplate: formValues.subject,
+            bodyTemplate: formValues.bodyText,
+          })
+        : // CreateNotificationTemplateRequest(fraudDecision, subjectTemplate,
+          // bodyTemplate, status). fraudDecision must be BLOCK or REVIEW;
+          // the backend fixes the channel to EMAIL itself.
+          await createNotificationTemplate({
+            fraudDecision: String(formValues.fraudDecision).toUpperCase(),
+            subjectTemplate: formValues.subject,
+            bodyTemplate: formValues.bodyText,
+            status: formValues.status,
+          });
+
+      setNotificationFormDefaults(null);
+      setSuccessMessage(
+        response.data?.responseMessage ||
+          (editingTemplateId
+            ? "Notification template updated successfully."
+            : "Notification template created successfully."),
+      );
+      setShowSuccessModal(true);
+      notificationTemplatesCache.current = null;
+      await loadNotificationTemplates();
+    } catch (error) {
+      setNotificationFormDefaults(null);
+      setErrorMessage(
+        getAuthErrorMessage(
+          error,
+          "Unable to save notification template. Please try again.",
+        ),
+      );
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const handleOpenCreateFormat = (defaults = null) => {
     setEditingTemplate(null);
+    setEmailCreateDefaults(defaults);
     setErrorMessage("");
     setSuccessMessage("");
     setShowFormModal(true);
+  };
+
+  const handleOpenNotificationCreate = (card) => {
+    setErrorMessage("");
+    setSuccessMessage("");
+    setNotificationFormDefaults({
+      fraudDecision: card.fraudDecision,
+      templateCode: card.templateCode,
+      channel: "EMAIL",
+      subject: card.subject,
+      bodyText: "",
+    });
+  };
+
+  // Edit opens the same form pre-filled with the saved template. If this
+  // card has no saved template yet, there's nothing to update, so it opens
+  // pre-filled from the card and saves as a new one instead.
+  const handleOpenNotificationEdit = (card) => {
+    const template = NOTIFICATION_CARD_TEMPLATES[card.key];
+
+    setErrorMessage("");
+    setSuccessMessage("");
+    setNotificationFormDefaults({
+      fraudDecision: card.fraudDecision,
+      templateCode: template?.templateCode ?? card.templateCode,
+      channel: template?.channel ?? "EMAIL",
+      subject: template?.subject ?? card.subject,
+      bodyText: template && template.bodyText !== "-" ? template.bodyText : "",
+      status: template?.status,
+      editingTemplateId: template?.templateId ?? null,
+    });
   };
 
   const handleEditTemplate = (item) => {
@@ -688,11 +1108,15 @@ export default function EmailFormatPage() {
             status={loginCredentialTemplate?.status}
             onToggleStatus={
               loginCredentialTemplate
-                ? (nextStatus) =>
-                    updateEmailNotificationTemplateStatus(
+                ? (nextStatus) => {
+                    // No reload follows a toggle, so drop the cached list
+                    // rather than show the old status on the next visit.
+                    emailTemplatesCache.current = null;
+                    return updateEmailNotificationTemplateStatus(
                       loginCredentialTemplate.templateCode,
                       nextStatus,
-                    )
+                    );
+                  }
                 : undefined
             }
             createdBy={loginCredentialTemplate?.createdBy ?? "-"}
@@ -702,8 +1126,8 @@ export default function EmailFormatPage() {
             updatedTime={loginCredentialTemplate?.updatedTime ?? "-"}
             showEdit={Boolean(loginCredentialTemplate)}
             onEdit={() => handleEditTemplate(loginCredentialTemplate)}
-            onCreate={handleOpenCreateFormat}
-            isLoading={isLoading}
+            onCreate={() => handleOpenCreateFormat()}
+            isLoading={isLoading && emailTemplates.length === 0}
           />
 
           {/* Forgot Password — live API */}
@@ -718,11 +1142,15 @@ export default function EmailFormatPage() {
             status={forgotPasswordTemplate?.status}
             onToggleStatus={
               forgotPasswordTemplate
-                ? (nextStatus) =>
-                    updateEmailNotificationTemplateStatus(
+                ? (nextStatus) => {
+                    // No reload follows a toggle, so drop the cached list
+                    // rather than show the old status on the next visit.
+                    emailTemplatesCache.current = null;
+                    return updateEmailNotificationTemplateStatus(
                       forgotPasswordTemplate.templateCode,
                       nextStatus,
-                    )
+                    );
+                  }
                 : undefined
             }
             createdBy={forgotPasswordTemplate?.createdBy ?? "-"}
@@ -732,31 +1160,47 @@ export default function EmailFormatPage() {
             updatedTime={forgotPasswordTemplate?.updatedTime ?? "-"}
             showEdit={Boolean(forgotPasswordTemplate)}
             onEdit={() => handleEditTemplate(forgotPasswordTemplate)}
-            onCreate={handleOpenCreateFormat}
-            isLoading={isLoading}
+            onCreate={() => handleOpenCreateFormat(PASSWORD_RESET_TEMPLATE_DEFAULTS)}
+            isLoading={isLoading && emailTemplates.length === 0}
           />
 
-          {/* Notification Review / Block — static placeholder, API to follow later */}
-          {NOTIFICATION_CARDS.map((card) => (
-            <EmailFormatCard
-              key={card.key}
-              title={card.title}
-              fieldsRow={[
-                { label: "Fraud Decision", value: card.fraudDecision },
-                { label: "Template Code", value: card.templateCode },
-                { label: "Notification Type", value: card.notificationType },
-              ]}
-              extraRow={{ label: "Subject", value: card.subject }}
-              bodyText={card.bodyText}
-              status={card.status}
-              createdBy={card.createdBy}
-              createdDate={card.createdDate}
-              createdTime={card.createdTime}
-              updatedDate={card.updatedDate}
-              updatedTime={card.updatedTime}
-              showEdit
-            />
-          ))}
+          {/* Notification Review / Block — now backed by
+              GET/POST /notification-templates */}
+          {NOTIFICATION_CARDS.map((card) => {
+            const matchedTemplate = NOTIFICATION_CARD_TEMPLATES[card.key];
+
+            return (
+              <EmailFormatCard
+                key={card.key}
+                title={card.title}
+                fieldsRow={[
+                  { label: "Fraud Decision", value: card.fraudDecision },
+                  {
+                    label: "Template Code",
+                    value:
+                      matchedTemplate?.templateCode && matchedTemplate.templateCode !== "-"
+                        ? matchedTemplate.templateCode
+                        : card.templateCode,
+                  },
+                  { label: "Notification Type", value: matchedTemplate?.channel ?? card.notificationType },
+                ]}
+                extraRow={{ label: "Subject", value: matchedTemplate?.subject ?? card.subject }}
+                bodyText={matchedTemplate?.bodyText ?? card.bodyText}
+                status={matchedTemplate?.status ?? card.status}
+                createdBy={matchedTemplate?.createdBy ?? card.createdBy}
+                createdDate={matchedTemplate?.createdDate ?? card.createdDate}
+                createdTime={matchedTemplate?.createdTime ?? card.createdTime}
+                updatedDate={matchedTemplate?.updatedDate ?? card.updatedDate}
+                updatedTime={matchedTemplate?.updatedTime ?? card.updatedTime}
+                showEdit
+                onEdit={() => handleOpenNotificationEdit(card)}
+                onCreate={() => handleOpenNotificationCreate(card)}
+                isLoading={
+                  isLoadingNotificationTemplates && notificationTemplates.length === 0
+                }
+              />
+            );
+          })}
 
         </div>
 
@@ -766,9 +1210,20 @@ export default function EmailFormatPage() {
       {showFormModal && (
         <CreateEmailFormatModal
           initialValues={editingTemplate}
+          createDefaults={emailCreateDefaults}
           isSaving={isSavingTemplate}
           onClose={() => setShowFormModal(false)}
           onSubmit={handleSubmit}
+        />
+      )}
+
+      {notificationFormDefaults && (
+        <CreateNotificationFormatModal
+          defaults={notificationFormDefaults}
+          isEdit={Boolean(notificationFormDefaults.editingTemplateId)}
+          isSaving={isSavingTemplate}
+          onClose={() => setNotificationFormDefaults(null)}
+          onSubmit={handleNotificationSubmit}
         />
       )}
 
@@ -811,15 +1266,20 @@ function normalizeEmailTemplateRow(item, index) {
 
   return {
     id: item.id ?? item.templateId ?? item.emailTemplateId ?? index + 1,
+    // The backend's real id (no index fallback) — used as {templateId} in
+    // PATCH /notification-templates/{templateId}.
+    templateId: item.templateId ?? item.id ?? item.notificationTemplateId ?? null,
+    fraudDecision: item.fraudDecision ?? null,
     createdDateRaw: item.createdDate ?? null,
     updatedAtRaw: item.updatedAt ?? item.updatedDate ?? null,
     bodyText:
       item.bodyText ??
+      item.bodyTemplate ??
       item.body ??
       item.templateBody ??
       item.message ??
       "-",
-    subject: item.subject ?? item.templateSubject ?? "-",
+    subject: item.subject ?? item.subjectTemplate ?? item.templateSubject ?? "-",
     templateCode:
       item.templateCode ??
       item.code ??
@@ -921,6 +1381,7 @@ function hasEmailTemplateIdentity(item) {
       item?.emailTemplateId ||
       item?.templateCode ||
       item?.subject ||
+      item?.subjectTemplate ||
       item?.bodyText,
   );
 }

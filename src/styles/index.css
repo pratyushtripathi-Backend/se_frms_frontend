@@ -108,3 +108,21 @@ body {
 .dashboard-density [style*="fontSize: 14px"] {
   font-size: 12px !important;
 }
+
+/* Page switch (sidebar / logo): the newly opened page fades in.
+   Opacity only — a transform here would briefly make position:fixed modals
+   inside the page position against this wrapper instead of the screen. */
+@keyframes frms-page-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.frms-page-enter {
+  animation: frms-page-in 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frms-page-enter {
+    animation: none;
+  }
+}

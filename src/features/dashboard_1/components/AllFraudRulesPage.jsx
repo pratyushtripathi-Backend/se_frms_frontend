@@ -34,17 +34,32 @@ const TABLE_COLUMNS = [
   "Action",
 ];
 
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by page / search / filter mode, so the table
+// shows instantly when you come back and then refreshes quietly.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage, search, isLocalFilterActive) =>
+  JSON.stringify([requestedPage, search ?? "", isLocalFilterActive]);
+
+// Dropdown options (also used to show names in the table), kept across
+// visits so the names don't flicker in on every page load.
+const optionsCache = { current: null };
+
 export default function AllFraudRulesPage({ searchQuery = "" }) {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [fraudRules, setFraudRules] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+  const initialCache = pageCache.get(pageCacheKey(0, searchQuery, false));
+  const [fraudRules, setFraudRules] = useState(() => initialCache?.rows ?? []);
+  const [categories, setCategories] = useState(() => optionsCache.current ?? []);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
+  const [totalPages, setTotalPages] = useState(() => initialCache?.totalPages ?? 1);
   const [openActionId, setOpenActionId] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  // Starts true when nothing is cached, so the first paint shows
+  // "Loading…" rather than flashing "No … found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
+  const loadRequestIdRef = useRef(0);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [isSavingRule, setIsSavingRule] = useState(false);
   const [isDeletingRule, setIsDeletingRule] = useState(false);
@@ -67,7 +82,26 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
   const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   const loadFraudRules = useCallback(async ({ showLoader = true, searchValue = searchQuery } = {}) => {
-    if (showLoader) setIsLoading(true);
+    const requestId = ++loadRequestIdRef.current;
+    const cacheKey = pageCacheKey(
+      isLocalFilterActive ? 0 : currentPage - 1,
+      searchValue,
+      isLocalFilterActive,
+    );
+    // showLoader:false is the reload after a create/edit/delete, so every
+    // cached page is out of date and this one must come fresh.
+    if (!showLoader) pageCache.clear();
+    const cached = pageCache.get(cacheKey);
+
+    if (cached) {
+      setFraudRules(cached.rows);
+      setTotalRecords(cached.totalRecords);
+      setTotalPages(cached.totalPages);
+      setIsLoading(false);
+    } else if (showLoader) {
+      // The current rows stay on screen (dimmed) until the new ones arrive.
+      setIsLoading(true);
+    }
     setErrorMessage("");
 
     try {
@@ -101,13 +135,24 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
         });
       }
 
+      if (requestId !== loadRequestIdRef.current) return;
+
       setFraudRules(normalizedRows);
+      pageCache.set(cacheKey, {
+        rows: normalizedRows,
+        totalRecords: normalizedResponse.totalRecords,
+        totalPages: normalizedResponse.totalPages,
+      });
       setTotalRecords(normalizedResponse.totalRecords);
       setTotalPages(normalizedResponse.totalPages);
       if (currentPage > normalizedResponse.totalPages) {
         setCurrentPage(normalizedResponse.totalPages);
       }
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return;
+      // Keep showing the cached rows if a background refresh fails.
+      if (cached) return;
+
       setFraudRules([]);
       setTotalRecords(0);
       setTotalPages(1);
@@ -115,7 +160,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
         getAuthErrorMessage(error, "Unable to load fraud rules. Please try again."),
       );
     } finally {
-      if (showLoader) setIsLoading(false);
+      if (requestId === loadRequestIdRef.current) setIsLoading(false);
     }
   }, [currentPage, isLocalFilterActive, searchQuery]);
 
@@ -124,7 +169,9 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
 
     try {
       const response = await getRuleCategories({ page: 0, size: 10 });
-      setCategories(normalizeCategoryOptions(response.data));
+      const options = normalizeCategoryOptions(response.data);
+      optionsCache.current = options;
+      setCategories(options);
     } catch (error) {
       setErrorMessage(
         getAuthErrorMessage(error, "Unable to fetch categories. Please try again."),
@@ -143,10 +190,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
 
     async function loadInitialFraudRules() {
       if (!isActive) return;
-      await Promise.all([
-        loadFraudRules({ searchValue: searchQuery }),
-        loadCategories(),
-      ]);
+      await loadFraudRules({ searchValue: searchQuery });
     }
 
     loadInitialFraudRules();
@@ -154,7 +198,13 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
     return () => {
       isActive = false;
     };
-  }, [searchQuery, loadCategories, loadFraudRules]);
+  }, [searchQuery, loadFraudRules]);
+
+  // Dropdown options don't depend on the page or search, so load them
+  // once per visit instead of again on every page change.
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
   const filteredData = useMemo(() => {
     return fraudRules.filter((item) => {
@@ -457,7 +507,12 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
             </div>
           )}
 
-          <div className="w-full overflow-x-auto">
+          <div className="relative w-full overflow-x-auto">
+            {isLoading && visibleData.length > 0 && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-16">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
+              </div>
+            )}
 
             <table className="w-full min-w-[1650px] border-collapse">
 
@@ -474,8 +529,12 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
                 </tr>
               </thead>
 
-              <tbody>
-                {isLoading && (
+              <tbody
+                className={`transition-opacity duration-200 ${
+                  isLoading && visibleData.length > 0 ? "opacity-50" : "opacity-100"
+                }`}
+              >
+                {isLoading && visibleData.length === 0 && (
                   <tr>
                     <td colSpan={TABLE_COLUMNS.length} className="px-4 py-5 text-center text-[13px] text-[#6B7280]">
                       Loading fraud rules...
@@ -491,7 +550,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
                   </tr>
                 )}
 
-                {!isLoading && visibleData.map((item, index) => (
+                {visibleData.map((item, index) => (
                   <tr
                     key={item.id}
                     className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"

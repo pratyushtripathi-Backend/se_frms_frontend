@@ -29,16 +29,27 @@ const TABLE_COLUMNS = [
   "Action",
 ];
 
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by page / search / filter mode, so the table
+// shows instantly when you come back and then refreshes quietly.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage, search, isLocalFilterActive) =>
+  JSON.stringify([requestedPage, search ?? "", isLocalFilterActive]);
+
 export default function AllCategoryPage({ searchQuery = "" }) {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [openActionId, setOpenActionId] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const initialCache = pageCache.get(pageCacheKey(0, searchQuery, false));
+  const [categories, setCategories] = useState(() => initialCache?.rows ?? []);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
+  const [totalPages, setTotalPages] = useState(() => initialCache?.totalPages ?? 1);
+  // Starts true when nothing is cached, so the first paint shows
+  // "Loading…" rather than flashing "No … found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
+  const loadRequestIdRef = useRef(0);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -55,7 +66,26 @@ export default function AllCategoryPage({ searchQuery = "" }) {
   const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   const loadCategories = async ({ showLoader = true } = {}) => {
-    if (showLoader) setIsLoading(true);
+    const requestId = ++loadRequestIdRef.current;
+    const cacheKey = pageCacheKey(
+      isLocalFilterActive ? 0 : currentPage - 1,
+      searchQuery,
+      isLocalFilterActive,
+    );
+    // showLoader:false is the reload after a create/edit/delete, so every
+    // cached page is out of date and this one must come fresh.
+    if (!showLoader) pageCache.clear();
+    const cached = pageCache.get(cacheKey);
+
+    if (cached) {
+      setCategories(cached.rows);
+      setTotalRecords(cached.totalRecords);
+      setTotalPages(cached.totalPages);
+      setIsLoading(false);
+    } else if (showLoader) {
+      // The current rows stay on screen (dimmed) until the new ones arrive.
+      setIsLoading(true);
+    }
     setErrorMessage("");
 
     try {
@@ -89,10 +119,21 @@ export default function AllCategoryPage({ searchQuery = "" }) {
         });
       }
 
+      if (requestId !== loadRequestIdRef.current) return;
+
       setCategories(normalizedRows);
+      pageCache.set(cacheKey, {
+        rows: normalizedRows,
+        totalRecords: normalizedResponse.totalRecords,
+        totalPages: normalizedResponse.totalPages,
+      });
       setTotalRecords(normalizedResponse.totalRecords);
       setTotalPages(normalizedResponse.totalPages);
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return;
+      // Keep showing the cached rows if a background refresh fails.
+      if (cached) return;
+
       setCategories([]);
       setTotalRecords(0);
       setTotalPages(1);
@@ -100,7 +141,7 @@ export default function AllCategoryPage({ searchQuery = "" }) {
         getAuthErrorMessage(error, "Unable to load categories. Please try again."),
       );
     } finally {
-      if (showLoader) setIsLoading(false);
+      if (requestId === loadRequestIdRef.current) setIsLoading(false);
     }
   };
 
@@ -368,7 +409,12 @@ export default function AllCategoryPage({ searchQuery = "" }) {
             </div>
           )}
 
-          <div className="w-full overflow-x-auto">
+          <div className="relative w-full overflow-x-auto">
+            {isLoading && visibleData.length > 0 && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-16">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
+              </div>
+            )}
 
             <table className="w-full min-w-[1100px] border-collapse">
 
@@ -385,8 +431,12 @@ export default function AllCategoryPage({ searchQuery = "" }) {
                 </tr>
               </thead>
 
-              <tbody>
-                {isLoading && (
+              <tbody
+                className={`transition-opacity duration-200 ${
+                  isLoading && visibleData.length > 0 ? "opacity-50" : "opacity-100"
+                }`}
+              >
+                {isLoading && visibleData.length === 0 && (
                   <tr>
                     <td colSpan={TABLE_COLUMNS.length} className="px-4 py-5 text-center text-[13px] text-[#6B7280]">
                       Loading categories...
@@ -402,7 +452,7 @@ export default function AllCategoryPage({ searchQuery = "" }) {
                   </tr>
                 )}
 
-                {!isLoading && visibleData.map((item, index) => (
+                {visibleData.map((item, index) => (
                   <tr
                     key={item.id}
                     className="relative border-b border-[#EEF1F5] text-[13px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"

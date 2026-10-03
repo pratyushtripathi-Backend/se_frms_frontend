@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   FiChevronDown,
   FiChevronLeft,
   FiChevronRight,
 } from "react-icons/fi";
-import { CalendarDays, RotateCcw } from "lucide-react";
+import { CalendarDays, RotateCcw, X } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../auth/services/authError";
 import {
@@ -66,6 +67,18 @@ export default function CaseManagementPage() {
   const [pendingSrNo, setPendingSrNo] = useState(null);
   const [actionErrors, setActionErrors] = useState({});
 
+  // Case whose matched rules are shown in the "Matched Rule...." popup.
+  const [rulesModalRow, setRulesModalRow] = useState(null);
+
+  // Smooth tab switching:
+  // - casesCacheRef keeps each tab/page/filter result already loaded, so
+  //   switching back to a tab shows its rows instantly (then refreshes
+  //   quietly in the background);
+  // - loadRequestIdRef drops responses for a tab/page you've already left,
+  //   so a slow older request can't overwrite the tab you're on.
+  const casesCacheRef = useRef(new Map());
+  const loadRequestIdRef = useRef(0);
+
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
   const menuRef = useRef(null);
@@ -87,7 +100,27 @@ export default function CaseManagementPage() {
   // LOAD CASES
   // =========================
   const loadCases = useCallback(async () => {
-    setIsLoading(true);
+    const requestId = ++loadRequestIdRef.current;
+    const cacheKey = JSON.stringify([
+      activeTab,
+      currentPage,
+      year,
+      fromDate,
+      toDate,
+    ]);
+    const cached = casesCacheRef.current.get(cacheKey);
+
+    if (cached) {
+      setCaseRows(cached.rows);
+      setTotalRecords(cached.totalRecords);
+      setTotalPages(cached.totalPages);
+      setIsLoading(false);
+    } else {
+      // Previous rows stay on screen (dimmed) until the new ones arrive,
+      // instead of the table collapsing to a single "Loading" line.
+      setIsLoading(true);
+    }
+
     setErrorMessage("");
 
     try {
@@ -231,10 +264,60 @@ export default function CaseManagementPage() {
             }))
         : effectiveRows;
 
+      if (requestId !== loadRequestIdRef.current) {
+        return;
+      }
+
       setCaseRows(visibleRows);
       setTotalRecords(effectiveTotalRecords);
       setTotalPages(effectiveTotalPages);
+
+      casesCacheRef.current.set(cacheKey, {
+        rows: visibleRows,
+        totalRecords: effectiveTotalRecords,
+        totalPages: effectiveTotalPages,
+      });
+
+      // Preload page 1 of the other tabs in the background so the first
+      // switch to them is instant too.
+      if (!hasActiveFilters && currentPage === 1) {
+        TABS.forEach((tab) => {
+          const tabKey = JSON.stringify([tab.key, 1, "", "", ""]);
+
+          if (
+            tab.key === activeTab ||
+            casesCacheRef.current.has(tabKey)
+          ) {
+            return;
+          }
+
+          getCases({ status: tab.key, page: 0, size: rowsPerPage })
+            .then((tabResponse) => {
+              const normalizedTab = normalizeCaseResponse(
+                tabResponse.data,
+                1,
+                rowsPerPage,
+              );
+
+              casesCacheRef.current.set(tabKey, {
+                rows: normalizedTab.rows,
+                totalRecords: normalizedTab.totalRecords,
+                totalPages: Math.max(normalizedTab.totalPages, 1),
+              });
+            })
+            .catch(() => {});
+        });
+      }
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) {
+        return;
+      }
+
+      // Keep showing the cached rows if a background refresh fails.
+      if (cached) {
+        return;
+      }
+
       setCaseRows([]);
       setTotalRecords(0);
       setTotalPages(1);
@@ -246,7 +329,9 @@ export default function CaseManagementPage() {
         ),
       );
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [
     activeTab,
@@ -360,6 +445,8 @@ export default function CaseManagementPage() {
         reviewStatus,
       );
 
+      // The case moved to another tab, so every cached tab is out of date.
+      casesCacheRef.current.clear();
       await loadCases();
     } catch (error) {
       setActionErrors((prev) => ({
@@ -628,7 +715,13 @@ export default function CaseManagementPage() {
         ========================== */}
         <div className="overflow-hidden rounded-xl border border-[#ECECEC] bg-white">
 
-          <div className="w-full overflow-x-auto">
+          <div className="relative w-full overflow-x-auto">
+            {isLoading && caseRows.length > 0 && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-16">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
+              </div>
+            )}
+
 
             <table
               className={`w-full border-collapse ${
@@ -652,8 +745,12 @@ export default function CaseManagementPage() {
                 </tr>
               </thead>
 
-              <tbody>
-                {isLoading && (
+              <tbody
+                className={`transition-opacity duration-200 ${
+                  isLoading && caseRows.length > 0 ? "opacity-50" : "opacity-100"
+                }`}
+              >
+                {isLoading && caseRows.length === 0 && (
                   <tr>
                     <td
                       colSpan={
@@ -695,8 +792,7 @@ export default function CaseManagementPage() {
                     </tr>
                   )}
 
-                {!isLoading &&
-                  !errorMessage &&
+                {!errorMessage &&
                   caseRows.map(
                     (row, index) => {
                       const isMenuOpen =
@@ -738,7 +834,18 @@ export default function CaseManagementPage() {
                           </td>
 
                           <td className="whitespace-nowrap px-4 py-4">
-                            {row.matchedRule}
+                            {row.matchedRulesList.length > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => setRulesModalRow(row)}
+                                title={row.matchedRule}
+                                className="font-semibold text-[#2563EB] hover:underline"
+                              >
+                                Matched Rule....
+                              </button>
+                            ) : (
+                              "-"
+                            )}
                           </td>
 
                           <td className="whitespace-nowrap px-4 py-4">
@@ -988,6 +1095,82 @@ export default function CaseManagementPage() {
           </div>
         </div>
       </div>
+
+      {/* Matched rules popup — same design as the Matched Rule page:
+          one row per rule matched by this case's transaction. */}
+      {rulesModalRow &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(15,23,42,0.45)] p-6"
+            onClick={() => setRulesModalRow(null)}
+          >
+            <div
+              className="relative h-[min(380px,58vh)] w-[min(680px,82%)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setRulesModalRow(null)}
+                aria-label="Close"
+                className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-[#111111] text-white shadow-[0_2px_6px_rgba(0,0,0,.25)]"
+              >
+                <X size={14} />
+              </button>
+
+              <div className="h-full overflow-hidden rounded-xl bg-white shadow-[0_20px_45px_rgba(0,0,0,.18)]">
+                <div className="h-full overflow-auto px-6 pb-6 pt-12">
+                  <div className="overflow-hidden rounded-[10px] border border-[#E5E7EB]">
+                    <table className="w-full table-fixed border-collapse">
+                      <thead>
+                        <tr>
+                          {[
+                            "Rule Code",
+                            "Rule Name",
+                            "Rule Expression",
+                            "Rule Score",
+                            "Calculated Score",
+                          ].map((column) => (
+                            <th
+                              key={column}
+                              className="sticky top-0 break-words border-b border-[#ECECEC] bg-[#FAFAFA] px-2.5 py-2 text-left text-[11px] font-semibold text-[#555555]"
+                            >
+                              {column}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {rulesModalRow.matchedRulesList.map((rule, index) => (
+                          <tr
+                            key={`${rule.ruleCode}-${index}`}
+                            className={index % 2 === 0 ? "bg-[#FAFAFA]" : "bg-white"}
+                          >
+                            {[
+                              rule.ruleCode,
+                              rule.ruleName,
+                              rule.ruleExpression,
+                              rule.ruleScore,
+                              rule.calculatedScore,
+                            ].map((value, cellIndex) => (
+                              <td
+                                key={cellIndex}
+                                className="break-words border-b border-[#ECECEC] px-2.5 py-2 text-[11px] text-[#555555]"
+                              >
+                                {value}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -1134,6 +1317,9 @@ function normalizeCaseRow(
     matchedRule:
       formatMatchedRules(row),
 
+    matchedRulesList:
+      resolveCaseMatchedRules(row),
+
     totalRisk:
       row.totalRiskScore ??
       row.riskScore ??
@@ -1184,6 +1370,53 @@ function normalizeCaseRow(
 /* ============================================================
    MATCHED RULE
 ============================================================ */
+
+// One entry per matched rule for the "Matched Rule...." popup. Cases from
+// GET /decisions/cases carry a matchedRules array (looked up from the scoring
+// service by scoringId); a case with only a flat rule field shows that one
+// rule; a case with no rule info at all gets an empty list (cell shows "-").
+function resolveCaseMatchedRules(row) {
+  const pick = (...values) =>
+    values.find(
+      (value) => value !== null && value !== undefined && value !== "",
+    ) ?? "-";
+
+  if (Array.isArray(row.matchedRules) && row.matchedRules.length > 0) {
+    return row.matchedRules.map((rule) => ({
+      ruleCode: pick(rule.ruleCode, rule.code, rule.ruleId, rule.rule?.code),
+      ruleName: pick(rule.ruleName, rule.name, rule.rule?.name),
+      ruleExpression: pick(
+        rule.ruleExpression,
+        rule.expression,
+        rule.condition,
+        rule.ruleCondition,
+        rule.rule?.expression,
+      ),
+      ruleScore: pick(rule.ruleScore, rule.score, rule.rule?.score),
+      calculatedScore: pick(
+        rule.calculatedScore,
+        rule.calculatedRiskScore,
+        rule.finalScore,
+      ),
+    }));
+  }
+
+  const flatName = row.matchedRule ?? row.ruleName ?? row.rule?.name;
+
+  if (!flatName && !row.ruleCode && !row.ruleExpression) {
+    return [];
+  }
+
+  return [
+    {
+      ruleCode: pick(row.ruleCode, row.rule?.code),
+      ruleName: pick(flatName),
+      ruleExpression: pick(row.ruleExpression, row.rule?.expression),
+      ruleScore: pick(row.ruleScore, row.rule?.score),
+      calculatedScore: pick(row.calculatedScore),
+    },
+  ];
+}
 
 function formatMatchedRules(row) {
   if (

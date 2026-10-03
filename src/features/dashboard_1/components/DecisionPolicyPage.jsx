@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../auth/services/authError";
@@ -50,24 +50,45 @@ const emptyForm = {
   description: "",
 };
 
+// The last policy loaded on this page, kept across visits (the page unmounts
+// when you leave it), so it shows instantly when you come back and then
+// refreshes quietly. Cleared before the reload that follows a create.
+const policyCache = { current: null };
+
 export default function DecisionPolicyPage() {
-  const [policy, setPolicy] = useState(null);
+  const [policy, setPolicy] = useState(() => policyCache.current);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [isLoadingPolicy, setIsLoadingPolicy] = useState(false);
+  // Starts true when nothing is cached, so the first paint shows
+  // "Loading…" rather than flashing "No decision policy data found".
+  const [isLoadingPolicy, setIsLoadingPolicy] = useState(() => !policyCache.current);
+  // Drops responses from an older load, so a slow earlier request can't
+  // overwrite a newer one.
+  const loadRequestIdRef = useRef(0);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [pageErrorMessage, setPageErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   const loadLatestPolicy = useCallback(async () => {
-    setIsLoadingPolicy(true);
+    const requestId = ++loadRequestIdRef.current;
+    const cached = policyCache.current;
+
+    if (cached) {
+      setPolicy(cached);
+      setIsLoadingPolicy(false);
+    } else {
+      setIsLoadingPolicy(true);
+    }
     setPageErrorMessage("");
 
     try {
       const response = await getLatestDecisionPolicy();
+      if (requestId !== loadRequestIdRef.current) return;
+
       if (isAccessDeniedDecisionPolicyResponse(response?.data)) {
+        policyCache.current = null;
         setPolicy(null);
         setPageErrorMessage(
           response?.data?.responseMessage || "Access denied.",
@@ -75,19 +96,23 @@ export default function DecisionPolicyPage() {
         return;
       }
 
-      setPolicy(
-        normalizeDecisionPolicy(
-          response?.data?.responseData ?? response?.data,
-          DecisionPolicyData,
-        ),
+      const latestPolicy = normalizeDecisionPolicy(
+        response?.data?.responseData ?? response?.data,
+        DecisionPolicyData,
       );
+      policyCache.current = latestPolicy;
+      setPolicy(latestPolicy);
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return;
+      // Keep showing the cached policy if a background refresh fails.
+      if (cached) return;
+
       setPolicy(null);
       setPageErrorMessage(
         getDecisionPolicyLoadErrorMessage(error),
       );
     } finally {
-      setIsLoadingPolicy(false);
+      if (requestId === loadRequestIdRef.current) setIsLoadingPolicy(false);
     }
   }, []);
 
@@ -134,6 +159,7 @@ export default function DecisionPolicyPage() {
       );
 
       setPolicy(createdPolicy);
+      policyCache.current = null;
       await loadLatestPolicy();
       setSuccessMessage(
         response?.data?.responseMessage ||
@@ -535,7 +561,9 @@ export default function DecisionPolicyPage() {
           </div>
         )}
 
-        {isLoadingPolicy && (
+        {/* Only when there's no policy to show yet; a refresh keeps the
+            current policy on screen instead. */}
+        {isLoadingPolicy && !policy && (
           <div
             style={{
               margin: "0 24px 16px",

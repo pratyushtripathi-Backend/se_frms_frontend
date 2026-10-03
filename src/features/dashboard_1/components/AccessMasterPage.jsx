@@ -29,15 +29,26 @@ const TABLE_COLUMNS = [
   "Action",
 ];
 
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by page / search / filter mode, so the table
+// shows instantly when you come back and then refreshes quietly.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage, search, isLocalFilterActive) =>
+  JSON.stringify([requestedPage, search ?? "", isLocalFilterActive]);
+
 export default function AccessMasterPage({ searchQuery = "" }) {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [accessRows, setAccessRows] = useState([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+  const initialCache = pageCache.get(pageCacheKey(0, searchQuery, false));
+  const [accessRows, setAccessRows] = useState(() => initialCache?.rows ?? []);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
+  const [totalPages, setTotalPages] = useState(() => initialCache?.totalPages ?? 1);
   const [currentPage, setCurrentPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  // Starts true when nothing is cached, so the first paint shows
+  // "Loading…" rather than flashing "No … found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
+  const loadRequestIdRef = useRef(0);
   const [isSaving, setIsSaving] = useState(false);
   const [openActionMenu, setOpenActionMenu] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -59,12 +70,25 @@ export default function AccessMasterPage({ searchQuery = "" }) {
   const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   const loadAccessList = useCallback(async () => {
-    setIsLoading(true);
+    const requestId = ++loadRequestIdRef.current;
+    const requestedPage = isLocalFilterActive ? 0 : currentPage - 1;
+    const cacheKey = pageCacheKey(requestedPage, searchQuery, isLocalFilterActive);
+    const cached = pageCache.get(cacheKey);
+
+    if (cached) {
+      setAccessRows(cached.rows);
+      setTotalRecords(cached.totalRecords);
+      setTotalPages(cached.totalPages);
+      setIsLoading(false);
+    } else {
+      // The current rows stay on screen (dimmed) until the new ones arrive.
+      setIsLoading(true);
+    }
     setErrorMessage("");
 
     try {
       const response = await getAccessList({
-        page: isLocalFilterActive ? 0 : currentPage - 1,
+        page: requestedPage,
         size: rowsPerPage,
         accessName: searchQuery,
       });
@@ -92,10 +116,21 @@ export default function AccessMasterPage({ searchQuery = "" }) {
         });
       }
 
+      if (requestId !== loadRequestIdRef.current) return;
+
       setAccessRows(normalizedRows);
+      pageCache.set(cacheKey, {
+        rows: normalizedRows,
+        totalRecords: normalizedResponse.totalRecords,
+        totalPages: normalizedResponse.totalPages,
+      });
       setTotalRecords(normalizedResponse.totalRecords);
       setTotalPages(normalizedResponse.totalPages);
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return;
+      // Keep showing the cached rows if a background refresh fails.
+      if (cached) return;
+
       setAccessRows([]);
       setTotalRecords(0);
       setTotalPages(1);
@@ -106,7 +141,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
         ),
       );
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestIdRef.current) setIsLoading(false);
     }
   }, [currentPage, isLocalFilterActive, searchQuery]);
 
@@ -206,6 +241,8 @@ export default function AccessMasterPage({ searchQuery = "" }) {
             : "Access created successfully."),
       );
       setShowSuccessModal(true);
+      // Every cached page is out of date after a change, so reload fresh.
+      pageCache.clear();
       await loadAccessList();
     } catch (error) {
       setSuccessMessage(
@@ -247,6 +284,8 @@ export default function AccessMasterPage({ searchQuery = "" }) {
       );
       setSuccessModalVariant("success");
       setShowSuccessModal(true);
+      // Every cached page is out of date after a change, so reload fresh.
+      pageCache.clear();
       await loadAccessList();
     } catch (error) {
       setSuccessMessage(
@@ -274,6 +313,8 @@ export default function AccessMasterPage({ searchQuery = "" }) {
       );
       setSuccessModalVariant("success");
       setShowSuccessModal(true);
+      // Every cached page is out of date after a change, so reload fresh.
+      pageCache.clear();
       await loadAccessList();
     } catch (error) {
       setSuccessMessage(
@@ -388,7 +429,12 @@ export default function AccessMasterPage({ searchQuery = "" }) {
         {/* Table Card */}
         <div className="overflow-hidden rounded-xl border border-[#ECECEC] bg-white">
 
-          <div className="w-full overflow-x-auto">
+          <div className="relative w-full overflow-x-auto">
+            {isLoading && visibleData.length > 0 && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-16">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
+              </div>
+            )}
 
             <table className="w-full min-w-[1000px] border-collapse">
 
@@ -405,8 +451,12 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                 </tr>
               </thead>
 
-              <tbody>
-                {isLoading && (
+              <tbody
+                className={`transition-opacity duration-200 ${
+                  isLoading && visibleData.length > 0 ? "opacity-50" : "opacity-100"
+                }`}
+              >
+                {isLoading && visibleData.length === 0 && (
                   <tr className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563]">
                     <td colSpan={TABLE_COLUMNS.length} className="px-4 py-6 text-center">
                       Loading access details...
@@ -422,7 +472,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                   </tr>
                 )}
 
-                {!isLoading && visibleData.map((item, index) => (
+                {visibleData.map((item, index) => (
                   <tr
                     key={item.id}
                     className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"

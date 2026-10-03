@@ -195,12 +195,17 @@ export function getMatchedRules({ page = 0, size = 20, year, startDate, endDate 
   });
 }
 
+// Unlike GET /decisions (which defaults to createdAt DESC), the backend's
+// GET /decisions/cases has no default sort, so without `sort` pages come back
+// oldest-first and page 1 of each tab (Under Review / Allowed / Blocked)
+// held the oldest cases. Ask for newest-first explicitly.
 export function getCases({ status = "REVIEW", page = 0, size = 10 } = {}) {
   return apiClient.get(`${decisionApiBaseUrl}/decisions/cases`, {
     params: {
       status,
       page,
       size,
+      sort: "createdAt,desc",
     },
     skipAuthRedirect: true,
   });

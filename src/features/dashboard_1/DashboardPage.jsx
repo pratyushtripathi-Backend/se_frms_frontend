@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NotificationProvider } from "../../context/NotificationContext.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import Header from "./components/Header.jsx";
@@ -172,6 +172,15 @@ export default function App({ onLogout }) {
     setDebouncedHeaderSearch("");
   }, [currentPage]);
 
+  // <main> is one scroll area shared by every page, so without this a page
+  // opened from the sidebar keeps the previous page's scroll position.
+  // Always start a newly opened page at its top.
+  const mainRef = useRef(null);
+
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [currentPage]);
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setDebouncedHeaderSearch(headerSearch.trim());
@@ -189,7 +198,7 @@ export default function App({ onLogout }) {
           setCurrentPage={setCurrentPage}
         />
 
-        <main className="min-w-0 flex-1 overflow-y-auto pb-12">
+        <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto pb-12">
         <Header
           onSearchChange={setHeaderSearch}
           searchValue={headerSearch}
@@ -215,6 +224,9 @@ export default function App({ onLogout }) {
           title={PAGE_TITLES[currentPage] ?? "Dashboard Overview"}
         />
 
+        {/* Re-keyed on every page switch so the newly opened page fades in
+            (see .frms-page-enter in styles/index.css) instead of popping in. */}
+        <div key={currentPage} className="frms-page-enter">
         {currentPage === "dashboard" && (
           <div className="flex flex-col gap-3 px-6 pb-10">
            <StatCards setCurrentPage={setCurrentPage} />
@@ -308,6 +320,7 @@ export default function App({ onLogout }) {
             )}
           </div>
         )}
+        </div>
       </main>
 
         <footer className="fixed bottom-0 left-[225px] right-0 z-30 bg-brand-bg/95 py-3 text-center text-[12px] font-medium text-[#8C8C8C] backdrop-blur">

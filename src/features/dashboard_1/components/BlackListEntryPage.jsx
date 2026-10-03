@@ -33,6 +33,14 @@ const RISK_TYPE_OPTIONS = ["High", "Medium", "Low"];
 
 const EMPTY_FORM = { type: "", value: "", reason: "", riskType: "" };
 
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by page / filter mode, so the table shows
+// instantly when you come back and then refreshes quietly. Search is
+// applied locally, so it isn't part of the key.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage, isLocalFilterActive) =>
+  JSON.stringify([requestedPage, isLocalFilterActive]);
+
 function parseEntryDate(value) {
   if (!value) {
     return null;
@@ -154,14 +162,17 @@ function normalizeBlacklistRow(row, index, pageOffset) {
 }
 
 export default function BlackListEntryPage({ searchQuery = "" }) {
-  const [rows, setRows] = useState([]);
+  const initialCache = pageCache.get(pageCacheKey(0, false));
+  const [rows, setRows] = useState(() => initialCache?.rows ?? []);
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalApiPages, setTotalApiPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
+  const [totalApiPages, setTotalApiPages] = useState(() => initialCache?.totalPages ?? 1);
+  // Starts true when nothing is cached, so the first paint shows
+  // "Loading…" rather than flashing "No … found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
   const [errorMessage, setErrorMessage] = useState("");
   const [showAddEntryModal, setShowAddEntryModal] = useState(false);
   const [formValues, setFormValues] = useState(EMPTY_FORM);
@@ -177,11 +188,22 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
 
   const loadEntries = useCallback(async () => {
     const requestId = ++requestIdRef.current;
-    setIsLoading(true);
+    const requestedPage = isLocalFilterActive ? 0 : currentPage - 1;
+    const cacheKey = pageCacheKey(requestedPage, isLocalFilterActive);
+    const cached = pageCache.get(cacheKey);
+
+    if (cached) {
+      setRows(cached.rows);
+      setTotalRecords(cached.totalRecords);
+      setTotalApiPages(cached.totalPages);
+      setIsLoading(false);
+    } else {
+      // The current rows stay on screen (dimmed) until the new ones arrive.
+      setIsLoading(true);
+    }
     setErrorMessage("");
 
     try {
-      const requestedPage = isLocalFilterActive ? 0 : currentPage - 1;
       const response = await getBlacklistEntries({
         page: requestedPage,
         size: rowsPerPage,
@@ -213,11 +235,24 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
         });
       }
 
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       setRows(normalizedRows);
+      pageCache.set(cacheKey, {
+        rows: normalizedRows,
+        totalRecords: normalizedResponse.totalRecords,
+        totalPages: normalizedResponse.totalPages,
+      });
       setTotalRecords(normalizedResponse.totalRecords);
       setTotalApiPages(normalizedResponse.totalPages);
     } catch (error) {
       if (requestId !== requestIdRef.current) {
+        return;
+      }
+      // Keep showing the cached rows if a background refresh fails.
+      if (cached) {
         return;
       }
 
@@ -324,6 +359,8 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
       setShowAddEntryModal(false);
       setSuccessMessage("Blacklist entry added successfully.");
       setCurrentPage(1);
+      // Every cached page is out of date after a change, so reload fresh.
+      pageCache.clear();
       await loadEntries();
     } catch (error) {
       setFormError(
@@ -337,6 +374,8 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
   const handleStatusToggle = async (row, nextStatus) => {
     try {
       await updateBlacklistStatus(row.id, nextStatus);
+      // Cached pages still hold the old status, so drop them.
+      pageCache.clear();
       setRows((previousRows) =>
         previousRows.map((item) =>
           item.id === row.id
@@ -460,7 +499,13 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
             </div>
           )}
 
-          <div className="w-full overflow-x-auto">
+          <div className="relative w-full overflow-x-auto">
+            {isLoading && visibleRows.length > 0 && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-16">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
+              </div>
+            )}
+
             <table className="w-full min-w-[1450px] border-collapse">
               <thead className="bg-[#F8F9FB]">
                 <tr>
@@ -475,8 +520,12 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
                 </tr>
               </thead>
 
-              <tbody>
-                {isLoading && (
+              <tbody
+                className={`transition-opacity duration-200 ${
+                  isLoading && visibleRows.length > 0 ? "opacity-50" : "opacity-100"
+                }`}
+              >
+                {isLoading && visibleRows.length === 0 && (
                   <tr>
                     <td colSpan={TABLE_COLUMNS.length} className="px-4 py-5 text-center text-[13px] text-[#6B7280]">
                       Loading blacklist entries...
@@ -492,7 +541,7 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
                   </tr>
                 )}
 
-                {!isLoading && visibleRows.map((row) => (
+                {visibleRows.map((row) => (
                   <tr
                     key={row.id}
                     className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"

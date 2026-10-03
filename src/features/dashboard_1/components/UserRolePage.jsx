@@ -19,16 +19,31 @@ import DashboardStatusToggle from "./DashboardStatusToggle";
 import { openDashboardDatePicker } from "./dashboardDatePicker";
 const rowsPerPage = 10;
 
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by page / filter mode (search is applied
+// locally, so it isn't part of the request), so the table shows instantly
+// when you come back and then refreshes quietly.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage, isLocalFilterActive) =>
+  JSON.stringify([requestedPage, isLocalFilterActive]);
+
+// Role dropdown options, kept across visits so they're ready right away.
+const optionsCache = { current: null };
+
 export default function UserRolePage({ searchQuery = "" }) {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [userRoles, setUserRoles] = useState([]);
-  const [roleOptions, setRoleOptions] = useState([]);
-  const [totalRecords, setTotalRecords] = useState(0);
+  const initialCache = pageCache.get(pageCacheKey(0, Boolean(searchQuery.trim())));
+  const [userRoles, setUserRoles] = useState(() => initialCache?.rows ?? []);
+  const [roleOptions, setRoleOptions] = useState(() => optionsCache.current ?? []);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
   const [openActionId, setOpenActionId] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  // Starts true when nothing is cached, so the first paint shows
+  // "Loading..." rather than flashing "No ... found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
+  const loadRequestIdRef = useRef(0);
   const [isLoadingRoles, setIsLoadingRoles] = useState(false);
   const [updatingRoleId, setUpdatingRoleId] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -50,7 +65,9 @@ export default function UserRolePage({ searchQuery = "" }) {
 
     try {
       const response = await getAdminRoles({ page: 0, size: 100 });
-      setRoleOptions(normalizeRoleOptions(response.data));
+      const options = normalizeRoleOptions(response.data);
+      optionsCache.current = options;
+      setRoleOptions(options);
     } catch (error) {
       setErrorMessage(
         getAuthErrorMessage(error, "Unable to load roles. Please try again."),
@@ -61,7 +78,21 @@ export default function UserRolePage({ searchQuery = "" }) {
   }, []);
 
   const loadUserRoles = useCallback(async ({ showLoader = true } = {}) => {
-    if (showLoader) setIsLoading(true);
+    const requestId = ++loadRequestIdRef.current;
+    const cacheKey = pageCacheKey(
+      isLocalFilterActive ? 0 : currentPage - 1,
+      isLocalFilterActive,
+    );
+    const cached = pageCache.get(cacheKey);
+
+    if (cached) {
+      setUserRoles(cached.rows);
+      setTotalRecords(cached.totalRecords);
+      setIsLoading(false);
+    } else if (showLoader) {
+      // The current rows stay on screen (dimmed) until the new ones arrive.
+      setIsLoading(true);
+    }
     setErrorMessage("");
 
     try {
@@ -87,9 +118,19 @@ export default function UserRolePage({ searchQuery = "" }) {
         });
       }
 
+      if (requestId !== loadRequestIdRef.current) return;
+
+      pageCache.set(cacheKey, {
+        rows: normalizedRows,
+        totalRecords: normalizedResponse.totalRecords,
+      });
       setUserRoles(normalizedRows);
       setTotalRecords(normalizedResponse.totalRecords);
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return;
+      // Keep showing the cached rows if a background refresh fails.
+      if (cached) return;
+
       setUserRoles([]);
       setTotalRecords(0);
       setErrorMessage(
@@ -99,7 +140,7 @@ export default function UserRolePage({ searchQuery = "" }) {
         ),
       );
     } finally {
-      if (showLoader) setIsLoading(false);
+      if (requestId === loadRequestIdRef.current) setIsLoading(false);
     }
   }, [currentPage, isLocalFilterActive]);
 
@@ -108,7 +149,7 @@ export default function UserRolePage({ searchQuery = "" }) {
 
     async function loadInitialUserRoles() {
       if (!isActive) return;
-      await Promise.all([loadUserRoles(), loadRoleOptions()]);
+      await loadUserRoles();
     }
 
     loadInitialUserRoles();
@@ -116,7 +157,13 @@ export default function UserRolePage({ searchQuery = "" }) {
     return () => {
       isActive = false;
     };
-  }, [currentPage, loadRoleOptions, loadUserRoles]);
+  }, [currentPage, loadUserRoles]);
+
+  // Role options don't depend on the page or filters, so load them
+  // once per visit instead of again on every page change.
+  useEffect(() => {
+    loadRoleOptions();
+  }, [loadRoleOptions]);
 
   const filteredData = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -229,6 +276,8 @@ export default function UserRolePage({ searchQuery = "" }) {
         response.data?.responseMessage || "User role updated successfully.",
       );
       setShowSuccessModal(true);
+      // Every cached page is out of date after an edit.
+      pageCache.clear();
       await loadUserRoles({ showLoader: false });
     } catch (error) {
       setErrorMessage(
@@ -264,6 +313,8 @@ export default function UserRolePage({ searchQuery = "" }) {
       setSuccessMessage(
         response.data?.responseMessage || "User role deleted successfully.",
       );
+      // Every cached page is out of date after a delete.
+      pageCache.clear();
       await loadUserRoles({ showLoader: false });
     } catch (error) {
       setErrorMessage(
@@ -363,6 +414,13 @@ export default function UserRolePage({ searchQuery = "" }) {
             </div>
           )}
 
+          <div className="relative w-full">
+            {isLoading && currentData.length > 0 && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-16">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
+              </div>
+            )}
+
           <table className="w-full border-collapse">
             <thead className="h-12 border-b border-[#ECECEC] bg-[#FAFAFA]">
               <tr>
@@ -386,8 +444,12 @@ export default function UserRolePage({ searchQuery = "" }) {
               </tr>
             </thead>
 
-            <tbody>
-              {isLoading && (
+            <tbody
+              className={`transition-opacity duration-200 ${
+                isLoading && currentData.length > 0 ? "opacity-50" : "opacity-100"
+              }`}
+            >
+              {isLoading && currentData.length === 0 && (
                 <tr>
                   <td
                     className="px-4 py-5 text-center text-[12px] text-[#6B7280]"
@@ -409,7 +471,7 @@ export default function UserRolePage({ searchQuery = "" }) {
                 </tr>
               )}
 
-              {!isLoading && currentData.map((item, index) => (
+              {currentData.map((item, index) => (
                 <tr className="h-12 border-b border-[#F2F2F2]" key={item.id}>
                   <td className="whitespace-nowrap px-4 py-2.5 text-[12px] text-[#555555]">
                     {(currentPage - 1) * rowsPerPage + index + 1}
@@ -423,7 +485,13 @@ export default function UserRolePage({ searchQuery = "" }) {
                   <td className="whitespace-nowrap px-4 py-2.5 text-[12px]">
                     <DashboardStatusToggle
                       onToggle={(nextStatus) =>
-                        updateAdminUserRoleStatus(item.id, { status: nextStatus })
+                        updateAdminUserRoleStatus(item.id, { status: nextStatus }).then(
+                          (response) => {
+                            // Cached pages still hold the old status.
+                            pageCache.clear();
+                            return response;
+                          },
+                        )
                       }
                       status={item.status}
                     />
@@ -451,6 +519,7 @@ export default function UserRolePage({ searchQuery = "" }) {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
 
         <div className="flex items-center justify-between px-5 pt-4">

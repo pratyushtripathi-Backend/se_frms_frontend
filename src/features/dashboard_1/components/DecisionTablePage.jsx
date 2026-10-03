@@ -1,3 +1,4 @@
+import { scrollIntoHorizontalStrip } from "./scrollPageStrip";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiChevronDown,
@@ -18,17 +19,29 @@ const decisionColors = {
   Allow: "#27AE60",
 };
 
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by page / size / year / from / to, so the
+// table shows instantly when you come back and then refreshes quietly.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage, size, year, startDate, endDate) =>
+  JSON.stringify([requestedPage, size, year ?? "", startDate ?? "", endDate ?? ""]);
+
 export default function DecisionTablePage() {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [decisionRows, setDecisionRows] = useState([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const initialCache = pageCache.get(pageCacheKey(0, rowsPerPage, "", "", ""));
+  const [decisionRows, setDecisionRows] = useState(() => initialCache?.rows ?? []);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
+  const [totalPages, setTotalPages] = useState(() => initialCache?.totalPages ?? 1);
+  // Starts true when nothing is cached, so the first paint shows the
+  // loader rather than flashing "No … found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
   const [errorMessage, setErrorMessage] = useState("");
+  // Drops responses for a page/filter you've already moved away from.
+  const loadRequestIdRef = useRef(0);
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
   const pageScrollRef = useRef(null);
@@ -39,11 +52,23 @@ export default function DecisionTablePage() {
   useEffect(() => {
     const container = pageScrollRef.current;
     const activeButton = container?.querySelector(`[data-page="${currentPage}"]`);
-    activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    scrollIntoHorizontalStrip(activeButton);
   }, [currentPage, totalPages]);
 
   const loadDecisions = useCallback(async () => {
-    setIsLoading(true);
+    const requestId = ++loadRequestIdRef.current;
+    const cacheKey = pageCacheKey(currentPage - 1, rowsPerPage, year, fromDate, toDate);
+    const cached = pageCache.get(cacheKey);
+
+    if (cached) {
+      setDecisionRows(cached.rows);
+      setTotalRecords(cached.totalRecords);
+      setTotalPages(cached.totalPages);
+      setIsLoading(false);
+    } else {
+      // The current rows stay on screen (dimmed) until the new ones arrive.
+      setIsLoading(true);
+    }
     setErrorMessage("");
 
     try {
@@ -60,10 +85,21 @@ export default function DecisionTablePage() {
         rowsPerPage,
       );
 
+      if (requestId !== loadRequestIdRef.current) return;
+
       setDecisionRows(normalizedResponse.rows);
       setTotalRecords(normalizedResponse.totalRecords);
       setTotalPages(normalizedResponse.totalPages);
+      pageCache.set(cacheKey, {
+        rows: normalizedResponse.rows,
+        totalRecords: normalizedResponse.totalRecords,
+        totalPages: normalizedResponse.totalPages,
+      });
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return;
+      // Keep showing the cached rows if a background refresh fails.
+      if (cached) return;
+
       setDecisionRows([]);
       setTotalRecords(0);
       setTotalPages(1);
@@ -71,7 +107,7 @@ export default function DecisionTablePage() {
         getAuthErrorMessage(error, "Unable to load decision table. Please try again."),
       );
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestIdRef.current) setIsLoading(false);
     }
   }, [currentPage, year, fromDate, toDate]);
 
@@ -605,7 +641,8 @@ export default function DecisionTablePage() {
             <tbody
               style={{
                 ...styles.tableBody,
-                opacity: isLoading ? 0.4 : 1,
+                opacity: isLoading && currentRows.length ? 0.5 : 1,
+                transition: "opacity 0.2s",
               }}
             >
               {errorMessage && (
@@ -654,9 +691,29 @@ export default function DecisionTablePage() {
             </tbody>
           </table>
 
-          {isLoading && (
+          {/* First load (nothing to show yet): the full loader. Reloads with
+              rows on screen: the rows stay visible, dimmed, under a small
+              spinner. */}
+          {isLoading && currentRows.length === 0 && (
             <div style={styles.loadingOverlay}>
               <Loader label="Loading decision table..." />
+            </div>
+          )}
+
+          {isLoading && currentRows.length > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 10,
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "center",
+                paddingTop: "64px",
+                background: "rgba(255, 255, 255, 0.5)",
+              }}
+            >
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
             </div>
           )}
         </div>

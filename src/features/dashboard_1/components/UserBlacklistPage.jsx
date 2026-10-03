@@ -18,6 +18,14 @@ import {
 import DashboardSuccessModal from "./DashboardSuccessModal";
 
 import { openDashboardDatePicker } from "./dashboardDatePicker";
+
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by page / search / filter mode, so the table
+// shows instantly when you come back and then refreshes quietly.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage, search, isLocalFilterActive) =>
+  JSON.stringify([requestedPage, search ?? "", isLocalFilterActive]);
+
 const UserBlacklistPage = ({ searchQuery = "" }) => {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -32,11 +40,14 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
     riskType: "LOGIN_RISK",
     reason: "",
   });
-  const [blacklistUsers, setBlacklistUsers] = useState([]);
+  const initialCache = pageCache.get(pageCacheKey(1, searchQuery, false));
+  const [blacklistUsers, setBlacklistUsers] = useState(() => initialCache?.rows ?? []);
   const [users, setUsers] = useState([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalApiPages, setTotalApiPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
+  const [totalApiPages, setTotalApiPages] = useState(() => initialCache?.totalPages ?? 1);
+  // Starts true when nothing is cached, so the first paint shows
+  // "Loading..." rather than flashing "No ... found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isSubmittingBlacklist, setIsSubmittingBlacklist] = useState(false);
   const [removingUserId, setRemovingUserId] = useState(null);
@@ -56,7 +67,22 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
     let isActive = true;
 
     async function loadBlacklistUsers() {
-      setIsLoading(true);
+      const cacheKey = pageCacheKey(
+        isLocalFilterActive ? 1 : currentPage,
+        searchQuery,
+        isLocalFilterActive,
+      );
+      const cached = pageCache.get(cacheKey);
+
+      if (cached) {
+        setBlacklistUsers(cached.rows);
+        setTotalRecords(cached.totalRecords);
+        setTotalApiPages(cached.totalPages);
+        setIsLoading(false);
+      } else {
+        // The current rows stay on screen (dimmed) until the new ones arrive.
+        setIsLoading(true);
+      }
       setErrorMessage("");
 
       try {
@@ -85,11 +111,19 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
 
         if (!isActive) return;
 
+        pageCache.set(cacheKey, {
+          rows: normalizedRows,
+          totalRecords: normalizedResponse.totalRecords,
+          totalPages: normalizedResponse.totalPages,
+        });
+
         setBlacklistUsers(normalizedRows);
         setTotalRecords(normalizedResponse.totalRecords);
         setTotalApiPages(normalizedResponse.totalPages);
       } catch (error) {
         if (!isActive) return;
+        // Keep showing the cached rows if a background refresh fails.
+        if (cached) return;
 
         setBlacklistUsers([]);
         setTotalRecords(0);
@@ -230,6 +264,8 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
         reason: formData.reason.trim(),
         riskType: formData.riskType,
       });
+      // Every cached page is out of date after adding to the blacklist.
+      pageCache.clear();
       const normalizedResponse = await fetchBlacklistPage({
         currentPage,
         rowsPerPage,
@@ -276,6 +312,8 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
       const response = await removeAdminBlacklistUser({
         userId,
       });
+      // Every cached page is out of date after an unblock.
+      pageCache.clear();
       const normalizedResponse = await fetchBlacklistPage({
         currentPage,
         rowsPerPage,
@@ -432,7 +470,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
     th: {
       textAlign: "left",
       padding: "12px 16px",
-      fontSize: "12px",
+      fontSize: "13px",
       fontWeight: 600,
       color: "#444",
       whiteSpace: "nowrap",
@@ -445,7 +483,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
 
     td: {
       padding: "10px 16px",
-      fontSize: "12px",
+      fontSize: "13px",
       color: "#555",
       whiteSpace: "nowrap",
     },
@@ -478,13 +516,13 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
 
     createdDate: {
       color: "#2F80ED",
-      fontSize: "12px",
+      fontSize: "13px",
       fontWeight: 500,
     },
 
     createdTime: {
       color: "#27AE60",
-      fontSize: "12px",
+      fontSize: "13px",
     },
 
     removeButton: {
@@ -494,7 +532,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
       background: "#EFEFEF",
       color: "#666",
       cursor: "pointer",
-      fontSize: "12px",
+      fontSize: "13px",
       fontWeight: 500,
     },
 
@@ -506,7 +544,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
     },
 
     footerText: {
-      fontSize: "12px",
+      fontSize: "13px",
       color: "#666",
     },
 
@@ -803,7 +841,12 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
           </div>
         )}
 
-        <div style={styles.tableContainer}>
+        <div style={{ ...styles.tableContainer, position: "relative" }}>
+          {isLoading && visibleData.length > 0 && (
+            <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-16">
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
+            </div>
+          )}
 
           <table style={styles.table}>
 
@@ -825,9 +868,14 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
               </tr>
             </thead>
 
-            <tbody>
+            <tbody
+              style={{
+                opacity: isLoading && visibleData.length ? 0.5 : 1,
+                transition: "opacity 0.2s",
+              }}
+            >
 
-              {isLoading && (
+              {isLoading && visibleData.length === 0 && (
                 <tr style={styles.tr}>
                   <td colSpan={11} style={{ ...styles.td, textAlign: "center" }}>
                     Loading blacklist users...
@@ -843,7 +891,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
                 </tr>
               )}
 
-              {!isLoading && visibleData.map((item, index) => (
+              {visibleData.map((item, index) => (
 
                 <tr key={item.id} style={styles.tr}>
 

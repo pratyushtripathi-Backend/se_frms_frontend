@@ -38,16 +38,29 @@ const ROLE_COLUMN_ORDER = [
   "updatedAt",
 ];
 
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by page / filter mode (search is applied
+// locally, so it isn't part of the request), so the table shows instantly
+// when you come back and then refreshes quietly.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage, isLocalFilterActive) =>
+  JSON.stringify([requestedPage, isLocalFilterActive]);
+
 const ManageRolePage = ({ searchQuery = "" }) => {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [openMenu, setOpenMenu] = useState(null);
-  const [roles, setRoles] = useState([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalApiPages, setTotalApiPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const initialCache = pageCache.get(
+    pageCacheKey(0, Boolean(searchQuery.trim())),
+  );
+  const [roles, setRoles] = useState(() => initialCache?.rows ?? []);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
+  const [totalApiPages, setTotalApiPages] = useState(() => initialCache?.totalPages ?? 1);
+  // Starts true when nothing is cached, so the first paint shows
+  // "Loading..." rather than flashing "No ... found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [editingRole, setEditingRole] = useState(null);
   const [roleForm, setRoleForm] = useState(INITIAL_ROLE_FORM);
@@ -65,7 +78,21 @@ const ManageRolePage = ({ searchQuery = "" }) => {
     let isActive = true;
 
     async function loadRoles() {
-      setIsLoading(true);
+      const cacheKey = pageCacheKey(
+        isLocalFilterActive ? 0 : currentPage - 1,
+        isLocalFilterActive,
+      );
+      const cached = pageCache.get(cacheKey);
+
+      if (cached) {
+        setRoles(cached.rows);
+        setTotalRecords(cached.totalRecords);
+        setTotalApiPages(cached.totalPages);
+        setIsLoading(false);
+      } else {
+        // The current rows stay on screen (dimmed) until the new ones arrive.
+        setIsLoading(true);
+      }
       setErrorMessage("");
 
       try {
@@ -95,11 +122,19 @@ const ManageRolePage = ({ searchQuery = "" }) => {
 
         if (!isActive) return;
 
+        pageCache.set(cacheKey, {
+          rows: normalizedRows,
+          totalRecords: normalizedResponse.totalRecords,
+          totalPages: normalizedResponse.totalPages,
+        });
+
         setRoles(normalizedRows);
         setTotalRecords(normalizedResponse.totalRecords);
         setTotalApiPages(normalizedResponse.totalPages);
       } catch (error) {
         if (!isActive) return;
+        // Keep showing the cached rows if a background refresh fails.
+        if (cached) return;
 
         setRoles([]);
         setTotalRecords(0);
@@ -242,6 +277,8 @@ const ManageRolePage = ({ searchQuery = "" }) => {
         ? await updateAdminRole(editingRole.id, payload)
         : await createAdminRole(payload);
 
+      // Every cached page is out of date after a create/edit.
+      pageCache.clear();
       await refreshRoles();
       closeRoleModal();
       const nextSuccessMessage =
@@ -670,7 +707,12 @@ const ManageRolePage = ({ searchQuery = "" }) => {
           </div>
         )}
 
-        <div style={styles.tableContainer}>
+        <div style={{ ...styles.tableContainer, position: "relative" }}>
+          {isLoading && currentRoles.length > 0 && (
+            <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-16">
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
+            </div>
+          )}
 
           <table style={styles.table}>
 
@@ -691,8 +733,13 @@ const ManageRolePage = ({ searchQuery = "" }) => {
 
             </thead>
 
-            <tbody>
-              {isLoading && (
+            <tbody
+              style={{
+                opacity: isLoading && currentRoles.length ? 0.5 : 1,
+                transition: "opacity 0.2s",
+              }}
+            >
+              {isLoading && currentRoles.length === 0 && (
                 <tr style={styles.tr}>
                   <td colSpan={tableColSpan} style={{ ...styles.td, textAlign: "center" }}>
                     Loading roles...
@@ -719,7 +766,7 @@ const ManageRolePage = ({ searchQuery = "" }) => {
                 </tr>
               )}
 
-              {!isLoading && !errorMessage && currentRoles.map((role, index) => (
+              {!errorMessage && currentRoles.map((role, index) => (
 
                 <tr key={role.id} style={styles.tr}>
                   <td style={styles.td}>
@@ -1100,7 +1147,13 @@ function renderRoleCell(role, key) {
   if (key === "status") {
     return (
       <DashboardStatusToggle
-        onToggle={(nextStatus) => updateAdminRoleStatus(role.id, nextStatus)}
+        onToggle={(nextStatus) =>
+          updateAdminRoleStatus(role.id, nextStatus).then((response) => {
+            // Cached pages still hold the old status.
+            pageCache.clear();
+            return response;
+          })
+        }
         status={value}
       />
     );

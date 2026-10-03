@@ -1,3 +1,4 @@
+import { scrollIntoHorizontalStrip } from "./scrollPageStrip";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -13,18 +14,30 @@ import Loader from "../../../components/ui/Loader";
 
 const rowsPerPage = 10;
 
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by page / size / year / from / to, so the
+// table shows instantly when you come back and then refreshes quietly.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage, size, year, startDate, endDate) =>
+  JSON.stringify([requestedPage, size, year ?? "", startDate ?? "", endDate ?? ""]);
+
 export default function MatchedRulePage() {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [matchedRuleRows, setMatchedRuleRows] = useState([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const initialCache = pageCache.get(pageCacheKey(0, rowsPerPage, "", "", ""));
+  const [matchedRuleRows, setMatchedRuleRows] = useState(() => initialCache?.rows ?? []);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
+  const [totalPages, setTotalPages] = useState(() => initialCache?.totalPages ?? 1);
+  // Starts true when nothing is cached, so the first paint shows the
+  // loader rather than flashing "No … found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
   const [errorMessage, setErrorMessage] = useState("");
   const [rulesModalRow, setRulesModalRow] = useState(null);
+  // Drops responses for a page/filter you've already moved away from.
+  const loadRequestIdRef = useRef(0);
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
   const pageScrollRef = useRef(null);
@@ -35,11 +48,23 @@ export default function MatchedRulePage() {
   useEffect(() => {
     const container = pageScrollRef.current;
     const activeButton = container?.querySelector(`[data-page="${currentPage}"]`);
-    activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    scrollIntoHorizontalStrip(activeButton);
   }, [currentPage, totalPages]);
 
   const loadMatchedRules = useCallback(async () => {
-    setIsLoading(true);
+    const requestId = ++loadRequestIdRef.current;
+    const cacheKey = pageCacheKey(currentPage - 1, rowsPerPage, year, fromDate, toDate);
+    const cached = pageCache.get(cacheKey);
+
+    if (cached) {
+      setMatchedRuleRows(cached.rows);
+      setTotalRecords(cached.totalRecords);
+      setTotalPages(cached.totalPages);
+      setIsLoading(false);
+    } else {
+      // The current rows stay on screen (dimmed) until the new ones arrive.
+      setIsLoading(true);
+    }
     setErrorMessage("");
 
     try {
@@ -56,10 +81,21 @@ export default function MatchedRulePage() {
         rowsPerPage,
       );
 
+      if (requestId !== loadRequestIdRef.current) return;
+
       setMatchedRuleRows(normalizedResponse.rows);
       setTotalRecords(normalizedResponse.totalRecords);
       setTotalPages(normalizedResponse.totalPages);
+      pageCache.set(cacheKey, {
+        rows: normalizedResponse.rows,
+        totalRecords: normalizedResponse.totalRecords,
+        totalPages: normalizedResponse.totalPages,
+      });
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return;
+      // Keep showing the cached rows if a background refresh fails.
+      if (cached) return;
+
       setMatchedRuleRows([]);
       setTotalRecords(0);
       setTotalPages(1);
@@ -67,7 +103,7 @@ export default function MatchedRulePage() {
         getAuthErrorMessage(error, "Unable to load matched rules. Please try again."),
       );
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestIdRef.current) setIsLoading(false);
     }
   }, [currentPage, year, fromDate, toDate]);
 
@@ -676,7 +712,10 @@ export default function MatchedRulePage() {
             <tbody
               style={{
                 ...styles.tableBody,
-                opacity: isLoading ? 0.4 : 1,
+                // Lighter dim when there are rows, so they stay readable
+                // under the loading overlay.
+                opacity: isLoading && currentRows.length ? 0.5 : 1,
+                transition: "opacity 0.2s",
               }}
             >
               {errorMessage && (

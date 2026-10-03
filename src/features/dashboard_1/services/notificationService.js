@@ -23,3 +23,61 @@ export async function fetchNotifications(params = {}) {
   })
   return response.data
 }
+
+// TEMPORARY: notification-service's NotificationTemplateController checks
+// every /notification-templates request for an X-INTERNAL-API-KEY header
+// (it has no login-token check), and returns 403 "Invalid internal API key"
+// otherwise. Until the backend accepts the login token there, the frontend
+// sends that header.
+//
+// The expected key is the backend's `notification.monolith.internal-api-key`
+// = ${INTERNAL_API_KEY:local-internal-key}. In local dev the backend default
+// `local-internal-key` is used automatically; if the backend runs with a real
+// INTERNAL_API_KEY, set VITE_INTERNAL_API_KEY to the same value in .env.local.
+// Note: anything sent from the browser is visible to users — remove this once
+// the backend is fixed.
+const INTERNAL_API_KEY_HEADER = 'X-INTERNAL-API-KEY'
+const internalApiKey =
+  import.meta.env.VITE_INTERNAL_API_KEY ||
+  (import.meta.env.DEV ? 'local-internal-key' : undefined)
+
+function internalApiKeyHeaders() {
+  if (!internalApiKey) {
+    console.warn(
+      '[notificationService] VITE_INTERNAL_API_KEY is not set — ' +
+        '/notification-templates calls will be rejected with "Invalid internal API key".',
+    )
+    return {}
+  }
+
+  return { [INTERNAL_API_KEY_HEADER]: internalApiKey }
+}
+
+// Notification Review / Block Email format templates (Email Format page).
+// These live on the notification service, not the admin service that
+// apiClient's default base URL points at — calling them without
+// notificationApiBaseUrl returns 404 "API not found".
+// Unlike the fetchers above, these return the full axios response, to match
+// how EmailFormatPage reads `response.data`.
+export function getNotificationTemplates() {
+  return apiClient.get(`${notificationApiBaseUrl}/notification-templates`, {
+    headers: internalApiKeyHeaders(),
+    skipAuthRedirect: true,
+  })
+}
+
+export function createNotificationTemplate(payload) {
+  return apiClient.post(`${notificationApiBaseUrl}/notification-templates`, payload, {
+    headers: internalApiKeyHeaders(),
+    skipAuthRedirect: true,
+  })
+}
+
+// PATCH /api/v1/notification-templates/{templateId}
+// payload: { subjectTemplate, bodyTemplate }
+export function updateNotificationTemplate(templateId, payload) {
+  return apiClient.patch(`${notificationApiBaseUrl}/notification-templates/${templateId}`, payload, {
+    headers: internalApiKeyHeaders(),
+    skipAuthRedirect: true,
+  })
+}

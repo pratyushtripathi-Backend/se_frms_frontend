@@ -21,6 +21,13 @@ import { openDashboardDatePicker } from "./dashboardDatePicker";
 
 const rowsPerPage = 10;
 
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by page / search / filter mode, so the table
+// shows instantly when you come back and then refreshes quietly.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage, search, isLocalFilterActive) =>
+  JSON.stringify([requestedPage, search ?? "", isLocalFilterActive]);
+
 export default function AllUsersPage({ searchQuery = "" }) {
   // =========================================================
   // FILTER STATES
@@ -37,10 +44,13 @@ export default function AllUsersPage({ searchQuery = "" }) {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [openMenu, setOpenMenu] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const initialCache = pageCache.get(pageCacheKey(0, searchQuery, false));
+  const [users, setUsers] = useState(() => initialCache?.rows ?? []);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
+  const [totalPages, setTotalPages] = useState(() => initialCache?.totalPages ?? 1);
+  // Starts true when nothing is cached, so the first paint shows
+  // "Loading..." rather than flashing "No ... found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
   const [errorMessage, setErrorMessage] = useState("");
 
   // =========================================================
@@ -91,7 +101,22 @@ export default function AllUsersPage({ searchQuery = "" }) {
     let isActive = true;
 
     async function loadUsers() {
-      setIsLoading(true);
+      const cacheKey = pageCacheKey(
+        isLocalFilterActive ? 0 : currentPage - 1,
+        searchQuery,
+        isLocalFilterActive
+      );
+      const cached = pageCache.get(cacheKey);
+
+      if (cached) {
+        setUsers(cached.rows);
+        setTotalRecords(cached.totalRecords);
+        setTotalPages(cached.totalPages);
+        setIsLoading(false);
+      } else {
+        // The current rows stay on screen (dimmed) until the new ones arrive.
+        setIsLoading(true);
+      }
       setErrorMessage("");
 
       try {
@@ -153,19 +178,28 @@ export default function AllUsersPage({ searchQuery = "" }) {
 
         if (!isActive) return;
 
-        setUsers(normalizedRows);
-
-        setTotalRecords(
+        const nextTotalRecords =
           isLocalFilterActive
             ? normalizedRows.length
-            : normalizedResponse.totalRecords
-        );
+            : normalizedResponse.totalRecords;
+
+        pageCache.set(cacheKey, {
+          rows: normalizedRows,
+          totalRecords: nextTotalRecords,
+          totalPages: normalizedResponse.totalPages,
+        });
+
+        setUsers(normalizedRows);
+
+        setTotalRecords(nextTotalRecords);
 
         setTotalPages(
           normalizedResponse.totalPages
         );
       } catch (error) {
         if (!isActive) return;
+        // Keep showing the cached rows if a background refresh fails.
+        if (cached) return;
 
         setUsers([]);
         setTotalRecords(0);
@@ -441,6 +475,10 @@ export default function AllUsersPage({ searchQuery = "" }) {
         payload
       );
 
+      // The edited row is patched in place below, so drop the cached pages
+      // instead of letting a later visit show the old values.
+      pageCache.clear();
+
       const updatedUser =
         normalizeUserRow(
           response.data?.responseData ??
@@ -679,7 +717,12 @@ export default function AllUsersPage({ searchQuery = "" }) {
             TABLE
         ====================================================== */}
 
-        <div className="overflow-x-auto overflow-y-visible rounded-[10px] border border-[#E5E7EB] bg-white">
+        <div className="relative overflow-x-auto overflow-y-visible rounded-[10px] border border-[#E5E7EB] bg-white">
+          {isLoading && visibleUsers.length > 0 && (
+            <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-16">
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
+            </div>
+          )}
 
           <table className="w-full min-w-[1280px] border-collapse">
 
@@ -709,13 +752,17 @@ export default function AllUsersPage({ searchQuery = "" }) {
 
             </thead>
 
-            <tbody>
+            <tbody
+              className={`transition-opacity duration-200 ${
+                isLoading && visibleUsers.length > 0 ? "opacity-50" : "opacity-100"
+              }`}
+            >
 
               {/* =================================================
                   LOADING
               ================================================== */}
 
-              {isLoading && (
+              {isLoading && visibleUsers.length === 0 && (
                 <tr className="h-12 border-b border-[#F1F1F1]">
                   <td
                     className="px-[18px] py-5 text-center text-[13px] text-[#555555]"
@@ -746,8 +793,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
                   USER ROWS
               ================================================== */}
 
-              {!isLoading &&
-                visibleUsers.map(
+              {visibleUsers.map(
                   (user, index) => (
                     <tr
                       key={user.id}
@@ -792,7 +838,11 @@ export default function AllUsersPage({ searchQuery = "" }) {
                               user.userId ??
                                 user.id,
                               nextStatus
-                            )
+                            ).then((response) => {
+                              // Cached pages still hold the old status.
+                              pageCache.clear();
+                              return response;
+                            })
                           }
                           status={user.status}
                         />

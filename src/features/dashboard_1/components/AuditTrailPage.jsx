@@ -23,16 +23,26 @@ const tableColumns = [
   "Status",
 ];
 
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by page, so the table shows instantly when
+// you come back and then refreshes quietly. Search and dates are applied
+// locally, so they aren't part of the key.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage) => JSON.stringify([requestedPage]);
+
 export default function AuditTrailPage({ searchQuery = "" }) {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRow, setSelectedRow] = useState(null);
   const [eventDetailsPopover, setEventDetailsPopover] = useState(null);
-  const [auditRows, setAuditRows] = useState([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalApiPages, setTotalApiPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const initialCache = pageCache.get(pageCacheKey(0));
+  const [auditRows, setAuditRows] = useState(() => initialCache?.rows ?? []);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
+  const [totalApiPages, setTotalApiPages] = useState(() => initialCache?.totalPages ?? 1);
+  // Starts true when nothing is cached, so the first paint shows
+  // "Loading…" rather than flashing "No … found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
   const [errorMessage, setErrorMessage] = useState("");
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
@@ -91,8 +101,18 @@ export default function AuditTrailPage({ searchQuery = "" }) {
 
   const loadAuditLogs = useCallback(async () => {
     const requestId = ++requestIdRef.current;
+    const cacheKey = pageCacheKey(currentPage - 1);
+    const cached = pageCache.get(cacheKey);
 
-    setIsLoading(true);
+    if (cached) {
+      setAuditRows(cached.rows);
+      setTotalRecords(cached.totalRecords);
+      setTotalApiPages(cached.totalPages);
+      setIsLoading(false);
+    } else {
+      // The current rows stay on screen (dimmed) until the new ones arrive.
+      setIsLoading(true);
+    }
     setErrorMessage("");
     setEventDetailsPopover(null);
 
@@ -108,13 +128,22 @@ export default function AuditTrailPage({ searchQuery = "" }) {
 
       const pageOffset = (currentPage - 1) * rowsPerPage;
 
-      setAuditRows(
-        rawRows.map((row, index) => normalizeAuditLogRow(row, index, pageOffset)),
+      const normalizedRows = rawRows.map((row, index) =>
+        normalizeAuditLogRow(row, index, pageOffset),
       );
+
+      setAuditRows(normalizedRows);
+      pageCache.set(cacheKey, {
+        rows: normalizedRows,
+        totalRecords: apiTotalRecords,
+        totalPages,
+      });
       setTotalRecords(apiTotalRecords);
       setTotalApiPages(totalPages);
     } catch (fetchError) {
       if (requestIdRef.current !== requestId) return;
+      // Keep showing the cached rows if a background refresh fails.
+      if (cached) return;
 
       setErrorMessage(
         getAuthErrorMessage(
@@ -223,7 +252,13 @@ export default function AuditTrailPage({ searchQuery = "" }) {
         </div>
 
         <div className="overflow-hidden rounded-[10px] border border-[#ECECEC] bg-white">
-          <div className="w-full overflow-x-auto">
+          <div className="relative w-full overflow-x-auto">
+            {isLoading && visibleRows.length > 0 && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-16">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
+              </div>
+            )}
+
             <table className="w-full min-w-[1500px] border-collapse">
               <thead className="bg-[#F8F9FB]">
                 <tr>
@@ -238,8 +273,12 @@ export default function AuditTrailPage({ searchQuery = "" }) {
                 </tr>
               </thead>
 
-              <tbody>
-                {isLoading && (
+              <tbody
+                className={`transition-opacity duration-200 ${
+                  isLoading && visibleRows.length > 0 ? "opacity-50" : "opacity-100"
+                }`}
+              >
+                {isLoading && visibleRows.length === 0 && (
                   <tr>
                     <td
                       className="px-4 py-5 text-center text-[13px] text-[#6B7280]"
@@ -272,8 +311,7 @@ export default function AuditTrailPage({ searchQuery = "" }) {
                   </tr>
                 )}
 
-                {!isLoading &&
-                  !errorMessage &&
+                {!errorMessage &&
                   visibleRows.map((row) => {
                     const createdAt = splitDateTime(row.createdAtRaw);
                     const updatedAt = splitDateTime(row.updatedAtRaw);

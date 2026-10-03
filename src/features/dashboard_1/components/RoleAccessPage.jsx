@@ -30,6 +30,11 @@ const ROLE_ACCESS_COLUMN_ORDER = [
   "action",
 ];
 
+// Role and access dropdown options, kept across visits (the page unmounts
+// when you leave it) so the pickers are ready straight away; they are still
+// refetched quietly on every visit.
+const optionsCache = { current: null };
+
 function AddAccessModal({
   accessOptions,
   isLoadingAccesses,
@@ -322,11 +327,16 @@ export default function RoleAccessPage() {
   const [openActionId, setOpenActionId] = useState(null);
   const [selectedRoleAccess, setSelectedRoleAccess] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const loadRequestIdRef = useRef(0);
   const [isLoadingAccesses, setIsLoadingAccesses] = useState(false);
   const [isLoadingRoles, setIsLoadingRoles] = useState(false);
   const [isSavingRoleAccess, setIsSavingRoleAccess] = useState(false);
-  const [accessOptions, setAccessOptions] = useState([]);
-  const [roleOptions, setRoleOptions] = useState([]);
+  const [accessOptions, setAccessOptions] = useState(
+    () => optionsCache.current?.accessOptions ?? [],
+  );
+  const [roleOptions, setRoleOptions] = useState(
+    () => optionsCache.current?.roleOptions ?? [],
+  );
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -339,6 +349,8 @@ export default function RoleAccessPage() {
   const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   const loadRoleAccessList = useCallback(async () => {
+    // Drops responses for a search you've already moved on from.
+    const requestId = ++loadRequestIdRef.current;
     const trimmedSearchValue = debouncedSearchValue.trim();
 
     if (!trimmedSearchValue) {
@@ -349,6 +361,7 @@ export default function RoleAccessPage() {
       return;
     }
 
+    // The current rows stay on screen (dimmed) until the new ones arrive.
     setIsLoading(true);
     setErrorMessage("");
 
@@ -370,10 +383,14 @@ export default function RoleAccessPage() {
         roleId,
       );
 
+      if (requestId !== loadRequestIdRef.current) return;
+
       setRoleAccessRows(normalizedResponse.rows);
       setTotalRecords(normalizedResponse.totalRecords);
       setTotalPages(normalizedResponse.totalPages);
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return;
+
       setRoleAccessRows([]);
       setTotalRecords(0);
       setTotalPages(1);
@@ -384,7 +401,7 @@ export default function RoleAccessPage() {
         ),
       );
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestIdRef.current) setIsLoading(false);
     }
   }, [debouncedSearchValue, roleOptions]);
 
@@ -411,7 +428,11 @@ export default function RoleAccessPage() {
     let isActive = true;
 
     async function loadRoles() {
-      setIsLoadingRoles(true);
+      const hasCachedRoles = Boolean(optionsCache.current?.roleOptions);
+
+      // Cached options are shown right away; only show "Loading roles..."
+      // when there is nothing to show yet.
+      if (!hasCachedRoles) setIsLoadingRoles(true);
 
       try {
         const response = await getAdminRoles({
@@ -420,9 +441,14 @@ export default function RoleAccessPage() {
         });
         const normalizedOptions = normalizeRoleOptions(response.data);
 
+        optionsCache.current = {
+          ...optionsCache.current,
+          roleOptions: normalizedOptions,
+        };
         if (isActive) setRoleOptions(normalizedOptions);
       } catch (error) {
-        if (isActive) {
+        // Keep showing the cached roles if a background refresh fails.
+        if (isActive && !hasCachedRoles) {
           setRoleOptions([]);
           setErrorMessage(
             getAuthErrorMessage(
@@ -447,7 +473,9 @@ export default function RoleAccessPage() {
     let isActive = true;
 
     async function loadAccesses() {
-      setIsLoadingAccesses(true);
+      const hasCachedAccesses = Boolean(optionsCache.current?.accessOptions);
+
+      if (!hasCachedAccesses) setIsLoadingAccesses(true);
 
       try {
         // Unpaginated - every Access Master entry needs to be selectable
@@ -455,9 +483,14 @@ export default function RoleAccessPage() {
         const response = await getAllAccessList();
         const normalizedOptions = normalizeAccessOptions(response.data);
 
+        optionsCache.current = {
+          ...optionsCache.current,
+          accessOptions: normalizedOptions,
+        };
         if (isActive) setAccessOptions(normalizedOptions);
       } catch (error) {
-        if (isActive) {
+        // Keep showing the cached access list if a background refresh fails.
+        if (isActive && !hasCachedAccesses) {
           setAccessOptions([]);
           setErrorMessage(
             getAuthErrorMessage(
@@ -844,7 +877,12 @@ export default function RoleAccessPage() {
                 </div>
               </div>
 
-          <div className="w-full overflow-x-auto">
+          <div className="relative w-full overflow-x-auto">
+                {isLoading && visibleData.length > 0 && (
+                  <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-16">
+                    <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
+                  </div>
+                )}
 
                 <table className="w-full min-w-[1000px] border-collapse">
 
@@ -869,8 +907,12 @@ export default function RoleAccessPage() {
                 </tr>
               </thead>
 
-              <tbody>
-                {isLoading && (
+              <tbody
+                className={`transition-opacity duration-200 ${
+                  isLoading && visibleData.length > 0 ? "opacity-50" : "opacity-100"
+                }`}
+              >
+                {isLoading && visibleData.length === 0 && (
                   <tr className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563]">
                     <td colSpan={7} className="px-4 py-6 text-center">
                       Loading role access details...
@@ -886,7 +928,7 @@ export default function RoleAccessPage() {
                   </tr>
                 )}
 
-                {!isLoading && visibleData.map((item, index) => (
+                {visibleData.map((item, index) => (
                   <tr
                     key={item.id}
                     className="relative border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"

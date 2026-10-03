@@ -1,8 +1,8 @@
+import { scrollIntoHorizontalStrip } from "./scrollPageStrip";
 import { useState, useRef, useMemo, useEffect } from "react";
 import {
   CalendarDays,
   ChevronDown,
-  Loader2,
   RotateCcw,
 } from "lucide-react";
 
@@ -24,17 +24,27 @@ const TABLE_COLUMNS = [
   "Updated At",
 ];
 
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by page / size / search / filter mode, so the
+// table shows instantly when you come back and then refreshes quietly.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage, size, search, isLocalFilterActive) =>
+  JSON.stringify([requestedPage, size, search ?? "", isLocalFilterActive]);
+
 export default function LoginSessionPage({ searchQuery = "" }) {
+  const pageSize = 10;
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
-  const [loginSessionRows, setLoginSessionRows] = useState([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const initialCache = pageCache.get(pageCacheKey(0, pageSize, searchQuery, false));
+  const [loginSessionRows, setLoginSessionRows] = useState(() => initialCache?.rows ?? []);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
+  const [totalPages, setTotalPages] = useState(() => initialCache?.totalPages ?? 1);
+  // Starts true when nothing is cached, so the first paint shows
+  // "Loading…" rather than flashing "No … found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
   const [error, setError] = useState("");
-  const pageSize = 10;
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
@@ -63,12 +73,30 @@ export default function LoginSessionPage({ searchQuery = "" }) {
   useEffect(() => {
     let isActive = true;
 
+    // isActive (reset by the effect cleanup) is the stale-response guard:
+    // a slower request for a page/search you've already left is ignored.
     async function loadLoginSessions() {
-      setIsLoading(true);
+      const requestedPage = isLocalFilterActive ? 0 : currentPage;
+      const cacheKey = pageCacheKey(
+        requestedPage,
+        pageSize,
+        searchQuery,
+        isLocalFilterActive,
+      );
+      const cached = pageCache.get(cacheKey);
+
+      if (cached) {
+        setLoginSessionRows(cached.rows);
+        setTotalRecords(cached.totalRecords);
+        setTotalPages(cached.totalPages);
+        setIsLoading(false);
+      } else {
+        // The current rows stay on screen (dimmed) until the new ones arrive.
+        setIsLoading(true);
+      }
       setError("");
 
       try {
-        const requestedPage = isLocalFilterActive ? 0 : currentPage;
         const response = await getLoginSessions({
           page: requestedPage,
           size: pageSize,
@@ -104,10 +132,17 @@ export default function LoginSessionPage({ searchQuery = "" }) {
         }
 
         setLoginSessionRows(normalizedRows);
+        pageCache.set(cacheKey, {
+          rows: normalizedRows,
+          totalRecords: normalizedResponse.totalRecords,
+          totalPages: normalizedResponse.totalPages,
+        });
         setTotalRecords(normalizedResponse.totalRecords);
         setTotalPages(normalizedResponse.totalPages);
       } catch (loginSessionError) {
         if (!isActive) return;
+        // Keep showing the cached rows if a background refresh fails.
+        if (cached) return;
 
         setError(
           getAuthErrorMessage(
@@ -164,7 +199,7 @@ export default function LoginSessionPage({ searchQuery = "" }) {
   useEffect(() => {
     const container = pageScrollRef.current;
     const activeButton = container?.querySelector(`[data-page="${currentPage}"]`);
-    activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    scrollIntoHorizontalStrip(activeButton);
   }, [currentPage, effectiveTotalPages]);
 
   return (
@@ -261,8 +296,8 @@ export default function LoginSessionPage({ searchQuery = "" }) {
           <div className="relative w-full overflow-x-auto">
 
             {isLoading && visibleData.length > 0 && (
-              <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/60 pt-12">
-                <Loader2 size={22} className="animate-spin text-[#6B7280]" />
+              <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-16">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
               </div>
             )}
 
@@ -281,7 +316,11 @@ export default function LoginSessionPage({ searchQuery = "" }) {
                 </tr>
               </thead>
 
-              <tbody>
+              <tbody
+                className={`transition-opacity duration-200 ${
+                  isLoading && visibleData.length > 0 ? "opacity-50" : "opacity-100"
+                }`}
+              >
                 {visibleData.map((item, index) => (
                   <tr
                     key={item.id}

@@ -99,13 +99,21 @@ export default function Sidebar({ currentPage, onLogout, setCurrentPage }) {
 
   return (
     <aside className="relative flex h-screen w-[225px] shrink-0 flex-col overflow-hidden border-r border-brand-border bg-brand-panel">
-      {/* Logo */}
+      {/* Logo — clicking it opens the Dashboard (same as the Dashboard nav item). */}
       <div className="relative z-10 flex items-center px-6 pt-5 pb-3">
-        <img
-          src="/logo.png"
-          alt="Secure Edge"
-          className="w-[140px] h-auto object-contain"
-        />
+        <button
+          type="button"
+          onClick={() => setCurrentPage?.("dashboard")}
+          title="Go to Dashboard"
+          aria-label="Go to Dashboard"
+          className="cursor-pointer rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-red/40"
+        >
+          <img
+            src="/logo.png"
+            alt="Secure Edge"
+            className="w-[140px] h-auto object-contain"
+          />
+        </button>
       </div>
 
       {/* Navigation */}

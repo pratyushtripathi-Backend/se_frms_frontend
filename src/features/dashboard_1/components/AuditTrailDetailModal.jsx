@@ -30,11 +30,17 @@ function DetailCard({ index, title, children, className = "" }) {
   );
 }
 
+// Label and value both wrap inside the card: long IDs, timestamps and nested
+// labels used to run past the card edge and overlap the neighbouring card.
 function DetailRow({ label, value, valueClassName = "font-normal text-[#202224]" }) {
   return (
     <div className="mb-3 flex items-start justify-between gap-4 text-[13px] last:mb-0">
-      <span className="shrink-0 font-normal text-[#8A8A8A]">{label}:</span>
-      <span className={`text-right ${valueClassName}`}>{value ?? "-"}</span>
+      <span className="max-w-[45%] shrink-0 break-words font-normal text-[#8A8A8A]">
+        {label}:
+      </span>
+      <span className={`min-w-0 text-right [overflow-wrap:anywhere] ${valueClassName}`}>
+        {value ?? "-"}
+      </span>
     </div>
   );
 }
@@ -141,11 +147,32 @@ function formatFieldValue(value) {
   return String(value);
 }
 
+// The backend sometimes sends the event payload (or a field inside it) as JSON
+// *text* rather than an object; parse it so it's shown as fields instead of
+// one long unbroken string.
+function parseMaybeJson(value) {
+  if (typeof value !== "string") return value;
+
+  const trimmed = value.trim();
+
+  if (!(trimmed.startsWith("{") || trimmed.startsWith("["))) return value;
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+const isPlainValue = (value) => value === null || typeof value !== "object";
+
 // Recursively flattens a nested object into readable {label, value} rows,
 // e.g. { transactionData: { userId: "USR006" } } ->
 // [{ label: "Transaction Data → User Id", value: "USR006" }], so the event
 // payload reads as a plain key-value list instead of raw JSON text.
-function flattenEventData(value, parentLabel = "") {
+function flattenEventData(rawValue, parentLabel = "") {
+  const value = parseMaybeJson(rawValue);
+
   if (value === null || value === undefined) return [];
 
   if (typeof value !== "object") {
@@ -155,6 +182,13 @@ function flattenEventData(value, parentLabel = "") {
   if (Array.isArray(value)) {
     if (value.length === 0) {
       return [{ label: parentLabel || "Value", value: "-" }];
+    }
+
+    // A list of plain values reads best on one line: "A, B, C".
+    if (value.every(isPlainValue)) {
+      return [
+        { label: parentLabel || "Value", value: value.map(formatFieldValue).join(", ") },
+      ];
     }
 
     return value.flatMap((item, itemIndex) =>
@@ -177,13 +211,55 @@ function flattenEventData(value, parentLabel = "") {
   });
 }
 
+// Splits the event payload into sections: top-level plain fields under
+// "General", and each nested object/list under its own heading (e.g.
+// "Transaction Data"), with labels relative to that section. Avoids long
+// "A → B → C" labels for everything.
+function groupEventData(rawEvent) {
+  const data = parseMaybeJson(rawEvent);
+
+  if (data === null || data === undefined) return [];
+
+  if (typeof data !== "object" || Array.isArray(data)) {
+    const rows = flattenEventData(data);
+    return rows.length ? [{ title: null, rows }] : [];
+  }
+
+  const general = [];
+  const sections = [];
+
+  Object.entries(data).forEach(([key, childValue]) => {
+    const parsedChild = parseMaybeJson(childValue);
+    const label = formatFieldLabel(key);
+
+    if (
+      parsedChild !== null &&
+      typeof parsedChild === "object" &&
+      !(Array.isArray(parsedChild) && parsedChild.every(isPlainValue))
+    ) {
+      const rows = flattenEventData(parsedChild);
+      if (rows.length) sections.push({ title: label, rows });
+      return;
+    }
+
+    general.push(...flattenEventData(parsedChild, label));
+  });
+
+  return [
+    ...(general.length ? [{ title: sections.length ? "General" : null, rows: general }] : []),
+    ...sections,
+  ];
+}
+
 function RawEventJsonCard({ index, rawEvent }) {
   const [copied, setCopied] = useState(false);
-  const rows = flattenEventData(rawEvent);
+  const groups = groupEventData(rawEvent);
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(JSON.stringify(rawEvent, null, 2));
+      await navigator.clipboard.writeText(
+        JSON.stringify(parseMaybeJson(rawEvent), null, 2),
+      );
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -205,11 +281,30 @@ function RawEventJsonCard({ index, rawEvent }) {
       >
         <Copy size={15} />
       </button>
-      {rows.length === 0 ? (
+      {groups.length === 0 ? (
         <p className="text-[13px] text-[#8A8A8A]">No details available.</p>
       ) : (
-        rows.map((row, rowIndex) => (
-          <DetailRow key={`${row.label}-${rowIndex}`} label={row.label} value={row.value} />
+        groups.map((group, groupIndex) => (
+          <div
+            className={groupIndex > 0 ? "mt-5 border-t border-[#ECECEC] pt-4" : ""}
+            key={`${group.title ?? "event"}-${groupIndex}`}
+          >
+            {group.title && (
+              <h4 className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-[#8A8A8A]">
+                {group.title}
+              </h4>
+            )}
+            {/* Full card width, so the fields sit in 2–3 columns. */}
+            <div className="grid grid-cols-1 gap-x-10 gap-y-3 md:grid-cols-2 xl:grid-cols-3">
+              {group.rows.map((row, rowIndex) => (
+                <DetailRow
+                  key={`${row.label}-${rowIndex}`}
+                  label={row.label}
+                  value={row.value}
+                />
+              ))}
+            </div>
+          </div>
         ))
       )}
       {copied && (
@@ -223,10 +318,6 @@ function RawEventJsonCard({ index, rawEvent }) {
 
 function buildDetailCards(row) {
   const cards = [{ type: "summary" }];
-
-  if (row.rawEvent) {
-    cards.push({ type: "rawEvent" });
-  }
 
   (row.evaluations ?? []).forEach((evaluation, evaluationIndex) => {
     cards.push({ type: "scoring", evaluation, key: `scoring-${evaluationIndex}` });
@@ -281,14 +372,6 @@ export default function AuditTrailDetailModal({ row, onClose }) {
             switch (card.type) {
               case "summary":
                 return <AuditSummaryCard index={index} key="summary" row={row} />;
-              case "rawEvent":
-                return (
-                  <RawEventJsonCard
-                    index={index}
-                    key="rawEvent"
-                    rawEvent={row.rawEvent}
-                  />
-                );
               case "scoring":
                 return (
                   <ScoringDetailsCard
@@ -326,6 +409,13 @@ export default function AuditTrailDetailModal({ row, onClose }) {
             }
           })}
         </div>
+
+        {/* Event Data has the most (and longest) fields, so it spans the
+            full width below the summary cards instead of being squeezed
+            into one narrow column. */}
+        {row.rawEvent && (
+          <RawEventJsonCard index={cards.length + 1} rawEvent={row.rawEvent} />
+        )}
       </div>
     </div>,
     document.body,

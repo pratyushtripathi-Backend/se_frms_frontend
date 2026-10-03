@@ -1,3 +1,4 @@
+import { scrollIntoHorizontalStrip } from "./scrollPageStrip";
 import {
   CalendarDays,
   ChevronLeft,
@@ -17,6 +18,9 @@ import {
 
 const rowsPerPage = 5;
 const DECISIONS_LOOKUP_SIZE = 50;
+// How often the table re-fetches in the background so new transactions show
+// up without reloading the dashboard.
+const AUTO_REFRESH_INTERVAL_MS = 10000;
 // Page-number strip shows this many buttons at a time (~28px button + 6px
 // gap each) and scrolls horizontally for the rest - see pageScrollRef below.
 const VISIBLE_PAGE_BUTTONS = 5;
@@ -109,10 +113,17 @@ export default function RecentTransactions() {
   // mirrors what is shown there - just `rowsPerPage` rows at a time, paged.
   // Priority is derived from the Decision Table's Final Decision for the
   // same transaction: Allow -> Safe, Review/Block -> Risk.
-  const fetchRecentTransactions = useCallback(async () => {
+  //
+  // `silent` is used by the background auto-refresh: it updates the rows in
+  // place without the dimmed table + spinner, and keeps the current rows (no
+  // error banner) if one refresh happens to fail.
+  const fetchRecentTransactions = useCallback(async ({ silent = false } = {}) => {
     const requestId = ++requestIdRef.current;
-    setIsLoading(true);
-    setError("");
+
+    if (!silent) {
+      setIsLoading(true);
+      setError("");
+    }
 
     try {
       const [transactionsResponse, decisionsResponse] = await Promise.all([
@@ -147,13 +158,19 @@ export default function RecentTransactions() {
       setTransactions(normalizedRows);
       setTotalRecords(total);
       setTotalPages(pages);
+      setError("");
     } catch (err) {
       if (requestId !== requestIdRef.current) {
         return;
       }
 
-      setError("Unable to load recent transactions.");
+      if (!silent) {
+        setError("Unable to load recent transactions.");
+      }
     } finally {
+      // Cleared for silent refreshes too: if a background refresh superseded
+      // a page-change load, the page-change load's own finally is skipped,
+      // so this is what turns its spinner off.
       if (requestId === requestIdRef.current) {
         setIsLoading(false);
       }
@@ -164,13 +181,32 @@ export default function RecentTransactions() {
     fetchRecentTransactions();
   }, [fetchRecentTransactions]);
 
+  // Auto-refresh: re-fetch the current page every AUTO_REFRESH_INTERVAL_MS
+  // while the tab is visible (no point polling a hidden tab), and once right
+  // away when the user comes back to the tab.
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") {
+        fetchRecentTransactions({ silent: true });
+      }
+    };
+
+    const intervalId = window.setInterval(refreshIfVisible, AUTO_REFRESH_INTERVAL_MS);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [fetchRecentTransactions]);
+
   // Keeps the current page's button scrolled into view within the
   // horizontally-scrollable page-number strip (e.g. after using the prev/next
   // arrows to move past what's currently visible).
   useEffect(() => {
     const container = pageScrollRef.current;
     const activeButton = container?.querySelector(`[data-page="${currentPage}"]`);
-    activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    scrollIntoHorizontalStrip(activeButton);
   }, [currentPage, totalPages]);
 
   const handleResetFilters = () => {

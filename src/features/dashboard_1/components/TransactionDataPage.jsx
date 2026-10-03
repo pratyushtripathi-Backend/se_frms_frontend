@@ -1,3 +1,4 @@
+import { scrollIntoHorizontalStrip } from "./scrollPageStrip";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiChevronDown,
@@ -20,16 +21,26 @@ import Loader from "../../../components/ui/Loader";
 const rowsPerPage = 10;
 const AUTO_REFRESH_INTERVAL_MS = 8000;
 
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by page / page size, so the table shows
+// instantly when you come back and then refreshes quietly. Year/from/to and
+// search only filter the loaded page locally, so they aren't part of the key.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage, size) => JSON.stringify([requestedPage, size]);
+
 export default function TransactionDataPage({ searchQuery = "" }) {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [transactions, setTransactions] = useState([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalApiPages, setTotalApiPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const initialCache = pageCache.get(pageCacheKey(0, rowsPerPage));
+  const [transactions, setTransactions] = useState(() => initialCache?.rows ?? []);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
+  const [totalApiPages, setTotalApiPages] = useState(() => initialCache?.totalPages ?? 1);
+  // Starts true when nothing is cached, so the first paint shows the
+  // loader rather than flashing "No … found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
   const [error, setError] = useState("");
   const [expandedRemarkRow, setExpandedRemarkRow] = useState(null);
   const [isLiveUpdating, setIsLiveUpdating] = useState(false);
@@ -48,7 +59,7 @@ export default function TransactionDataPage({ searchQuery = "" }) {
   useEffect(() => {
     const container = pageScrollRef.current;
     const activeButton = container?.querySelector(`[data-page="${currentPage}"]`);
-    activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    scrollIntoHorizontalStrip(activeButton);
   }, [currentPage, totalApiPages]);
 
   const handleResetFilters = () => {
@@ -61,9 +72,20 @@ export default function TransactionDataPage({ searchQuery = "" }) {
   const fetchTransactions = useCallback(
     async ({ silent = false } = {}) => {
       const requestId = ++requestIdRef.current;
+      const cacheKey = pageCacheKey(currentPage - 1, rowsPerPage);
+      const cached = pageCache.get(cacheKey);
 
       if (!silent) {
-        setIsLoading(true);
+        if (cached) {
+          // Show the cached page straight away and refresh it quietly.
+          setTransactions(cached.rows);
+          setTotalRecords(cached.totalRecords);
+          setTotalApiPages(cached.totalPages);
+          setIsLoading(false);
+        } else {
+          // The current rows stay on screen (dimmed) until the new ones arrive.
+          setIsLoading(true);
+        }
         setError("");
         setExpandedRemarkRow(null);
       } else {
@@ -88,6 +110,11 @@ export default function TransactionDataPage({ searchQuery = "" }) {
         setTransactions(normalizedRows);
         setTotalRecords(apiTotalRecords);
         setTotalApiPages(totalPages);
+        pageCache.set(cacheKey, {
+          rows: normalizedRows,
+          totalRecords: apiTotalRecords,
+          totalPages,
+        });
 
         // Resolve each row's "Locating..." placeholder into a real place
         // name via OpenStreetMap Nominatim (cached + rate-limited - see
@@ -95,6 +122,20 @@ export default function TransactionDataPage({ searchQuery = "" }) {
         // rather than waiting on every lookup to finish.
         enrichRowsWithLocationNames(normalizedRows, (transactionId, locationName) => {
           if (requestIdRef.current !== requestId) return;
+
+          // Keep the cached copy in step so a return visit shows the
+          // resolved place names instead of "Locating...".
+          const cachedEntry = pageCache.get(cacheKey);
+          if (cachedEntry) {
+            pageCache.set(cacheKey, {
+              ...cachedEntry,
+              rows: cachedEntry.rows.map((existingRow) =>
+                existingRow.transactionId === transactionId
+                  ? { ...existingRow, location: locationName }
+                  : existingRow,
+              ),
+            });
+          }
 
           setTransactions((previousRows) =>
             previousRows.map((existingRow) =>
@@ -109,9 +150,10 @@ export default function TransactionDataPage({ searchQuery = "" }) {
       } catch (fetchError) {
         if (requestIdRef.current !== requestId) return;
 
-        // Silent background refreshes fail quietly so a flaky poll doesn't
-        // wipe out data already on screen or interrupt the user.
-        if (!silent) {
+        // Silent background refreshes (and refreshes of a cached page) fail
+        // quietly so a flaky request doesn't wipe out data already on screen
+        // or interrupt the user.
+        if (!silent && !cached) {
           setError(
             getAuthErrorMessage(
               fetchError,
@@ -123,9 +165,12 @@ export default function TransactionDataPage({ searchQuery = "" }) {
           setTotalApiPages(1);
         }
       } finally {
+        // Only the latest request clears the flags. It clears both, so a
+        // poll that superseded a slower page load (or a page load that
+        // superseded a poll) doesn't leave the other flag stuck on.
         if (requestIdRef.current === requestId) {
-          if (!silent) setIsLoading(false);
-          else setIsLiveUpdating(false);
+          setIsLoading(false);
+          setIsLiveUpdating(false);
         }
       }
     },
@@ -196,8 +241,7 @@ export default function TransactionDataPage({ searchQuery = "" }) {
     "Amount",
     "Currency",
     "Latitude",
-    "Longitude 1",
-    "Longitude 2",
+    "Longitude",
     "IP Address",
     "Location",
     "Device ID",
@@ -220,7 +264,6 @@ export default function TransactionDataPage({ searchQuery = "" }) {
       row.currency,
       row.latitude,
       row.longitude,
-      row.longitude2,
       row.ipAddress,
       row.location,
       row.deviceId,
@@ -407,7 +450,7 @@ export default function TransactionDataPage({ searchQuery = "" }) {
 
     table: {
       width: "100%",
-      minWidth: "1830px",
+      minWidth: "1720px",
       borderCollapse: "collapse",
     },
 
@@ -746,7 +789,6 @@ export default function TransactionDataPage({ searchQuery = "" }) {
                   "Currency",
                   "Latitude",
                   "Longitude",
-                  "Longitude 2",
                   "IP Address",
                   "Location",
                   "Device ID",
@@ -766,13 +808,14 @@ export default function TransactionDataPage({ searchQuery = "" }) {
             <tbody
               style={{
                 ...styles.tableBody,
-                opacity: isLoading ? 0.4 : 1,
+                opacity: isLoading && currentRows.length ? 0.5 : 1,
+                transition: "opacity 0.2s",
               }}
             >
               {error && (
                 <tr style={styles.tr}>
                   <td
-                    colSpan={17}
+                    colSpan={16}
                     style={{ ...styles.td, textAlign: "center", color: "#E0453C" }}
                   >
                     {error}
@@ -790,7 +833,6 @@ export default function TransactionDataPage({ searchQuery = "" }) {
                   <td style={styles.td}>{row.currency}</td>
                   <td style={styles.td}>{row.latitude}</td>
                   <td style={styles.td}>{row.longitude}</td>
-                  <td style={styles.td}>{row.longitude2}</td>
                   <td style={styles.td}>{row.ipAddress}</td>
                   <td style={styles.td}>{row.location}</td>
                   <td style={styles.td}>{row.deviceId}</td>
@@ -840,7 +882,7 @@ export default function TransactionDataPage({ searchQuery = "" }) {
               )) : (
                 !error && (
                   <tr style={styles.tr}>
-                    <td colSpan={17} style={{ ...styles.td, textAlign: "center" }}>
+                    <td colSpan={16} style={{ ...styles.td, textAlign: "center" }}>
                       {isLoading ? " " : "No transaction data found."}
                     </td>
                   </tr>
@@ -849,9 +891,29 @@ export default function TransactionDataPage({ searchQuery = "" }) {
             </tbody>
           </table>
 
-          {isLoading && (
+          {/* First load (nothing to show yet): the full loader. Reloads with
+              rows on screen: the rows stay visible, dimmed, under a small
+              spinner. */}
+          {isLoading && currentRows.length === 0 && (
             <div style={styles.loadingOverlay}>
               <Loader label="Loading transactions..." />
+            </div>
+          )}
+
+          {isLoading && currentRows.length > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 10,
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "center",
+                paddingTop: "64px",
+                background: "rgba(255, 255, 255, 0.5)",
+              }}
+            >
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
             </div>
           )}
         </div>

@@ -1,3 +1,4 @@
+import { scrollIntoHorizontalStrip } from "./scrollPageStrip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { useNotificationBell, useNotifications } from "../../../context/NotificationContext.jsx";
@@ -146,7 +147,7 @@ export default function NotificationsPage({ searchQuery = "" }) {
   useEffect(() => {
     const container = pageScrollRef.current;
     const activeButton = container?.querySelector(`[data-page="${safeCurrentPage}"]`);
-    activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    scrollIntoHorizontalStrip(activeButton);
   }, [safeCurrentPage, totalPages]);
 
   return (

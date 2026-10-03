@@ -221,31 +221,54 @@ function normalizeNotificationRow(row, index, pageOffset) {
   };
 }
 
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by requested page / size / filter mode, so
+// the table shows instantly when you come back and then refreshes quietly.
+// Search and the year/from/to values only filter the loaded rows locally,
+// so only whether a local filter is active changes the request.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage, size, isLocalFilterActive) =>
+  JSON.stringify([requestedPage, size, isLocalFilterActive]);
+
 export default function NotificationRecordPage({ searchQuery = "" }) {
-  const [rows, setRows] = useState([]);
+  const rowsPerPage = 10;
+  const initialCache = pageCache.get(pageCacheKey(0, rowsPerPage, false));
+  const [rows, setRows] = useState(() => initialCache?.rows ?? []);
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalApiPages, setTotalApiPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
+  const [totalApiPages, setTotalApiPages] = useState(() => initialCache?.totalPages ?? 1);
+  // Starts true when nothing is cached, so the first paint shows
+  // "Loading…" rather than flashing "No … found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
   const [errorMessage, setErrorMessage] = useState("");
   const [channelModalRow, setChannelModalRow] = useState(null);
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
-  const rowsPerPage = 10;
   const requestIdRef = useRef(0);
   const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   const loadNotifications = useCallback(async () => {
     const requestId = ++requestIdRef.current;
-    setIsLoading(true);
+    const requestedPage = isLocalFilterActive ? 0 : currentPage - 1;
+    const cacheKey = pageCacheKey(requestedPage, rowsPerPage, isLocalFilterActive);
+    const cached = pageCache.get(cacheKey);
+
+    if (cached) {
+      setRows(cached.rows);
+      setTotalRecords(cached.totalRecords);
+      setTotalApiPages(cached.totalPages);
+      setIsLoading(false);
+    } else {
+      // The current rows stay on screen (dimmed) until the new ones arrive.
+      setIsLoading(true);
+    }
     setErrorMessage("");
 
     try {
-      const requestedPage = isLocalFilterActive ? 0 : currentPage - 1;
       const response = await fetchNotifications({
         page: requestedPage,
         size: rowsPerPage,
@@ -277,13 +300,25 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
         });
       }
 
+      // The extra page fetches above are awaited too, so check again.
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       setRows(normalizedRows);
       setTotalRecords(normalizedResponse.totalRecords);
       setTotalApiPages(normalizedResponse.totalPages);
+      pageCache.set(cacheKey, {
+        rows: normalizedRows,
+        totalRecords: normalizedResponse.totalRecords,
+        totalPages: normalizedResponse.totalPages,
+      });
     } catch (error) {
       if (requestId !== requestIdRef.current) {
         return;
       }
+      // Keep showing the cached rows if a background refresh fails.
+      if (cached) return;
 
       setRows([]);
       setTotalRecords(0);
@@ -454,7 +489,13 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
             </div>
           )}
 
-          <div className="w-full overflow-x-auto">
+          <div className="relative w-full overflow-x-auto">
+            {isLoading && visibleRows.length > 0 && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-16">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
+              </div>
+            )}
+
             <table className="w-full min-w-[1450px] border-collapse">
               <thead className="bg-[#F8F9FB]">
                 <tr>
@@ -469,8 +510,12 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
                 </tr>
               </thead>
 
-              <tbody>
-                {isLoading && (
+              <tbody
+                className={`transition-opacity duration-200 ${
+                  isLoading && visibleRows.length > 0 ? "opacity-50" : "opacity-100"
+                }`}
+              >
+                {isLoading && visibleRows.length === 0 && (
                   <tr>
                     <td colSpan={TABLE_COLUMNS.length} className="px-4 py-5 text-center text-[13px] text-[#6B7280]">
                       Loading notification records...
@@ -486,7 +531,7 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
                   </tr>
                 )}
 
-                {!isLoading && visibleRows.map((row, index) => (
+                {visibleRows.map((row, index) => (
                   <tr
                     key={row.id}
                     className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"

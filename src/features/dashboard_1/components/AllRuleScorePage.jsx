@@ -31,17 +31,32 @@ const TABLE_COLUMNS = [
   "Action",
 ];
 
+// Rows already loaded on this page, kept across visits (the page unmounts
+// when you leave it) and keyed by page / search / filter mode, so the table
+// shows instantly when you come back and then refreshes quietly.
+const pageCache = new Map();
+const pageCacheKey = (requestedPage, search, isLocalFilterActive) =>
+  JSON.stringify([requestedPage, search ?? "", isLocalFilterActive]);
+
+// Dropdown options (also used to show names in the table), kept across
+// visits so the names don't flicker in on every page load.
+const optionsCache = { current: null };
+
 export default function AllRuleScorePage({ searchQuery = "" }) {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [openActionId, setOpenActionId] = useState(null);
-  const [ruleScores, setRuleScores] = useState([]);
-  const [fraudRules, setFraudRules] = useState([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const initialCache = pageCache.get(pageCacheKey(0, searchQuery, false));
+  const [ruleScores, setRuleScores] = useState(() => initialCache?.rows ?? []);
+  const [fraudRules, setFraudRules] = useState(() => optionsCache.current ?? []);
+  const [totalRecords, setTotalRecords] = useState(() => initialCache?.totalRecords ?? 0);
+  const [totalPages, setTotalPages] = useState(() => initialCache?.totalPages ?? 1);
+  // Starts true when nothing is cached, so the first paint shows
+  // "Loading…" rather than flashing "No … found".
+  const [isLoading, setIsLoading] = useState(() => !initialCache);
+  const loadRequestIdRef = useRef(0);
   const [isLoadingFraudRules, setIsLoadingFraudRules] = useState(false);
   const [isSavingRuleScore, setIsSavingRuleScore] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -61,7 +76,26 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
   const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
   const loadRuleScores = useCallback(async ({ showLoader = true, searchValue = searchQuery } = {}) => {
-    if (showLoader) setIsLoading(true);
+    const requestId = ++loadRequestIdRef.current;
+    const cacheKey = pageCacheKey(
+      isLocalFilterActive ? 0 : currentPage - 1,
+      searchValue,
+      isLocalFilterActive,
+    );
+    // showLoader:false is the reload after a create/edit/delete, so every
+    // cached page is out of date and this one must come fresh.
+    if (!showLoader) pageCache.clear();
+    const cached = pageCache.get(cacheKey);
+
+    if (cached) {
+      setRuleScores(cached.rows);
+      setTotalRecords(cached.totalRecords);
+      setTotalPages(cached.totalPages);
+      setIsLoading(false);
+    } else if (showLoader) {
+      // The current rows stay on screen (dimmed) until the new ones arrive.
+      setIsLoading(true);
+    }
     setErrorMessage("");
 
     try {
@@ -90,10 +124,21 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
         });
       }
 
+      if (requestId !== loadRequestIdRef.current) return;
+
       setRuleScores(normalizedRows);
+      pageCache.set(cacheKey, {
+        rows: normalizedRows,
+        totalRecords: normalizedResponse.totalRecords,
+        totalPages: normalizedResponse.totalPages,
+      });
       setTotalRecords(normalizedResponse.totalRecords);
       setTotalPages(normalizedResponse.totalPages);
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return;
+      // Keep showing the cached rows if a background refresh fails.
+      if (cached) return;
+
       setRuleScores([]);
       setTotalRecords(0);
       setTotalPages(1);
@@ -101,7 +146,7 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
         getAuthErrorMessage(error, "Unable to load rule scores. Please try again."),
       );
     } finally {
-      if (showLoader) setIsLoading(false);
+      if (requestId === loadRequestIdRef.current) setIsLoading(false);
     }
   }, [currentPage, isLocalFilterActive, searchQuery]);
 
@@ -110,7 +155,9 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
 
     try {
       const response = await getFraudRules({ page: 0, size: 10 });
-      setFraudRules(normalizeFraudRuleOptions(response.data));
+      const options = normalizeFraudRuleOptions(response.data);
+      optionsCache.current = options;
+      setFraudRules(options);
     } catch (error) {
       setErrorMessage(
         getAuthErrorMessage(error, "Unable to fetch fraud rules. Please try again."),
@@ -129,10 +176,7 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
 
     async function loadInitialRuleScores() {
       if (!isActive) return;
-      await Promise.all([
-        loadRuleScores({ searchValue: searchQuery }),
-        loadFraudRules(),
-      ]);
+      await loadRuleScores({ searchValue: searchQuery });
     }
 
     loadInitialRuleScores();
@@ -140,7 +184,13 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
     return () => {
       isActive = false;
     };
-  }, [searchQuery, loadFraudRules, loadRuleScores]);
+  }, [searchQuery, loadRuleScores]);
+
+  // Dropdown options don't depend on the page or search, so load them
+  // once per visit instead of again on every page change.
+  useEffect(() => {
+    loadFraudRules();
+  }, [loadFraudRules]);
 
   const filteredData = useMemo(() => {
     return ruleScores.filter((item) => {
@@ -428,7 +478,12 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
             </div>
           )}
 
-          <div className="w-full overflow-x-auto">
+          <div className="relative w-full overflow-x-auto">
+            {isLoading && visibleData.length > 0 && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/50 pt-16">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
+              </div>
+            )}
 
             <table className="w-full min-w-[1300px] border-collapse">
 
@@ -445,8 +500,12 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
                 </tr>
               </thead>
 
-              <tbody>
-                {isLoading && (
+              <tbody
+                className={`transition-opacity duration-200 ${
+                  isLoading && visibleData.length > 0 ? "opacity-50" : "opacity-100"
+                }`}
+              >
+                {isLoading && visibleData.length === 0 && (
                   <tr>
                     <td colSpan={TABLE_COLUMNS.length} className="px-4 py-5 text-center text-[13px] text-[#6B7280]">
                       Loading rule scores...
@@ -462,7 +521,7 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
                   </tr>
                 )}
 
-                {!isLoading && visibleData.map((item, index) => (
+                {visibleData.map((item, index) => (
                   <tr
                     key={item.id}
                     className="relative border-b border-[#EEF1F5] text-[13px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
