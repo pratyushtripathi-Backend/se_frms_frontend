@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { fetchNotifications } from "../features/dashboard_1/services/notificationService";
+import { fetchNotifications } from "../features/dashboard/services/notificationService";
 import { subscribeToAlerts } from "../services/notificationSocket";
 
 // Cap kept in memory for this live/sustained feed. Full history beyond this

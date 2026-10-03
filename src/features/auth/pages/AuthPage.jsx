@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react'
 import BrandMark from '../../../components/BrandMark'
-import DashboardPage from '../../dashboard_1/DashboardPage'
+import DashboardPage from '../../dashboard/DashboardPage'
 import AuthLayout from '../components/AuthLayout'
 import { NotificationProvider } from '../../../context/NotificationContext.jsx'
 import { AUTH_STEPS } from '../constants/authFlow'
