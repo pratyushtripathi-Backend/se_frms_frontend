@@ -6,6 +6,7 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
+import DashboardEditButton from "../../components/DashboardEditButton";
 import DashboardStatusToggle from "../../components/DashboardStatusToggle";
 import DashboardSuccessModal from "../../components/DashboardSuccessModal";
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
@@ -13,8 +14,10 @@ import { getAuthErrorMessage } from "../../../auth/services/authError";
 import {
   createBlacklistEntry,
   getBlacklistEntries,
+  updateBlacklistEntry,
   updateBlacklistStatus,
 } from "../../services/blacklistService";
+import { CONFIG_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
 
 const TABLE_COLUMNS = [
   "Sr no",
@@ -26,12 +29,28 @@ const TABLE_COLUMNS = [
   "Created By",
   "Updated At",
   "Status",
+  "Action",
 ];
 
 const TYPE_OPTIONS = ["Device", "Location", "IP"];
 const RISK_TYPE_OPTIONS = ["High", "Medium", "Low"];
 
 const EMPTY_FORM = { type: "", value: "", reason: "", riskType: "" };
+
+// Matches an API value (e.g. "DEVICE", "high") to one of the dropdown
+// options ("Device", "High") so the Edit form pre-selects it. Falls back to
+// "" (the placeholder) when it isn't one of the options.
+function matchOption(options, value) {
+  const normalizedValue = String(value ?? "").trim().toLowerCase();
+
+  if (!normalizedValue || normalizedValue === "-") return "";
+
+  return options.find((option) => option.toLowerCase() === normalizedValue) ?? "";
+}
+
+function toFormText(value) {
+  return value === null || value === undefined || value === "-" ? "" : String(value);
+}
 
 // Rows already loaded on this page, kept across visits (the page unmounts
 // when you leave it) and keyed by page / filter mode, so the table shows
@@ -142,6 +161,9 @@ function normalizeBlacklistRow(row, index, pageOffset) {
 
   return {
     id: row.id ?? row.entryId ?? row.blacklistId ?? pageOffset + index + 1,
+    // The real backend id only (no Sr no fallback), so Edit never PATCHes
+    // the wrong entry.
+    entryId: row.id ?? row.entryId ?? row.blacklistId ?? null,
     srNo: pageOffset + index + 1,
     type: row.type ?? row.entryType ?? "-",
     value: row.value ?? row.entryValue ?? "-",
@@ -175,6 +197,8 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
   const [isLoading, setIsLoading] = useState(() => !initialCache);
   const [errorMessage, setErrorMessage] = useState("");
   const [showAddEntryModal, setShowAddEntryModal] = useState(false);
+  // The row being edited; null while the modal is in "Add Entry" mode.
+  const [editingEntry, setEditingEntry] = useState(null);
   const [formValues, setFormValues] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -273,6 +297,13 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
     loadEntries();
   }, [loadEntries]);
 
+  // Auto-refresh: re-fetches the current page in the background. Paused while
+  // a Year/From/To filter is active, because that mode fetches every page.
+  useAutoRefresh(loadEntries, {
+    intervalMs: CONFIG_REFRESH_MS,
+    enabled: !isLocalFilterActive,
+  });
+
   const filteredRows = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
 
@@ -326,20 +357,47 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
   };
 
   const handleAddEntryClick = () => {
+    setEditingEntry(null);
     setFormValues(EMPTY_FORM);
+    setFormError("");
+    setShowAddEntryModal(true);
+  };
+
+  // Opens the same form pre-filled with the clicked row's values.
+  const handleEditEntryClick = (row) => {
+    const initialFormValues = {
+      // Falls back to the raw API value when it isn't one of the dropdown
+      // options, so the current value is still shown (and selectable).
+      type: matchOption(TYPE_OPTIONS, row.type) || toFormText(row.type),
+      value: toFormText(row.value),
+      reason: toFormText(row.reason),
+      riskType: matchOption(RISK_TYPE_OPTIONS, row.riskType) || toFormText(row.riskType),
+    };
+
+    // Kept with the row so Update can send only the fields that changed.
+    setEditingEntry({ ...row, initialFormValues });
+    setFormValues(initialFormValues);
     setFormError("");
     setShowAddEntryModal(true);
   };
 
   const handleCloseModal = () => {
     setShowAddEntryModal(false);
+    setEditingEntry(null);
   };
+
+  const isEditMode = Boolean(editingEntry);
 
   const handleFormChange = (field, value) => {
     setFormValues((previous) => ({ ...previous, [field]: value }));
   };
 
   const handleSubmitEntry = async () => {
+    if (isEditMode) {
+      await handleUpdateEntry();
+      return;
+    }
+
     if (!formValues.type || !formValues.value || !formValues.reason || !formValues.riskType) {
       setFormError("Please fill all fields to blacklist entry.");
       return;
@@ -365,6 +423,63 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
     } catch (error) {
       setFormError(
         getAuthErrorMessage(error, "Unable to add blacklist entry. Please try again."),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // PATCH /api/v1/admin/blacklist-entries/{id}
+  // Accepts any of { type, value, reason, riskType }; a field that isn't sent
+  // keeps its saved value, so only the fields that actually changed are sent.
+  const handleUpdateEntry = async () => {
+    const nextValues = {
+      type: formValues.type,
+      value: formValues.value.trim(),
+      reason: formValues.reason.trim(),
+      riskType: formValues.riskType,
+    };
+
+    if (!nextValues.type || !nextValues.value || !nextValues.reason || !nextValues.riskType) {
+      setFormError("Please fill all fields to update blacklist entry.");
+      return;
+    }
+
+    if (editingEntry?.entryId === undefined || editingEntry?.entryId === null) {
+      setFormError("Unable to find this blacklist entry. Please reload the page and try again.");
+      return;
+    }
+
+    const initialValues = editingEntry.initialFormValues ?? {};
+    const payload = Object.fromEntries(
+      Object.entries(nextValues).filter(
+        ([field, nextValue]) =>
+          String(nextValue).toLowerCase() !==
+          String(initialValues[field] ?? "").trim().toLowerCase(),
+      ),
+    );
+
+    if (Object.keys(payload).length === 0) {
+      setFormError("No changes to update.");
+      return;
+    }
+
+    setFormError("");
+    setIsSubmitting(true);
+
+    try {
+      await updateBlacklistEntry(editingEntry.entryId, payload);
+
+      setShowAddEntryModal(false);
+      setEditingEntry(null);
+      setSuccessMessage("Blacklist entry updated successfully.");
+      // Cached pages still hold the old values, so reload fresh (stays on
+      // the current page).
+      pageCache.clear();
+      await loadEntries();
+    } catch (error) {
+      setFormError(
+        getAuthErrorMessage(error, "Unable to update blacklist entry. Please try again."),
       );
     } finally {
       setIsSubmitting(false);
@@ -570,6 +685,11 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
                         status={row.status}
                       />
                     </td>
+                    <td className="px-4 py-4">
+                      <DashboardEditButton onClick={() => handleEditEntryClick(row)}>
+                        Edit
+                      </DashboardEditButton>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -623,7 +743,7 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
 
       {showAddEntryModal && (
         <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
+          className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
           onClick={handleCloseModal}
         >
           <div
@@ -639,10 +759,12 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
             </button>
 
             <h3 className="mb-1 text-[16px] font-semibold text-[#202224]">
-              Add Blacklist Entry
+              {isEditMode ? "Edit Blacklist Entry" : "Add Blacklist Entry"}
             </h3>
             <p className="mb-6 text-[13px] text-[#7A7A7A]">
-              Fill all fileds to blacklist entry
+              {isEditMode
+                ? "Edit the fields to update blacklist entry"
+                : "Fill all fileds to blacklist entry"}
             </p>
 
             <div className="mb-5 grid grid-cols-2 gap-5">
@@ -657,6 +779,9 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
                     className="h-11 w-full appearance-none rounded-lg border border-[#E5E7EB] bg-white pl-3 pr-8 text-[13px] text-[#202224] outline-none"
                   >
                     <option value="">Type</option>
+                    {formValues.type && !TYPE_OPTIONS.includes(formValues.type) && (
+                      <option value={formValues.type}>{formValues.type}</option>
+                    )}
                     {TYPE_OPTIONS.map((option) => (
                       <option key={option} value={option}>
                         {option}
@@ -707,6 +832,9 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
                     className="h-11 w-full appearance-none rounded-lg border border-[#E5E7EB] bg-white pl-3 pr-8 text-[13px] text-[#202224] outline-none"
                   >
                     <option value="">Risk Type</option>
+                    {formValues.riskType && !RISK_TYPE_OPTIONS.includes(formValues.riskType) && (
+                      <option value={formValues.riskType}>{formValues.riskType}</option>
+                    )}
                     {RISK_TYPE_OPTIONS.map((option) => (
                       <option key={option} value={option}>
                         {option}
@@ -731,7 +859,13 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
               disabled={isSubmitting}
               className="h-[46px] w-[160px] rounded-lg border-none bg-[#333333] text-[14px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isSubmitting ? "Submitting..." : "Submit"}
+              {isSubmitting
+                ? isEditMode
+                  ? "Updating..."
+                  : "Submitting..."
+                : isEditMode
+                  ? "Update"
+                  : "Submit"}
             </button>
           </div>
         </div>

@@ -19,6 +19,7 @@ import DashboardEditButton from "../../components/DashboardEditButton";
 import DashboardStatusToggle from "../../components/DashboardStatusToggle";
 
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
+import { CONFIG_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
 const TABLE_COLUMNS = [
   "S.No",
   "Category Name",
@@ -162,6 +163,13 @@ export default function AllCategoryPage({ searchQuery = "" }) {
       isActive = false;
     };
   }, [currentPage, searchQuery, isLocalFilterActive]);
+
+  // Auto-refresh: re-fetches the current page in the background. Paused while
+  // a Year/From/To filter is active, because that mode fetches every page.
+  useAutoRefresh(() => loadCategories(), {
+    intervalMs: CONFIG_REFRESH_MS,
+    enabled: !isLocalFilterActive,
+  });
 
   const filteredData = useMemo(() => {
     return categories.filter((item) => {
@@ -570,7 +578,7 @@ export default function AllCategoryPage({ searchQuery = "" }) {
 
       {showAddCategoryModal && (
         <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
+          className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
           onClick={handleCancelAddCategory}
         >
           <div
@@ -611,7 +619,7 @@ export default function AllCategoryPage({ searchQuery = "" }) {
 
       {deleteTarget && (
         <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
+          className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
           onClick={handleCancelDelete}
         >
           <div

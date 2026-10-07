@@ -181,24 +181,20 @@ export default function TransactionDataPage({ searchQuery = "" }) {
     fetchTransactions({ silent: false });
   }, [fetchTransactions]);
 
-  // Auto-refresh: while the user is viewing page 1 with no filters applied,
-  // silently poll for new transactions so they appear without a manual
-  // reload. There's no live push (WebSocket/SSE) endpoint from the backend
-  // yet, so this is a lightweight polling-based approximation of real time.
-  const hasActiveFilters = Boolean(
-    year || fromDate || toDate || searchQuery.trim(),
-  );
-
+  // Auto-refresh: silently re-fetches the current page (any page, with any
+  // filter) every AUTO_REFRESH_INTERVAL_MS while the tab is visible, so new
+  // transactions appear without a manual reload. Filters here are applied to
+  // the fetched page in the browser, so this is always a single request.
+  // There's no live push (WebSocket/SSE) endpoint from the backend yet, so
+  // this is a lightweight polling-based approximation of real time.
   useEffect(() => {
-    if (currentPage !== 1 || hasActiveFilters) return undefined;
-
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
       fetchTransactions({ silent: true });
     }, AUTO_REFRESH_INTERVAL_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [currentPage, hasActiveFilters, fetchTransactions]);
+  }, [fetchTransactions]);
 
   const filteredData = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -590,7 +586,8 @@ export default function TransactionDataPage({ searchQuery = "" }) {
         <div style={styles.headerRow}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <div style={styles.title}>Transaction Data</div>
-            {!hasActiveFilters && currentPage === 1 && (
+            {/* Live indicator: the table auto-refreshes on every page. */}
+            {(
               <span
                 style={{
                   display: "inline-flex",

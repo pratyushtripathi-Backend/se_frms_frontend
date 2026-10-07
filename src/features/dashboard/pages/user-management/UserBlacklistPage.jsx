@@ -18,6 +18,7 @@ import {
 import DashboardSuccessModal from "../../components/DashboardSuccessModal";
 
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
+import { CONFIG_REFRESH_MS, useRefreshTick } from "../../utils/useAutoRefresh";
 
 // Rows already loaded on this page, kept across visits (the page unmounts
 // when you leave it) and keyed by page / search / filter mode, so the table
@@ -58,6 +59,15 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
 
   const rowsPerPage = 10;
   const isLocalFilterActive = Boolean(year || fromDate || toDate);
+
+  // Auto-refresh: bumps every few seconds (while the tab is visible) and is
+  // a dependency of the loader effect below, so the current page re-fetches
+  // quietly. Paused while a Year/From/To filter is active, because that mode
+  // fetches every page.
+  const refreshTick = useRefreshTick({
+    intervalMs: CONFIG_REFRESH_MS,
+    enabled: !isLocalFilterActive,
+  });
 
   useEffect(() => {
     setCurrentPage(1);
@@ -144,7 +154,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
     return () => {
       isActive = false;
     };
-  }, [currentPage, isLocalFilterActive, searchQuery]);
+  }, [currentPage, isLocalFilterActive, searchQuery, refreshTick]);
 
   useEffect(() => {
     if (!isModalOpen) return undefined;
@@ -1045,7 +1055,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
       </div>
 
       {isModalOpen && (
-        <div style={styles.modalOverlay} onClick={closeModal}>
+        <div className="frms-modal-overlay" style={styles.modalOverlay} onClick={closeModal}>
           <div style={styles.modalCard} onClick={(event) => event.stopPropagation()}>
             <div style={styles.modalHeader}>
               <div>

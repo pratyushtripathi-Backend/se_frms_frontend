@@ -17,6 +17,7 @@ import DashboardEditButton from "../../components/DashboardEditButton";
 import DashboardStatusToggle from "../../components/DashboardStatusToggle";
 
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
+import { CONFIG_REFRESH_MS, useRefreshTick } from "../../utils/useAutoRefresh";
 
 const rowsPerPage = 10;
 
@@ -68,6 +69,15 @@ export default function AllUsersPage({ searchQuery = "" }) {
   const isLocalFilterActive = Boolean(
     year || fromDate || toDate || role,
   );
+
+  // Auto-refresh: bumps every few seconds (while the tab is visible) and is
+  // a dependency of the loader effect below, so the current page re-fetches
+  // quietly. Paused while a Year/From/To filter is active, because that mode
+  // fetches every page.
+  const refreshTick = useRefreshTick({
+    intervalMs: CONFIG_REFRESH_MS,
+    enabled: !isLocalFilterActive,
+  });
 
   useEffect(() => {
     setCurrentPage(1);
@@ -178,6 +188,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
     };
   }, [
     currentPage,
+    refreshTick,
     isLocalFilterActive,
     searchQuery,
   ]);
@@ -840,7 +851,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
       =========================================================== */}
       {editingUser && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center px-4"
+          className="frms-modal-overlay fixed inset-0 z-[100] flex items-center justify-center px-4"
           onClick={handleCloseEdit}
         >
           <div

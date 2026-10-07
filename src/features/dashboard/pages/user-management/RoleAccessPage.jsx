@@ -21,6 +21,7 @@ import DashboardEditButton from "../../components/DashboardEditButton";
 import DashboardStatusToggle from "../../components/DashboardStatusToggle";
 
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
+import { CONFIG_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
 const ROLE_ACCESS_COLUMN_ORDER = [
   "id",
   "access",
@@ -75,7 +76,7 @@ function AddAccessModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/10 px-4 backdrop-blur-[1px]">
+    <div className="frms-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-white/10 px-4 backdrop-blur-[1px]">
       <div className="relative w-[90%] max-w-[850px] rounded-[24px] bg-white p-10 shadow-2xl sm:p-14">
 
         {/* Close */}
@@ -224,7 +225,7 @@ function SuccessModal({ message, onClose }) {
   ).toUpperCase();
 
   return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 px-4">
+    <div className="frms-modal-overlay fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 px-4">
       <div className="w-[90%] max-w-[560px] rounded-[24px] bg-white px-10 py-14 text-center shadow-2xl">
 
         {/* Animated checkmark */}
@@ -348,7 +349,9 @@ export default function RoleAccessPage() {
   const rowsPerPage = 10;
   const isLocalFilterActive = Boolean(year || fromDate || toDate);
 
-  const loadRoleAccessList = useCallback(async () => {
+  // `silent` is used by the background auto-refresh: no dimming / spinner,
+  // and the current rows stay if one refresh fails.
+  const loadRoleAccessList = useCallback(async ({ silent = false } = {}) => {
     // Drops responses for a search you've already moved on from.
     const requestId = ++loadRequestIdRef.current;
     const trimmedSearchValue = debouncedSearchValue.trim();
@@ -361,9 +364,11 @@ export default function RoleAccessPage() {
       return;
     }
 
-    // The current rows stay on screen (dimmed) until the new ones arrive.
-    setIsLoading(true);
-    setErrorMessage("");
+    if (!silent) {
+      // The current rows stay on screen (dimmed) until the new ones arrive.
+      setIsLoading(true);
+      setErrorMessage("");
+    }
 
     try {
       const roleId = resolveRoleId(trimmedSearchValue, roleOptions);
@@ -390,6 +395,7 @@ export default function RoleAccessPage() {
       setTotalPages(normalizedResponse.totalPages);
     } catch (error) {
       if (requestId !== loadRequestIdRef.current) return;
+      if (silent) return;
 
       setRoleAccessRows([]);
       setTotalRecords(0);
@@ -423,6 +429,13 @@ export default function RoleAccessPage() {
 
     return () => window.clearTimeout(timeoutId);
   }, [hasSearched, loadRoleAccessList]);
+
+  // Auto-refresh: once a role has been searched, re-fetch its access list in
+  // the background so changes made elsewhere show up.
+  useAutoRefresh(() => loadRoleAccessList({ silent: true }), {
+    intervalMs: CONFIG_REFRESH_MS,
+    enabled: hasSearched,
+  });
 
   useEffect(() => {
     let isActive = true;

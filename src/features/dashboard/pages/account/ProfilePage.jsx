@@ -1,10 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
-import { Pencil } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Pencil, X, ZoomIn } from "lucide-react";
 import { getAuthErrorMessage } from "../../../auth/services/authError";
 import { getAuthUser, saveAuthUser } from "../../../auth/services/authUserSession";
-import { getUserProfile, updateUserProfile } from "../../services/userProfileService";
+import {
+  getUserProfile,
+  updateUserProfile,
+  uploadUserProfileImage,
+} from "../../services/userProfileService";
+import { notifyProfileImageChanged, useProfileImage } from "../../utils/useProfileImage";
 import DashboardEditButton from "../../components/DashboardEditButton";
 import DashboardSuccessModal from "../../components/DashboardSuccessModal";
+
+// Same limits as the backend (PUT /users/{id}/profile-image), checked first
+// so an unsupported file gets a clear message without a round trip.
+const PROFILE_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const PROFILE_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
 
 export default function ProfilePage() {
   const authUser = useMemo(() => getAuthUser(), []);
@@ -20,6 +31,14 @@ export default function ProfilePage() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
   const [successModalMessage, setSuccessModalMessage] = useState("");
+  const [successModalTitle, setSuccessModalTitle] = useState("Edit Successful");
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const photoInputRef = useRef(null);
+  // Full-size photo viewer (opened by clicking the round profile photo).
+  const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false);
+  // The uploaded image (GET /users/{id}/profile-image), or null -> default.
+  const profileImageUrl = useProfileImage(authUser.id);
   const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ");
   const details = [
     {
@@ -105,6 +124,73 @@ export default function ProfilePage() {
     return () => window.clearTimeout(messageTimer);
   }, [profileMessage]);
 
+  // Esc closes the full-size photo viewer.
+  useEffect(() => {
+    if (!isPhotoViewerOpen) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setIsPhotoViewerOpen(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isPhotoViewerOpen]);
+
+  const handleChangePhotoClick = () => {
+    setPhotoError("");
+    photoInputRef.current?.click();
+  };
+
+  const handlePhotoSelected = async (event) => {
+    const file = event.target.files?.[0];
+    // Reset so picking the same file again still triggers onChange.
+    event.target.value = "";
+
+    if (!file) return;
+
+    if (!authUser.id) {
+      setPhotoError("User id is missing. Please login again.");
+      return;
+    }
+
+    if (!PROFILE_IMAGE_TYPES.includes(file.type)) {
+      setPhotoError("Please choose a JPG, PNG or WEBP image.");
+      return;
+    }
+
+    if (file.size > PROFILE_IMAGE_MAX_BYTES) {
+      setPhotoError("Image must be 2 MB or smaller.");
+      return;
+    }
+
+    setPhotoError("");
+    setIsUploadingPhoto(true);
+
+    try {
+      const response = await uploadUserProfileImage(authUser.id, file);
+      const updatedProfile =
+        response.data?.responseData ?? response.data?.data ?? null;
+
+      if (updatedProfile) setProfile(updatedProfile);
+
+      // Reload the avatar here and in the header.
+      notifyProfileImageChanged();
+      setSuccessModalTitle("Photo Updated");
+      setSuccessModalMessage(
+        response.data?.responseMessage ?? "Profile image uploaded successfully",
+      );
+    } catch (uploadError) {
+      setPhotoError(
+        getAuthErrorMessage(
+          uploadError,
+          "Unable to upload profile image. Please try again.",
+        ),
+      );
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
   const handleProfileFormChange = (event) => {
     const { name, value } = event.target;
 
@@ -175,6 +261,7 @@ export default function ProfilePage() {
       const nextMessage =
         response.data?.responseMessage ?? "User updated successfully.";
       setProfileMessage(nextMessage);
+      setSuccessModalTitle("Edit Successful");
       setSuccessModalMessage(nextMessage);
       setIsEditingProfile(false);
     } catch (profileError) {
@@ -238,14 +325,47 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex flex-col items-center pt-8">
-            <img
-              src="/admin.png"
-              alt="Profile"
-              className="h-[150px] w-[150px] rounded-full object-cover"
+            <button
+              type="button"
+              onClick={() => setIsPhotoViewerOpen(true)}
+              disabled={isUploadingPhoto}
+              title="View full photo"
+              className="group relative h-[150px] w-[150px] cursor-zoom-in rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3B9BF0] focus-visible:ring-offset-2 disabled:cursor-default"
+            >
+              <img
+                src={profileImageUrl || "/admin.png"}
+                alt="Profile"
+                className={`h-[150px] w-[150px] rounded-full object-cover transition-opacity ${
+                  isUploadingPhoto ? "opacity-50" : "opacity-100"
+                }`}
+              />
+
+              {/* Hover hint: click to see the whole photo. */}
+              {!isUploadingPhoto && (
+                <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 text-white opacity-0 transition group-hover:bg-black/35 group-hover:opacity-100">
+                  <ZoomIn size={26} />
+                </span>
+              )}
+
+              {isUploadingPhoto && (
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <span className="h-7 w-7 animate-spin rounded-full border-2 border-[#D1D5DB] border-t-[#333333]" />
+                </span>
+              )}
+            </button>
+
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handlePhotoSelected}
             />
 
             <button
               type="button"
+              onClick={handleChangePhotoClick}
+              disabled={isUploadingPhoto}
               className="
                 mt-7
                 flex
@@ -261,11 +381,23 @@ export default function ProfilePage() {
                 text-white
                 transition
                 hover:bg-[#5C5C5C]
+                disabled:cursor-not-allowed
+                disabled:opacity-70
               "
             >
               <Pencil size={13} />
-              Change Photo
+              {isUploadingPhoto ? "Uploading..." : "Change Photo"}
             </button>
+
+            <p className="mt-3 text-[11px] text-[#8C8C8C]">
+              JPG, PNG or WEBP, up to 2 MB
+            </p>
+
+            {photoError && (
+              <p className="mx-6 mt-2 text-center text-[12px] font-semibold text-[#E0453C]">
+                {photoError}
+              </p>
+            )}
           </div>
         </div>
 
@@ -346,7 +478,7 @@ export default function ProfilePage() {
 
       {isEditingProfile && (
         <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 px-4"
+          className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 px-4"
           onClick={handleCancelProfileEdit}
         >
           <div
@@ -420,11 +552,42 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* Full-size photo viewer: the whole image, uncropped, scaled to fit
+          the screen. Closes on the X, a click outside the image, or Esc. */}
+      {isPhotoViewerOpen &&
+        createPortal(
+          <div
+            className="frms-modal-overlay fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-6"
+            onClick={() => setIsPhotoViewerOpen(false)}
+          >
+            <div
+              className="relative"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <img
+                src={profileImageUrl || "/admin.png"}
+                alt={fullName || "Profile photo"}
+                className="block max-h-[85vh] max-w-[90vw] rounded-[12px] object-contain shadow-2xl"
+              />
+
+              <button
+                type="button"
+                onClick={() => setIsPhotoViewerOpen(false)}
+                aria-label="Close"
+                className="absolute -right-3 -top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#202224] shadow-lg transition hover:bg-[#F3F4F6]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
+
       {successModalMessage && (
         <DashboardSuccessModal
           message={successModalMessage}
           onClose={() => setSuccessModalMessage("")}
-          title="Edit Successful"
+          title={successModalTitle}
         />
       )}
     </div>

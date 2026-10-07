@@ -27,6 +27,15 @@ export function removeBlacklistEntry(id) {
   });
 }
 
+// Powers the Edit button on the Black List Entry page.
+// PATCH /api/v1/admin/blacklist-entries/{id}
+// payload: { reason }
+export function updateBlacklistEntry(id, payload) {
+  return apiClient.patch(`${BLACKLIST_ENTRIES_PATH}/${id}`, payload, {
+    skipAuthRedirect: true,
+  });
+}
+
 // Powers the Status toggle on the Black List Entry page.
 export function updateBlacklistStatus(id, status) {
   return apiClient.patch(`${BLACKLIST_ENTRIES_PATH}/${id}/status`, null, {

@@ -71,6 +71,9 @@ export default function FraudDetectionTrend() {
   const [activeSeries, setActiveSeries] = useState("fraud");
   const [groupBy, setGroupBy] = useState("day");
   const [chartData, setChartData] = useState([]);
+  // False until the first response (or failure), so the chart area shows a
+  // loading placeholder instead of empty axes that then jump to the data.
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   const requestIdRef = useRef(0);
 
@@ -87,10 +90,13 @@ export default function FraudDetectionTrend() {
         }
 
         setChartData(normalizeTrendResponse(response?.data));
+        setHasLoaded(true);
       } catch (err) {
         if (requestId !== requestIdRef.current) {
           return;
         }
+
+        setHasLoaded(true);
 
         if (!silent) {
           setChartData([]);
@@ -166,7 +172,13 @@ export default function FraudDetectionTrend() {
       </div>
 
       {/* Chart */}
-      <div className="h-[210px] w-full">
+      <div className="relative h-[210px] w-full">
+        {!hasLoaded && (
+          <div className="absolute inset-0 z-[1] bg-white p-2">
+            <span className="frms-skeleton h-full w-full" />
+          </div>
+        )}
+
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={chartData}

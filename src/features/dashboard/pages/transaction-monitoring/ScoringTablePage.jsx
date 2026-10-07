@@ -10,6 +10,7 @@ import { CalendarDays, Download, RotateCcw } from "lucide-react";
 import { getAuthErrorMessage } from "../../../auth/services/authError";
 import { getScoringHistory } from "../../services/fraudDetailsService";
 import Loader from "../../../../components/ui/Loader";
+import { LIVE_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
 
 const rowsPerPage = 10;
 
@@ -108,6 +109,10 @@ export default function ScoringTablePage() {
   useEffect(() => {
     loadScoringHistory();
   }, [loadScoringHistory]);
+
+  // Auto-refresh: re-fetches the current page (with its filters) in the
+  // background so new scores appear without a manual reload.
+  useAutoRefresh(loadScoringHistory, { intervalMs: LIVE_REFRESH_MS });
 
   const handleResetFilters = () => {
     setYear("");

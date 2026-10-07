@@ -13,6 +13,9 @@ import { getMatchedRules } from "../../services/fraudDetailsService";
 import Loader from "../../../../components/ui/Loader";
 
 const rowsPerPage = 10;
+// How often the current page re-fetches in the background (same as the
+// dashboard's Recent Transactions widget).
+const AUTO_REFRESH_INTERVAL_MS = 10000;
 
 // Rows already loaded on this page, kept across visits (the page unmounts
 // when you leave it) and keyed by page / size / year / from / to, so the
@@ -51,21 +54,26 @@ export default function MatchedRulePage() {
     scrollIntoHorizontalStrip(activeButton);
   }, [currentPage, totalPages]);
 
-  const loadMatchedRules = useCallback(async () => {
+  // `silent` is used by the background auto-refresh: it updates the rows in
+  // place without the dimmed table + spinner, and keeps the current rows (no
+  // error banner) if one refresh happens to fail.
+  const loadMatchedRules = useCallback(async ({ silent = false } = {}) => {
     const requestId = ++loadRequestIdRef.current;
     const cacheKey = pageCacheKey(currentPage - 1, rowsPerPage, year, fromDate, toDate);
     const cached = pageCache.get(cacheKey);
 
-    if (cached) {
-      setMatchedRuleRows(cached.rows);
-      setTotalRecords(cached.totalRecords);
-      setTotalPages(cached.totalPages);
-      setIsLoading(false);
-    } else {
-      // The current rows stay on screen (dimmed) until the new ones arrive.
-      setIsLoading(true);
+    if (!silent) {
+      if (cached) {
+        setMatchedRuleRows(cached.rows);
+        setTotalRecords(cached.totalRecords);
+        setTotalPages(cached.totalPages);
+        setIsLoading(false);
+      } else {
+        // The current rows stay on screen (dimmed) until the new ones arrive.
+        setIsLoading(true);
+      }
+      setErrorMessage("");
     }
-    setErrorMessage("");
 
     try {
       const response = await getMatchedRules({
@@ -86,6 +94,7 @@ export default function MatchedRulePage() {
       setMatchedRuleRows(normalizedResponse.rows);
       setTotalRecords(normalizedResponse.totalRecords);
       setTotalPages(normalizedResponse.totalPages);
+      setErrorMessage("");
       pageCache.set(cacheKey, {
         rows: normalizedResponse.rows,
         totalRecords: normalizedResponse.totalRecords,
@@ -93,8 +102,8 @@ export default function MatchedRulePage() {
       });
     } catch (error) {
       if (requestId !== loadRequestIdRef.current) return;
-      // Keep showing the cached rows if a background refresh fails.
-      if (cached) return;
+      // Keep showing the current rows if a background refresh fails.
+      if (silent || cached) return;
 
       setMatchedRuleRows([]);
       setTotalRecords(0);
@@ -109,6 +118,25 @@ export default function MatchedRulePage() {
 
   useEffect(() => {
     loadMatchedRules();
+  }, [loadMatchedRules]);
+
+  // Auto-refresh: re-fetch the current page (with the current filters) every
+  // AUTO_REFRESH_INTERVAL_MS while the browser tab is visible, and once right
+  // away when the user comes back to the tab.
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") {
+        loadMatchedRules({ silent: true });
+      }
+    };
+
+    const intervalId = window.setInterval(refreshIfVisible, AUTO_REFRESH_INTERVAL_MS);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
   }, [loadMatchedRules]);
 
   const handleResetFilters = () => {
@@ -831,6 +859,7 @@ export default function MatchedRulePage() {
       {rulesModalRow &&
         createPortal(
           <div
+            className="frms-modal-overlay"
             style={styles.modalOverlay}
             onClick={() => setRulesModalRow(null)}
           >

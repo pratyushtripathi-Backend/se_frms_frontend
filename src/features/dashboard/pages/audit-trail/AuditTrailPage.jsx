@@ -6,6 +6,7 @@ import ExportFile from "../../components/ExportFile";
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
 import { getAuditLogs } from "../../services/fraudDetailsService";
 import { getAuthErrorMessage } from "../../../auth/services/authError";
+import { LIVE_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
 
 const rowsPerPage = 10;
 
@@ -162,6 +163,9 @@ export default function AuditTrailPage({ searchQuery = "" }) {
   useEffect(() => {
     loadAuditLogs();
   }, [loadAuditLogs]);
+
+  // Auto-refresh: re-fetches the current page in the background.
+  useAutoRefresh(loadAuditLogs, { intervalMs: LIVE_REFRESH_MS });
 
   const filteredRows = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();

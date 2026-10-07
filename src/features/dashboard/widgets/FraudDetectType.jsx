@@ -34,6 +34,9 @@ function normalizeChannelResponse(responseData) {
 
 export default function FraudDetectType() {
   const [channelData, setChannelData] = useState([]);
+  // False until the first response (or failure), so the donut and legend
+  // show loading placeholders instead of "No transactions yet." first.
+  const [hasLoaded, setHasLoaded] = useState(false);
   const requestIdRef = useRef(0);
 
   const loadChannels = useCallback(async ({ silent = false } = {}) => {
@@ -43,8 +46,10 @@ export default function FraudDetectType() {
       const response = await getTransactionsByChannel();
       if (requestId !== requestIdRef.current) return;
       setChannelData(normalizeChannelResponse(response?.data));
+      setHasLoaded(true);
     } catch (err) {
       if (requestId !== requestIdRef.current) return;
+      setHasLoaded(true);
       if (!silent) {
         setChannelData([]);
       }
@@ -69,7 +74,7 @@ export default function FraudDetectType() {
     <div className="rounded-card border border-brand-border bg-brand-panel p-4 shadow-card">
       <div className="mb-1.5 flex items-center justify-between">
         <h2 className="text-[14px] font-bold text-brand-ink">
-          Fraud Detect Typ
+          Fraud Detect Type
         </h2>
 
         <div className="grid h-7 w-7 place-items-center rounded-full border border-brand-redSoft text-brand-orange">
@@ -79,6 +84,12 @@ export default function FraudDetectType() {
 
       <div className="flex items-center gap-3">
         <div className="relative h-[140px] w-[140px] shrink-0">
+          {!hasLoaded && (
+            <div className="absolute inset-0 z-[1] bg-white p-1">
+              <span className="frms-skeleton h-full w-full !rounded-full" />
+            </div>
+          )}
+
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -119,7 +130,14 @@ export default function FraudDetectType() {
         </div>
 
         <ul className="flex-1 space-y-1.5">
-          {channelData.length === 0 && (
+          {!hasLoaded &&
+            [0, 1, 2].map((placeholder) => (
+              <li key={placeholder}>
+                <span className="frms-skeleton h-3 w-full" />
+              </li>
+            ))}
+
+          {hasLoaded && channelData.length === 0 && (
             <li className="text-[11px] text-brand-dim">No transactions yet.</li>
           )}
 

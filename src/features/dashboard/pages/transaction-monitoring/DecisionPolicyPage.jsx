@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../../auth/services/authError";
 import {
   createDecisionPolicy,
   getLatestDecisionPolicy,
+  updateDecisionPolicy,
 } from "../../services/fraudDetailsService";
 import DecisionPolicyData from "./DecisionPolicyData";
+import { CONFIG_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
 
 function AnimatedCheckmark() {
   return (
@@ -58,7 +60,11 @@ const policyCache = { current: null };
 export default function DecisionPolicyPage() {
   const [policy, setPolicy] = useState(() => policyCache.current);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  // "create" → Create Policy form (empty); "edit" → same form pre-filled
+  // with the current policy, submitted to PUT /decision-policy/update/{id}.
+  const [formMode, setFormMode] = useState("create");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successTitle, setSuccessTitle] = useState("");
   const [form, setForm] = useState(emptyForm);
   // Starts true when nothing is cached, so the first paint shows
   // "Loading…" rather than flashing "No decision policy data found".
@@ -120,15 +126,38 @@ export default function DecisionPolicyPage() {
     loadLatestPolicy();
   }, [loadLatestPolicy]);
 
+  // Auto-refresh: picks up a policy changed by another admin.
+  useAutoRefresh(loadLatestPolicy, { intervalMs: CONFIG_REFRESH_MS });
+
   const handleFieldChange = (field) => (event) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
   };
 
   const openCreateModal = () => {
+    setFormMode("create");
     setForm(emptyForm);
     setErrorMessage("");
     setShowCreateModal(true);
   };
+
+  const openEditModal = () => {
+    if (!policy) return;
+
+    setFormMode("edit");
+    setForm({
+      allowMinScore: toFormValue(policy.allowMinScore),
+      allowMaxScore: toFormValue(policy.allowMaxScore),
+      reviewMinScore: toFormValue(policy.reviewMinScore),
+      reviewMaxScore: toFormValue(policy.reviewMaxScore),
+      blockMinScore: toFormValue(policy.blockMinScore),
+      blockMaxScore: toFormValue(policy.blockMaxScore),
+      description: policy.description ?? "",
+    });
+    setErrorMessage("");
+    setShowCreateModal(true);
+  };
+
+  const isEditMode = formMode === "edit";
 
   const closeCreateModal = () => {
     setShowCreateModal(false);
@@ -148,6 +177,36 @@ export default function DecisionPolicyPage() {
         blockMaxScore: toNumberOrValue(form.blockMaxScore),
         description: form.description.trim(),
       };
+
+      if (isEditMode) {
+        if (policy?.id === undefined || policy?.id === null || policy?.id === "") {
+          setErrorMessage(
+            "Unable to find the decision policy id. Please reload the page and try again.",
+          );
+          return;
+        }
+
+        // The update DTO is the same as create; send the current status
+        // along so editing the scores doesn't change it.
+        const response = await updateDecisionPolicy(policy.id, {
+          ...payload,
+          status: policy.status === "Active",
+        });
+        const updatedPolicy = normalizeDecisionPolicy(
+          response?.data?.responseData ?? response?.data,
+          { ...policy, ...payload },
+        );
+
+        setPolicy(updatedPolicy);
+        policyCache.current = null;
+        await loadLatestPolicy();
+        setSuccessTitle("Decision Policy Updated");
+        setSuccessMessage("The Decision policy has been Updated successfully.");
+        setShowCreateModal(false);
+        setShowSuccessModal(true);
+        return;
+      }
+
       const response = await createDecisionPolicy(payload);
       const createdPolicy = normalizeDecisionPolicy(
         response?.data?.responseData ?? response?.data,
@@ -161,6 +220,7 @@ export default function DecisionPolicyPage() {
       setPolicy(createdPolicy);
       policyCache.current = null;
       await loadLatestPolicy();
+      setSuccessTitle("");
       setSuccessMessage(
         response?.data?.responseMessage ||
           "Decision policy created successfully.",
@@ -171,7 +231,9 @@ export default function DecisionPolicyPage() {
       setErrorMessage(
         getAuthErrorMessage(
           error,
-          "Unable to create decision policy. Please try again.",
+          isEditMode
+            ? "Unable to update decision policy. Please try again."
+            : "Unable to create decision policy. Please try again.",
         ),
       );
     } finally {
@@ -227,6 +289,28 @@ export default function DecisionPolicyPage() {
       fontWeight: 700,
       color: "#202224",
     },
+
+    headerActions: {
+      display: "flex",
+      alignItems: "center",
+      gap: "12px",
+    },
+
+    editButton: (isDisabled) => ({
+      height: "40px",
+      padding: "0 18px",
+      borderRadius: "8px",
+      border: "1px solid #2F6FED",
+      background: "#2F6FED",
+      color: "#FFFFFF",
+      fontWeight: 600,
+      fontSize: "13px",
+      cursor: isDisabled ? "not-allowed" : "pointer",
+      opacity: isDisabled ? 0.55 : 1,
+      display: "flex",
+      alignItems: "center",
+      gap: "6px",
+    }),
 
     createButton: {
       height: "40px",
@@ -535,14 +619,26 @@ export default function DecisionPolicyPage() {
         <div style={styles.headerRow}>
           <div style={styles.title}>Decision Policy Overview</div>
 
-          <button
-            onClick={openCreateModal}
-            style={styles.createButton}
-            type="button"
-          >
-            Create Policy
-            <Plus size={14} />
-          </button>
+          <div style={styles.headerActions}>
+            <button
+              disabled={!policy}
+              onClick={openEditModal}
+              style={styles.editButton(!policy)}
+              type="button"
+            >
+              Edit
+              <Pencil size={13} />
+            </button>
+
+            <button
+              onClick={openCreateModal}
+              style={styles.createButton}
+              type="button"
+            >
+              Create Policy
+              <Plus size={14} />
+            </button>
+          </div>
         </div>
 
         {pageErrorMessage && (
@@ -653,13 +749,15 @@ export default function DecisionPolicyPage() {
       </div>
 
       {showCreateModal && (
-        <div style={styles.modalOverlay}>
+        <div className="frms-modal-overlay" style={styles.modalOverlay}>
           <div style={styles.modalCard}>
             <div style={styles.modalHeaderRow}>
               <div>
                 <div style={styles.modalTitle}>Decision Policy</div>
                 <div style={styles.modalSubtitle}>
-                  Fill all filed to create Policy
+                  {isEditMode
+                    ? "Edit all fields to update Policy"
+                    : "Fill all filed to create Policy"}
                 </div>
               </div>
 
@@ -781,7 +879,7 @@ export default function DecisionPolicyPage() {
       )}
 
       {showSuccessModal && (
-        <div style={styles.modalOverlay}>
+        <div className="frms-modal-overlay" style={styles.modalOverlay}>
           <style>{`
             @keyframes dpCircleDraw {
               from { stroke-dashoffset: 189; }
@@ -798,7 +896,9 @@ export default function DecisionPolicyPage() {
             </div>
 
             <div style={styles.successTitle}>
-              {successMessage || "Decision Policy Create Successfully"}
+              {successTitle ||
+                successMessage ||
+                "Decision Policy Create Successfully"}
             </div>
 
             <div style={styles.successText}>
@@ -828,6 +928,12 @@ function toNumberOrValue(value) {
   const numericValue = Number(trimmedValue);
 
   return Number.isFinite(numericValue) ? numericValue : trimmedValue;
+}
+
+function toFormValue(value) {
+  if (value === null || value === undefined) return "";
+
+  return String(value);
 }
 
 function getDecisionPolicyLoadErrorMessage(error) {
@@ -870,6 +976,7 @@ function normalizeDecisionPolicy(responseData, fallbackPolicy) {
     policyData.updatedAt ?? policyData.updatedDate ?? fallbackPolicy.updatedDate;
 
   return {
+    id: policyData.id ?? policyData.policyId ?? fallbackPolicy.id,
     allowMinScore:
       policyData.allowMinScore ?? fallbackPolicy.allowMinScore,
     allowMaxScore:

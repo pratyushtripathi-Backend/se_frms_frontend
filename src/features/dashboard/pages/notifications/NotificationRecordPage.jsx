@@ -5,6 +5,7 @@ import ExportFile from "../../components/ExportFile";
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
 import { getAuthErrorMessage } from "../../../auth/services/authError";
 import { fetchNotifications } from "../../services/notificationService";
+import { LIVE_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
 
 const TABLE_COLUMNS = [
   "Sr no",
@@ -337,6 +338,13 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
     loadNotifications();
   }, [loadNotifications]);
 
+  // Auto-refresh: re-fetches the current page in the background. Paused while
+  // a Year/From/To filter is active, because that mode fetches every page.
+  useAutoRefresh(loadNotifications, {
+    intervalMs: LIVE_REFRESH_MS,
+    enabled: !isLocalFilterActive,
+  });
+
   const filteredRows = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
 
@@ -633,7 +641,7 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
       {channelModalRow &&
         createPortal(
           <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(15,23,42,0.45)] p-6"
+            className="frms-modal-overlay fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(15,23,42,0.45)] p-6"
             onClick={() => setChannelModalRow(null)}
           >
             <div

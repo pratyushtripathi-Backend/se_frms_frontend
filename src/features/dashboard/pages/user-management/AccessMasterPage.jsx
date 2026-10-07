@@ -19,6 +19,7 @@ import DashboardStatusToggle from "../../components/DashboardStatusToggle";
 import DashboardSuccessModal from "../../components/DashboardSuccessModal";
 
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
+import { CONFIG_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
 const TABLE_COLUMNS = [
   "Sr No",
   "Access",
@@ -156,6 +157,13 @@ export default function AccessMasterPage({ searchQuery = "" }) {
 
     return () => window.clearTimeout(timeoutId);
   }, [loadAccessList]);
+
+  // Auto-refresh: re-fetches the current page in the background. Paused while
+  // a Year/From/To filter is active, because that mode fetches every page.
+  useAutoRefresh(loadAccessList, {
+    intervalMs: CONFIG_REFRESH_MS,
+    enabled: !isLocalFilterActive,
+  });
 
   const filteredData = useMemo(() => {
     return accessRows.filter((item) => {
@@ -588,7 +596,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
       {/* Add Access Modal */}
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
+          className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
           onClick={closeModal}
         >
           <div

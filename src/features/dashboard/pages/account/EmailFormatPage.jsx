@@ -22,6 +22,7 @@ import {
 import DashboardStatusToggle from "../../components/DashboardStatusToggle";
 
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
+import { CONFIG_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
 
 const YEAR_OPTIONS = ["2026", "2025", "2024", "2023"];
 // The only template codes the backend actually looks up when sending mail
@@ -82,7 +83,7 @@ function CreateNotificationFormatModal({ defaults, isEdit = false, isSaving, onC
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4"
+      className="frms-modal-overlay fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4"
       onClick={onClose}
     >
       <div
@@ -314,7 +315,7 @@ function CreateEmailFormatModal({ initialValues, createDefaults, isSaving, onClo
   );
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4">
+    <div className="frms-modal-overlay fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4">
       <div className="relative flex max-h-[85vh] w-[92%] max-w-[600px] flex-col overflow-hidden rounded-[16px] bg-white p-7 shadow-2xl">
 
         {/* Header */}
@@ -481,7 +482,7 @@ function SuccessModal({ message, onClose }) {
   ).toUpperCase();
 
   return createPortal(
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 px-4">
+    <div className="frms-modal-overlay fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 px-4">
       <div className="w-[92%] max-w-[480px] rounded-[16px] bg-white px-8 py-10 text-center shadow-2xl">
 
         {/* Animated checkmark */}
@@ -779,6 +780,12 @@ export default function EmailFormatPage() {
     loadEmailTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-refresh: picks up templates changed by another admin.
+  useAutoRefresh(
+    () => Promise.all([loadEmailTemplates(), loadNotificationTemplates()]),
+    { intervalMs: CONFIG_REFRESH_MS },
+  );
 
   const loginCredentialTemplate = useMemo(
     () =>

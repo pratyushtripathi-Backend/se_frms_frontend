@@ -188,7 +188,7 @@ export default function ChangePasswordPage({ setCurrentPage }) {
       </div>
       {/* Success Modal */}
       {showSuccessModal && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 px-4">
+        <div className="frms-modal-overlay fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 px-4">
 
           <div className="w-[90%] max-w-[900px] rounded-[20px] bg-white px-10 py-10 text-center shadow-2xl">
 

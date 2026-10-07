@@ -121,8 +121,51 @@ body {
   animation: frms-page-in 200ms ease-out;
 }
 
+/* Popups / forms: the dimmed backdrop fades in and the card eases up from
+   slightly smaller, instead of both appearing abruptly.
+   Add `frms-modal-overlay` to a popup's full-screen backdrop element; its
+   direct child (the card) gets the scale-in.
+   `backwards` (not `both`) on the card means no transform remains once the
+   200ms animation ends, so nothing inside the card (date pickers, nested
+   popups) is affected afterwards. */
+@keyframes frms-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes frms-modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.frms-modal-overlay {
+  animation: frms-overlay-in 160ms ease-out;
+}
+
+.frms-modal-overlay > * {
+  animation: frms-modal-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+/* Loading placeholder (dashboard cards and charts): a soft grey block with
+   a gentle shimmer, shown in place of "…" / an empty box until data loads. */
+@keyframes frms-skeleton-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+.frms-skeleton {
+  display: block;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #eef0f3 25%, #f6f7f9 37%, #eef0f3 63%);
+  background-size: 400% 100%;
+  animation: frms-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .frms-page-enter {
+  .frms-page-enter,
+  .frms-modal-overlay,
+  .frms-modal-overlay > *,
+  .frms-skeleton {
     animation: none;
   }
 }

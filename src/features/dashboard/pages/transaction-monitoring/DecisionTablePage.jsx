@@ -10,6 +10,7 @@ import { CalendarDays, Download, RotateCcw } from "lucide-react";
 import { getAuthErrorMessage } from "../../../auth/services/authError";
 import { getDecisions } from "../../services/fraudDetailsService";
 import Loader from "../../../../components/ui/Loader";
+import { LIVE_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
 
 const rowsPerPage = 10;
 
@@ -114,6 +115,10 @@ export default function DecisionTablePage() {
   useEffect(() => {
     loadDecisions();
   }, [loadDecisions]);
+
+  // Auto-refresh: re-fetches the current page (with its filters) in the
+  // background so new decisions appear without a manual reload.
+  useAutoRefresh(loadDecisions, { intervalMs: LIVE_REFRESH_MS });
 
   const handleResetFilters = () => {
     setYear("");

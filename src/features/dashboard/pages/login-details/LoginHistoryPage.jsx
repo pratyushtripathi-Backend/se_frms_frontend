@@ -11,6 +11,7 @@ import { getLoginHistory } from "../../services/loginHistoryService";
 import DashboardStatusToggle from "../../components/DashboardStatusToggle";
 
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
+import { LIVE_REFRESH_MS, useRefreshTick } from "../../utils/useAutoRefresh";
 const TABLE_COLUMNS = [
   "Sr No",
   "User Name",
@@ -53,6 +54,15 @@ export default function LoginHistoryPage({ searchQuery = "" }) {
   const toInputRef = useRef(null);
   const pageScrollRef = useRef(null);
   const isLocalFilterActive = Boolean(year || fromDate || toDate);
+
+  // Auto-refresh: bumps every few seconds (while the tab is visible) and is
+  // a dependency of the loader effect below, so the current page re-fetches
+  // quietly. Paused while a Year/From/To filter is active, because that mode
+  // fetches every page.
+  const refreshTick = useRefreshTick({
+    intervalMs: LIVE_REFRESH_MS,
+    enabled: !isLocalFilterActive,
+  });
 
   useEffect(() => {
     setCurrentPage(0);
@@ -172,7 +182,7 @@ export default function LoginHistoryPage({ searchQuery = "" }) {
     return () => {
       isActive = false;
     };
-  }, [currentPage, isLocalFilterActive, searchQuery]);
+  }, [currentPage, isLocalFilterActive, searchQuery, refreshTick]);
 
   const filteredData = useMemo(() => {
     return loginHistoryRows.filter((item) => {

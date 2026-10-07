@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Search, Bell, ChevronDown, User, Lock, Mail } from "lucide-react";
 import { getAuthUser } from "../../auth/services/authUserSession";
 import { useNotificationBell } from "../../../context/NotificationContext.jsx";
+import { useProfileImage } from "../utils/useProfileImage";
 
 export default function Header({
   onSearchChange,
@@ -13,7 +14,10 @@ export default function Header({
 }) {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
-  const { name = "Admin User", role = "Admin" } = getAuthUser();
+  const { id: userId, name = "Admin User", role = "Admin" } = getAuthUser();
+  // The user's uploaded photo, or null -> default avatar. Reloads after a
+  // new photo is uploaded on the Profile page.
+  const profileImageUrl = useProfileImage(userId);
   const { unreadCount, markNotificationsSeen } = useNotificationBell();
   const displayUnreadCount = unreadCount > 99 ? "99+" : unreadCount;
   const profileMenuItems = [
@@ -92,7 +96,7 @@ export default function Header({
               type="button"
             >
               <img
-                src="/admin.png"
+                src={profileImageUrl || "/admin.png"}
                 alt={name}
                 className="h-12 w-12 rounded-full object-cover border border-brand-border"
               />

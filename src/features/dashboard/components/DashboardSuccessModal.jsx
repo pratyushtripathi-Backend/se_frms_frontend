@@ -10,7 +10,7 @@ export default function DashboardSuccessModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 px-4"
+      className="frms-modal-overlay fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 px-4"
       onClick={onClose}
     >
       <div

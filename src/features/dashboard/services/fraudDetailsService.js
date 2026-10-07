@@ -43,44 +43,24 @@ export function deleteFraudRule(id) {
   });
 }
 
-export async function getRuleCategories({ page = 0, size = 10, search = "" } = {}) {
-  const params = {
-    page,
-    size,
-    search: search.trim(),
-  };
-
-  try {
-    return await apiClient.get("/admin/rule-category/list", {
-      params,
-      skipAuthRedirect: true,
-    });
-  } catch (error) {
-    if (error.response?.status !== 404) {
-      throw error;
-    }
-
-    return apiClient.get("/rule-category/list", {
-      params,
-      skipAuthRedirect: true,
-    });
-  }
+// The backend only has /api/v1/rule-category/* (no /admin/rule-category/*),
+// so these call it directly instead of trying the /admin path first and
+// falling back after a 404.
+export function getRuleCategories({ page = 0, size = 10, search = "" } = {}) {
+  return apiClient.get("/rule-category/list", {
+    params: {
+      page,
+      size,
+      search: search.trim(),
+    },
+    skipAuthRedirect: true,
+  });
 }
 
-export async function createRuleCategory(payload) {
-  try {
-    return await apiClient.post("/admin/rule-category/create", payload, {
-      skipAuthRedirect: true,
-    });
-  } catch (error) {
-    if (error.response?.status !== 404) {
-      throw error;
-    }
-
-    return apiClient.post("/rule-category/create", payload, {
-      skipAuthRedirect: true,
-    });
-  }
+export function createRuleCategory(payload) {
+  return apiClient.post("/rule-category/create", payload, {
+    skipAuthRedirect: true,
+  });
 }
 
 export function updateRuleCategory(id, payload) {
@@ -140,6 +120,15 @@ export function deleteRuleScore(id) {
 
 export function createDecisionPolicy(payload) {
   return apiClient.post("/decision-policy/create", payload, {
+    skipAuthRedirect: true,
+  });
+}
+
+// PUT /api/v1/decision-policy/update/{id}
+// payload: { description, allowMinScore, allowMaxScore, reviewMinScore,
+//            reviewMaxScore, blockMinScore, blockMaxScore, status }
+export function updateDecisionPolicy(id, payload) {
+  return apiClient.put(`/decision-policy/update/${id}`, payload, {
     skipAuthRedirect: true,
   });
 }

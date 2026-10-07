@@ -17,6 +17,7 @@ import DashboardEditButton from "../../components/DashboardEditButton";
 import DashboardStatusToggle from "../../components/DashboardStatusToggle";
 
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
+import { CONFIG_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
 const rowsPerPage = 10;
 
 // Rows already loaded on this page, kept across visits (the page unmounts
@@ -158,6 +159,13 @@ export default function UserRolePage({ searchQuery = "" }) {
       isActive = false;
     };
   }, [currentPage, loadUserRoles]);
+
+  // Auto-refresh: re-fetches the current page in the background. Paused while
+  // a Year/From/To filter is active, because that mode fetches every page.
+  useAutoRefresh(() => loadUserRoles(), {
+    intervalMs: CONFIG_REFRESH_MS,
+    enabled: !isLocalFilterActive,
+  });
 
   // Role options don't depend on the page or filters, so load them
   // once per visit instead of again on every page change.
@@ -569,7 +577,7 @@ export default function UserRolePage({ searchQuery = "" }) {
 
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
+          className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
           onClick={closeModal}
         >
           <div
@@ -651,7 +659,7 @@ export default function UserRolePage({ searchQuery = "" }) {
       )}
 
       {showSuccessModal && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/55">
+        <div className="frms-modal-overlay fixed inset-0 z-[2000] flex items-center justify-center bg-black/55">
           <div className="w-[640px] max-w-[92vw] rounded-2xl bg-white px-12 py-14 text-center shadow-2xl">
             <div className="mb-2 flex justify-center">
               <svg

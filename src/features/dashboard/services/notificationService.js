@@ -24,6 +24,25 @@ export async function fetchNotifications(params = {}) {
   return response.data
 }
 
+// Unread dashboard notification count for the header bell. Read/unread is
+// stored in the backend (shared by all admins), so it survives logout and
+// cleared browser storage. Returns { unreadCount }.
+export async function fetchUnreadCount() {
+  const response = await apiClient.get(`${notificationApiBaseUrl}/notifications/unread-count`, {
+    skipAuthRedirect: true,
+  })
+  return response.data
+}
+
+// Marks every notification as read (called when the notifications view is
+// opened). Returns { unreadCount } after the update - normally 0.
+export async function markAllNotificationsRead() {
+  const response = await apiClient.patch(`${notificationApiBaseUrl}/notifications/read-all`, null, {
+    skipAuthRedirect: true,
+  })
+  return response.data
+}
+
 // TEMPORARY: notification-service's NotificationTemplateController checks
 // every /notification-templates request for an X-INTERNAL-API-KEY header
 // (it has no login-token check), and returns 403 "Invalid internal API key"

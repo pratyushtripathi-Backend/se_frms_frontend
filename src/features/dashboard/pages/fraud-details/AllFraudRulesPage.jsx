@@ -20,6 +20,7 @@ import DashboardEditButton from "../../components/DashboardEditButton";
 import DashboardStatusToggle from "../../components/DashboardStatusToggle";
 
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
+import { CONFIG_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
 const TABLE_COLUMNS = [
   "S.No",
   "Category Name",
@@ -199,6 +200,13 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
       isActive = false;
     };
   }, [searchQuery, loadFraudRules]);
+
+  // Auto-refresh: re-fetches the current page in the background. Paused while
+  // a Year/From/To filter is active, because that mode fetches every page.
+  useAutoRefresh(() => loadFraudRules(), {
+    intervalMs: CONFIG_REFRESH_MS,
+    enabled: !isLocalFilterActive,
+  });
 
   // Dropdown options don't depend on the page or search, so load them
   // once per visit instead of again on every page change.
@@ -684,7 +692,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
 
       {showAddRuleModal && (
         <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/45 px-4"
+          className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/45 px-4"
           onClick={handleCloseAddRule}
         >
           <div
@@ -821,7 +829,7 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
 
       {deleteTarget && (
         <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55 px-4"
+          className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/55 px-4"
           onClick={handleCancelDelete}
         >
           <div

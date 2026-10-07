@@ -12,6 +12,7 @@ import {
   getCases,
   updateDecisionReview,
 } from "../../services/fraudDetailsService";
+import { LIVE_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
 
 const TABS = [
   { key: "REVIEW", label: "Under Review" },
@@ -69,6 +70,9 @@ export default function CaseManagementPage() {
 
   // Case whose matched rules are shown in the "Matched Rule...." popup.
   const [rulesModalRow, setRulesModalRow] = useState(null);
+
+  // Allow / Block confirmation popup: { row, reviewStatus } while open.
+  const [confirmAction, setConfirmAction] = useState(null);
 
   // Smooth tab switching:
   // - casesCacheRef keeps each tab/page/filter result already loaded, so
@@ -345,6 +349,14 @@ export default function CaseManagementPage() {
   useEffect(() => {
     loadCases();
   }, [loadCases]);
+
+  // Auto-refresh: re-fetches the current tab/page in the background so new
+  // cases (and status changes) appear without a manual reload. Paused while
+  // a Year/From/To filter is active, because that mode fetches every page.
+  useAutoRefresh(loadCases, {
+    intervalMs: LIVE_REFRESH_MS,
+    enabled: !hasActiveFilters,
+  });
 
   // =========================
   // TAB CHANGE
@@ -958,12 +970,13 @@ export default function CaseManagementPage() {
                                   >
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        handleReviewAction(
+                                      onClick={() => {
+                                        setOpenMenuSrNo(null);
+                                        setConfirmAction({
                                           row,
-                                          "ALLOW",
-                                        )
-                                      }
+                                          reviewStatus: "ALLOW",
+                                        });
+                                      }}
                                       className="block w-full px-3 py-2 text-left text-[13px] text-[#219653] hover:bg-[#F8F8F8]"
                                     >
                                       Allow
@@ -971,12 +984,13 @@ export default function CaseManagementPage() {
 
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        handleReviewAction(
+                                      onClick={() => {
+                                        setOpenMenuSrNo(null);
+                                        setConfirmAction({
                                           row,
-                                          "BLOCK",
-                                        )
-                                      }
+                                          reviewStatus: "BLOCK",
+                                        });
+                                      }}
                                       className="block w-full px-3 py-2 text-left text-[13px] text-[#EB5757] hover:bg-[#F8F8F8]"
                                     >
                                       Block
@@ -1101,7 +1115,7 @@ export default function CaseManagementPage() {
       {rulesModalRow &&
         createPortal(
           <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(15,23,42,0.45)] p-6"
+            className="frms-modal-overlay fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(15,23,42,0.45)] p-6"
             onClick={() => setRulesModalRow(null)}
           >
             <div
@@ -1166,6 +1180,66 @@ export default function CaseManagementPage() {
                     </table>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Allow / Block confirmation popup. */}
+      {confirmAction &&
+        createPortal(
+          <div
+            className="frms-modal-overlay fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(15,23,42,0.45)] p-6"
+            onClick={() => setConfirmAction(null)}
+          >
+            <div
+              className="w-[min(420px,90%)] rounded-xl bg-white p-6 shadow-[0_20px_45px_rgba(0,0,0,.18)]"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+            >
+              <h3 className="text-[18px] font-semibold text-[#202224]">
+                {confirmAction.reviewStatus === "ALLOW"
+                  ? "Allow this transaction?"
+                  : "Block this transaction?"}
+              </h3>
+
+              <p className="mt-2 text-[14px] leading-6 text-[#555555]">
+                {confirmAction.reviewStatus === "ALLOW"
+                  ? "This case will be marked as Allowed and moved to the Allowed tab."
+                  : "This case will be marked as Blocked and moved to the Blocked tab."}
+                {confirmAction.row.transactionId
+                  ? ` (Transaction ID: ${confirmAction.row.transactionId})`
+                  : ""}
+              </p>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction(null)}
+                  className="h-9 rounded-md border border-[#D5D5D5] bg-white px-5 text-[14px] font-medium text-[#333333] hover:bg-[#F8F8F8]"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const { row, reviewStatus } = confirmAction;
+                    setConfirmAction(null);
+                    handleReviewAction(row, reviewStatus);
+                  }}
+                  className={`h-9 rounded-md px-5 text-[14px] font-semibold text-white ${
+                    confirmAction.reviewStatus === "ALLOW"
+                      ? "bg-[#219653] hover:bg-[#1c8247]"
+                      : "bg-[#EB5757] hover:bg-[#d94a4a]"
+                  }`}
+                >
+                  {confirmAction.reviewStatus === "ALLOW"
+                    ? "Yes, Allow"
+                    : "Yes, Block"}
+                </button>
               </div>
             </div>
           </div>,

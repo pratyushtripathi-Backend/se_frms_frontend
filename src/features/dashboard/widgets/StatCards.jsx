@@ -55,7 +55,7 @@ function buildStats(summary, isLoading) {
 
   return [
     {
-      label: "Total Transactions",
+      label: "Today's Transactions",
       value: liveValue("totalTransactions"),
       icon: RefreshCw,
       bg: "#2E9E5C",
@@ -191,11 +191,15 @@ export default function StatCards({ setCurrentPage }) {
             </div>
 
             <div className="min-w-0 flex-1">
+              {/* One line, no "...": the font shrinks slightly with the
+                  card width (container query units) so longer labels like
+                  "Today's Transactions" still fit in full. */}
               <div
-                className="truncate text-gray-500"
+                className="overflow-hidden whitespace-nowrap text-gray-500"
                 style={{
-                  fontSize: "11px",
+                  fontSize: "clamp(9px, 5.8cqw, 11px)",
                 }}
+                title={label}
               >
                 {label}
               </div>
@@ -205,9 +209,15 @@ export default function StatCards({ setCurrentPage }) {
                 style={{
                   fontSize: "clamp(13px, 8cqw, 17px)",
                 }}
-                title={value}
+                title={isLoading ? undefined : value}
               >
-                {value}
+                {/* Soft placeholder bar while the first load is in flight,
+                    instead of "…" that then jumps to the number. */}
+                {isLoading ? (
+                  <span className="frms-skeleton my-[3px] h-[16px] w-14" />
+                ) : (
+                  value
+                )}
               </div>
             </div>
           </div>

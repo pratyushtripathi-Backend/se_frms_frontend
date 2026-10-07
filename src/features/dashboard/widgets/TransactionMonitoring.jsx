@@ -64,6 +64,9 @@ function normalizeVolumeResponse(responseData) {
 export default function TransactionMonitoring() {
   const [selectedDate, setSelectedDate] = useState("");
   const [chartData, setChartData] = useState([]);
+  // False until the first response (or failure), so the chart area shows a
+  // loading placeholder instead of empty axes that then jump to the data.
+  const [hasLoaded, setHasLoaded] = useState(false);
   const dateInputRef = useRef(null);
   const requestIdRef = useRef(0);
 
@@ -75,8 +78,10 @@ export default function TransactionMonitoring() {
       const response = await getDailyTransactionVolume({ fromDate, toDate });
       if (requestId !== requestIdRef.current) return;
       setChartData(normalizeVolumeResponse(response?.data));
+      setHasLoaded(true);
     } catch (err) {
       if (requestId !== requestIdRef.current) return;
+      setHasLoaded(true);
       // A silent background refresh failing shouldn't wipe the last good
       // chart off the screen - only clear it if the very first load fails.
       if (!silent) {
@@ -140,11 +145,17 @@ export default function TransactionMonitoring() {
 
       {/* Graph */}
       <div
-        className="w-full"
+        className="relative w-full"
         style={{
           height: "230px",
         }}
       >
+        {!hasLoaded && (
+          <div className="absolute inset-0 z-[1] bg-white p-2">
+            <span className="frms-skeleton h-full w-full" />
+          </div>
+        )}
+
         <ResponsiveContainer
           width="100%"
           height="100%"

@@ -345,7 +345,7 @@ export default function AuditTrailDetailModal({ row, onClose }) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[2000] overflow-y-auto bg-black/45 py-8 pl-[241px] pr-4"
+      className="frms-modal-overlay fixed inset-0 z-[2000] overflow-y-auto bg-black/45 py-8 pl-[241px] pr-4"
       onClick={onClose}
     >
       <div
