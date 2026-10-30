@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronDown, Download } from "lucide-react";
 
 import FraudAlertData from "./FraudAlertData";
+import { getVisiblePageNumbers } from "../../utils/pagination";
 
 const TABLE_COLUMNS = [
   "Sr no",
@@ -28,7 +29,9 @@ export default function FraudAlertPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showExportMenu, setShowExportMenu] = useState(false);
 
-  const totalPages = 5;
+  // Page count from the data (was a fixed 5, whatever the number of rows).
+  const totalPages = Math.max(Math.ceil(FraudAlertData.length / rowsPerPage), 1);
+  const visiblePageNumbers = getVisiblePageNumbers(currentPage, totalPages);
 
   const currentRows = FraudAlertData.slice(
     (currentPage - 1) * rowsPerPage,
@@ -131,7 +134,7 @@ export default function FraudAlertPage() {
                   {TABLE_COLUMNS.map((column) => (
                     <th
                       key={column}
-                      className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[12px] font-semibold text-[#5A5A5A]"
+                      className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[13px] font-semibold text-[#5A5A5A]"
                     >
                       {column}
                     </th>
@@ -143,7 +146,7 @@ export default function FraudAlertPage() {
                 {currentRows.map((row) => (
                   <tr
                     key={row.srNo}
-                    className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
+                    className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
                   >
                     <td className="px-4 py-4 font-medium">{row.srNo}</td>
 
@@ -202,8 +205,10 @@ export default function FraudAlertPage() {
 
           <div className="flex items-center justify-between border-t border-[#ECECEC] bg-white px-6 py-4">
 
-            <p className="text-[12px] text-[#7A7A7A]">
-              Showing {currentRows.length} of {FraudAlertData.length}{" "}
+            <p className="text-[13px] text-[#7A7A7A]">
+              Showing{" "}
+              {currentRows.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}-
+              {(currentPage - 1) * rowsPerPage + currentRows.length} of {FraudAlertData.length}{" "}
               transactions
             </p>
 
@@ -219,7 +224,7 @@ export default function FraudAlertPage() {
                 &lt;
               </button>
 
-              {[1, 2, 3, 4, 5].map((page) => (
+              {visiblePageNumbers.map((page) => (
                 <button
                   key={page}
                   type="button"

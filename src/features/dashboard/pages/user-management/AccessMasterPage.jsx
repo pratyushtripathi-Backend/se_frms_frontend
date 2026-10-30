@@ -20,6 +20,7 @@ import DashboardSuccessModal from "../../components/DashboardSuccessModal";
 
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
 import { CONFIG_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
+import { getVisiblePageNumbers } from "../../utils/pagination";
 const TABLE_COLUMNS = [
   "Sr No",
   "Access",
@@ -451,7 +452,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                   {TABLE_COLUMNS.map((column) => (
                     <th
                       key={column}
-                      className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[12px] font-semibold text-[#5A5A5A]"
+                      className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[13px] font-semibold text-[#5A5A5A]"
                     >
                       {column}
                     </th>
@@ -465,7 +466,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                 }`}
               >
                 {isLoading && visibleData.length === 0 && (
-                  <tr className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563]">
+                  <tr className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563]">
                     <td colSpan={TABLE_COLUMNS.length} className="px-4 py-6 text-center">
                       Loading access details...
                     </td>
@@ -473,7 +474,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                 )}
 
                 {!isLoading && visibleData.length === 0 && (
-                  <tr className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563]">
+                  <tr className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563]">
                     <td colSpan={TABLE_COLUMNS.length} className="px-4 py-6 text-center">
                       No access details found.
                     </td>
@@ -483,7 +484,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                 {visibleData.map((item, index) => (
                   <tr
                     key={item.id}
-                    className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
+                    className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
                   >
                     <td className="px-4 py-4 font-medium">
                       {(currentPage - 1) * rowsPerPage + index + 1}
@@ -507,7 +508,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                     </td>
 
                     <td className="px-4 py-4">
-                      <div className="flex flex-col text-[12px] leading-5">
+                      <div className="flex flex-col text-[13px] leading-5">
                         <span className="font-medium text-[#2F80ED]">
                           {item.createdDate}
                         </span>
@@ -519,7 +520,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                     </td>
 
                     <td className="px-4 py-4">
-                      <div className="flex flex-col text-[12px] leading-5">
+                      <div className="flex flex-col text-[13px] leading-5">
                         <span className="font-medium text-[#2F80ED]">
                           {item.updatedDate}
                         </span>
@@ -547,7 +548,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
 
           <div className="flex items-center justify-between border-t border-[#ECECEC] bg-white px-6 py-4">
 
-            <p className="text-[12px] text-[#7A7A7A]">
+            <p className="text-[13px] text-[#7A7A7A]">
               Showing {visibleData.length} of {effectiveTotalRecords} transactions
             </p>
 
@@ -562,7 +563,7 @@ export default function AccessMasterPage({ searchQuery = "" }) {
                 &lt;
               </button>
 
-              {Array.from({ length: Math.min(effectiveTotalPages, 5) }, (_, index) => index + 1).map((page) => (
+              {getVisiblePageNumbers(currentPage, effectiveTotalPages).map((page) => (
                 <button
                   key={page}
                   onClick={() => setCurrentPage(page)}
@@ -597,7 +598,6 @@ export default function AccessMasterPage({ searchQuery = "" }) {
       {isModalOpen && (
         <div
           className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
-          onClick={closeModal}
         >
           <div
             className="w-[400px] max-w-[92vw] rounded-2xl bg-white px-8 py-7 shadow-2xl"

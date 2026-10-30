@@ -13,6 +13,12 @@ import {
   updateDecisionReview,
 } from "../../services/fraudDetailsService";
 import { LIVE_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
+import { scrollIntoHorizontalStrip } from "../../utils/scrollPageStrip";
+
+// Page-number strip: shows this many buttons at a time (32px button + 8px
+// gap) and scrolls horizontally for the rest.
+const VISIBLE_PAGE_BUTTONS = 5;
+const PAGE_STRIP_WIDTH = VISIBLE_PAGE_BUTTONS * 32 + (VISIBLE_PAGE_BUTTONS - 1) * 8;
 
 const TABS = [
   { key: "REVIEW", label: "Under Review" },
@@ -476,28 +482,21 @@ export default function CaseManagementPage() {
   // =========================
   // PAGINATION
   // =========================
-  const visiblePages = useMemo(() => {
-    const pageCount = Math.max(totalPages, 1);
+  // Every page number, in a horizontally scrollable strip (see render).
+  const allPages = useMemo(
+    () => Array.from({ length: Math.max(totalPages, 1) }, (_, index) => index + 1),
+    [totalPages],
+  );
+  const pageStripRef = useRef(null);
 
-    const start = Math.max(
-      Math.min(
-        currentPage - 2,
-        pageCount - 4,
-      ),
-      1,
+  // Keep the current page's button scrolled into view inside the strip (e.g.
+  // after using the arrows to move past what's visible) - only the strip
+  // scrolls, not the page.
+  useEffect(() => {
+    const activeButton = pageStripRef.current?.querySelector(
+      `[data-page="${currentPage}"]`,
     );
-
-    const end = Math.min(
-      start + 4,
-      pageCount,
-    );
-
-    return Array.from(
-      {
-        length: end - start + 1,
-      },
-      (_, index) => start + index,
-    );
+    scrollIntoHorizontalStrip(activeButton);
   }, [currentPage, totalPages]);
 
   const showingFrom =
@@ -896,9 +895,9 @@ export default function CaseManagementPage() {
                             </div>
                           </td>
 
-                          <td className="px-4 py-4">
+                          <td className="whitespace-nowrap px-4 py-4">
                             <span
-                              className={`inline-block rounded-full px-3 py-1 text-[11px] font-semibold ${
+                              className={`inline-block whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-semibold ${
                                 statusPillStyles[
                                   row.status
                                 ] ??
@@ -1058,11 +1057,17 @@ export default function CaseManagementPage() {
                 />
               </button>
 
-              {/* PAGE NUMBERS */}
-              {visiblePages.map(
+              {/* PAGE NUMBERS - horizontally scrollable strip */}
+              <div
+                ref={pageStripRef}
+                className="thin-scroll flex items-center gap-2 overflow-x-auto scroll-smooth pb-1"
+                style={{ maxWidth: `${PAGE_STRIP_WIDTH}px`, scrollbarWidth: "thin" }}
+              >
+              {allPages.map(
                 (page) => (
                   <button
                     key={page}
+                    data-page={page}
                     type="button"
                     onClick={() =>
                       setCurrentPage(
@@ -1070,7 +1075,7 @@ export default function CaseManagementPage() {
                       )
                     }
                     disabled={isLoading}
-                    className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium transition ${
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[12px] font-medium transition ${
                       page ===
                       currentPage
                         ? "bg-[#F3F4F6] text-[#111827]"
@@ -1081,6 +1086,7 @@ export default function CaseManagementPage() {
                   </button>
                 ),
               )}
+              </div>
 
               {/* NEXT */}
               <button
@@ -1265,23 +1271,19 @@ function normalizeCaseResponse(
 
   const rawRows = findFirstArray(payload);
 
-  // Latest case first.
+  // Most recently changed first (same order the API is asked for): a case
+  // just allowed / blocked from the Action menu has the newest updatedAt, so
+  // it's at the top of the Allowed / Blocked tab; ties -> newest created.
+  const toTime = (value) => {
+    const time = new Date(value ?? 0).getTime();
+    return Number.isNaN(time) ? 0 : time;
+  };
   const sortedRawRows = [...rawRows].sort(
-    (a, b) => {
-      const dateA = new Date(
-        a?.createdAt ??
-          a?.createdDate ??
-          0,
-      ).getTime();
-
-      const dateB = new Date(
-        b?.createdAt ??
-          b?.createdDate ??
-          0,
-      ).getTime();
-
-      return dateB - dateA;
-    },
+    (a, b) =>
+      toTime(b?.updatedAt ?? b?.createdAt ?? b?.createdDate) -
+        toTime(a?.updatedAt ?? a?.createdAt ?? a?.createdDate) ||
+      toTime(b?.createdAt ?? b?.createdDate) -
+        toTime(a?.createdAt ?? a?.createdDate),
   );
 
   const rows = sortedRawRows.map(

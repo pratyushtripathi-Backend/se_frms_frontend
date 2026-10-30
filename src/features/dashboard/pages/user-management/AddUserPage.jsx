@@ -4,7 +4,7 @@ import { FiChevronDown } from "react-icons/fi";
 import { getAuthErrorMessage } from "../../../auth/services/authError";
 import {
   createAdminEmployee,
-  getAdminRoles,
+  getActiveAdminRoles,
 } from "../../services/adminEmployeeService";
 
 const INITIAL_FORM_DATA = {
@@ -30,7 +30,9 @@ const AddUserPage = () => {
       setIsLoadingRoles(true);
 
       try {
-        const response = await getAdminRoles({ page: 0, size: 3 });
+        // Only active roles can be assigned (was the first 3 roles of any
+        // status from the paged /admin/roles list).
+        const response = await getActiveAdminRoles();
         const normalizedRoles = normalizeRoleResponse(response.data);
 
         if (isActive) setRoles(normalizedRoles);

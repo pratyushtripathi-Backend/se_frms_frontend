@@ -107,6 +107,9 @@ export default function RecentTransactions() {
   const toInputRef = useRef(null);
   const requestIdRef = useRef(0);
   const pageScrollRef = useRef(null);
+  // From after To can't match anything - show a message instead of calling
+  // the API with an impossible range.
+  const isDateRangeInvalid = Boolean(fromDate && toDate && fromDate > toDate);
 
   // Fetches the same live transaction data (and uses the exact same
   // normalization logic) as the Transaction Data page, so this widget always
@@ -120,14 +123,31 @@ export default function RecentTransactions() {
   const fetchRecentTransactions = useCallback(async ({ silent = false } = {}) => {
     const requestId = ++requestIdRef.current;
 
+    if (isDateRangeInvalid) {
+      setTransactions([]);
+      setTotalRecords(0);
+      setTotalPages(1);
+      setIsLoading(false);
+      setError("From date can't be after To date.");
+      return;
+    }
+
     if (!silent) {
       setIsLoading(true);
       setError("");
     }
 
     try {
+      // The From/To filter is applied by the backend, so the rows, the total
+      // and the number of pages all match the filtered set (filtering only
+      // the current page in the browser left the page count unchanged).
       const [transactionsResponse, decisionsResponse] = await Promise.all([
-        getTransactions({ page: currentPage - 1, size: rowsPerPage }),
+        getTransactions({
+          page: currentPage - 1,
+          size: rowsPerPage,
+          fromDate,
+          toDate,
+        }),
         getDecisions({ page: 0, size: DECISIONS_LOOKUP_SIZE }).catch(() => null),
       ]);
 
@@ -175,11 +195,19 @@ export default function RecentTransactions() {
         setIsLoading(false);
       }
     }
-  }, [currentPage]);
+  }, [currentPage, fromDate, toDate, isDateRangeInvalid]);
 
   useEffect(() => {
     fetchRecentTransactions();
   }, [fetchRecentTransactions]);
+
+  // If a filter leaves fewer pages than the page you're on (e.g. on page 6,
+  // then pick a date with only 2 pages), jump to the last available page.
+  useEffect(() => {
+    if (!isLoading && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages, isLoading]);
 
   // Auto-refresh: re-fetch the current page every AUTO_REFRESH_INTERVAL_MS
   // while the tab is visible (no point polling a hidden tab), and once right
@@ -215,27 +243,14 @@ export default function RecentTransactions() {
     setCurrentPage(1);
   };
 
-  const filteredTransactions = transactions.filter((row) => {
-    if (!fromDate && !toDate) {
-      return true;
-    }
-
-    const rowDate = row.createdAtRaw ? new Date(row.createdAtRaw) : null;
-
-    if (!rowDate || Number.isNaN(rowDate.getTime())) {
-      return true;
-    }
-
-    if (fromDate && rowDate < new Date(fromDate)) {
-      return false;
-    }
-
-    if (toDate && rowDate > new Date(toDate)) {
-      return false;
-    }
-
-    return true;
-  });
+  // Already filtered by the backend (see fetchRecentTransactions).
+  const filteredTransactions = transactions;
+  const showingFrom =
+    totalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const showingTo = Math.min(
+    (currentPage - 1) * rowsPerPage + filteredTransactions.length,
+    totalRecords,
+  );
 
   return (
     <div className="rounded-card border border-brand-border bg-brand-panel p-4 shadow-card">
@@ -250,7 +265,10 @@ export default function RecentTransactions() {
               ref={fromInputRef}
               type="date"
               value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setCurrentPage(1);
+              }}
               className="hidden"
             />
 
@@ -269,7 +287,10 @@ export default function RecentTransactions() {
               ref={toInputRef}
               type="date"
               value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setCurrentPage(1);
+              }}
               className="hidden"
             />
 
@@ -405,7 +426,7 @@ export default function RecentTransactions() {
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div className="text-[11.5px] text-brand-dim">
-          Showing {filteredTransactions.length} of {totalRecords} transactions
+          Showing {showingFrom}-{showingTo} of {totalRecords} transactions
         </div>
 
         <div className="flex items-center gap-1.5">

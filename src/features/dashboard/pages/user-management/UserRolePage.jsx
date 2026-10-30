@@ -3,7 +3,6 @@ import {
   FiChevronDown,
   FiChevronLeft,
   FiChevronRight,
-  FiPlus,
   FiX,
 } from "react-icons/fi";
 import { CalendarDays, RotateCcw } from "lucide-react";
@@ -241,26 +240,13 @@ export default function UserRolePage({ searchQuery = "" }) {
     setEditingUserRole(null);
   };
 
-  const handleOpenAddModal = () => {
-    setEditingUserRole(null);
-    setFormData({
-      roleName: "",
-      userId: "",
-      userName: "",
-    });
-    setIsModalOpen(true);
-  };
-
+  // Roles are assigned when the employee is added (Add User page), so this
+  // page only edits an existing user's role - there is no "Add User Role".
   const handleSubmit = async () => {
-    if (!editingUserRole) {
-      setIsModalOpen(false);
-      setSuccessMessage("User Role Assign Successfully");
-      setFormData({
-        roleName: "",
-        userId: "",
-        userName: "",
-      });
-      setShowSuccessModal(true);
+    if (!editingUserRole) return;
+
+    if (!formData.roleName) {
+      setErrorMessage("Please select a role.");
       return;
     }
 
@@ -398,15 +384,6 @@ export default function UserRolePage({ searchQuery = "" }) {
               <RotateCcw size={15} />
               Reset
             </button>
-
-            <button
-              className="flex h-[38px] items-center gap-2 whitespace-nowrap rounded-lg border border-[#FF4D4F] bg-white px-4 text-[13px] font-semibold text-[#FF4D4F]"
-              onClick={handleOpenAddModal}
-              type="button"
-            >
-              Add User Role
-              <FiPlus />
-            </button>
           </div>
         </div>
 
@@ -443,7 +420,7 @@ export default function UserRolePage({ searchQuery = "" }) {
                   "Action",
                 ].map((column) => (
                   <th
-                    className="whitespace-nowrap px-4 py-3 text-left text-[12px] font-semibold text-[#444444]"
+                    className="whitespace-nowrap px-4 py-3 text-left text-[13px] font-semibold text-[#444444]"
                     key={column}
                   >
                     {column}
@@ -460,7 +437,7 @@ export default function UserRolePage({ searchQuery = "" }) {
               {isLoading && currentData.length === 0 && (
                 <tr>
                   <td
-                    className="px-4 py-5 text-center text-[12px] text-[#6B7280]"
+                    className="px-4 py-5 text-center text-[13px] text-[#6B7280]"
                     colSpan={8}
                   >
                     Loading user roles...
@@ -471,7 +448,7 @@ export default function UserRolePage({ searchQuery = "" }) {
               {!isLoading && currentData.length === 0 && (
                 <tr>
                   <td
-                    className="px-4 py-5 text-center text-[12px] text-[#6B7280]"
+                    className="px-4 py-5 text-center text-[13px] text-[#6B7280]"
                     colSpan={8}
                   >
                     No user roles found.
@@ -481,16 +458,16 @@ export default function UserRolePage({ searchQuery = "" }) {
 
               {currentData.map((item, index) => (
                 <tr className="h-12 border-b border-[#F2F2F2]" key={item.id}>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-[12px] text-[#555555]">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px] text-[#555555]">
                     {(currentPage - 1) * rowsPerPage + index + 1}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-[12px] text-[#555555]">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px] text-[#555555]">
                     {item.userName}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-[12px] text-[#555555]">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px] text-[#555555]">
                     {item.role}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-[12px]">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px]">
                     <DashboardStatusToggle
                       onToggle={(nextStatus) =>
                         updateAdminUserRoleStatus(item.id, { status: nextStatus }).then(
@@ -504,16 +481,16 @@ export default function UserRolePage({ searchQuery = "" }) {
                       status={item.status}
                     />
                   </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-[12px] text-[#555555]">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px] text-[#555555]">
                     {item.createdBy}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-[12px] text-[#555555]">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px] text-[#555555]">
                     <DateTime date={item.createdDate} time={item.createdTime} />
                   </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-[12px] text-[#555555]">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px] text-[#555555]">
                     <DateTime date={item.updatedDate} time={item.updatedTime} />
                   </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-[12px]">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px]">
                     <div className="relative">
                       <DashboardEditButton
                         disabled={updatingRoleId === item.id}
@@ -531,7 +508,7 @@ export default function UserRolePage({ searchQuery = "" }) {
         </div>
 
         <div className="flex items-center justify-between px-5 pt-4">
-          <p className="text-[12px] text-[#666666]">
+          <p className="text-[13px] text-[#666666]">
             Showing <strong>{showingFrom}</strong> - <strong>{showingTo}</strong>{" "}
             of <strong>{effectiveTotalRecords}</strong> transactions
           </p>
@@ -578,7 +555,6 @@ export default function UserRolePage({ searchQuery = "" }) {
       {isModalOpen && (
         <div
           className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
-          onClick={closeModal}
         >
           <div
             className="relative w-[660px] max-w-[92vw] rounded-[14px] bg-white px-10 py-9 shadow-2xl"
@@ -587,10 +563,10 @@ export default function UserRolePage({ searchQuery = "" }) {
             <div className="mb-7 flex items-start justify-between">
               <div>
                 <h3 className="mb-1.5 text-[19px] font-bold text-[#1A1A1A]">
-                  {editingUserRole ? "Edit User Role" : "Add User Role"}
+                  Edit User Role
                 </h3>
                 <p className="text-[13px] text-[#8C8C8C]">
-                  Fill all filed to user role
+                  Change the role assigned to this user
                 </p>
               </div>
               <button
@@ -725,7 +701,7 @@ export default function UserRolePage({ searchQuery = "" }) {
 
 function DateTime({ date, time }) {
   return (
-    <div className="flex flex-col text-[12px] leading-5">
+    <div className="flex flex-col text-[13px] leading-5">
       <span className="font-medium text-[#2F80ED]">{date}</span>
       <span className="text-[#27AE60]">{time}</span>
     </div>

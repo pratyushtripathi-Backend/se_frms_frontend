@@ -203,7 +203,9 @@ export default function App({ onLogout }) {
           onSearchChange={setHeaderSearch}
           searchValue={headerSearch}
           setCurrentPage={setCurrentPage}
-          showSearch={currentPage !== "dashboard" && currentPage !== "add-user"}
+          // No header search on Dashboard, Add User and Report (Report picks
+          // its data with its own source / date filters).
+          showSearch={!["dashboard", "add-user", "report"].includes(currentPage)}
           showDivider={
             currentPage === "login-history" ||
             currentPage === "login-attempts" ||

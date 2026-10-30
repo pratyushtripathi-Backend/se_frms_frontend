@@ -7,8 +7,14 @@ import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
 import { getAuditLogs } from "../../services/fraudDetailsService";
 import { getAuthErrorMessage } from "../../../auth/services/authError";
 import { LIVE_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
+import { fetchAllPages } from "../../utils/pagination";
+import { scrollIntoHorizontalStrip } from "../../utils/scrollPageStrip";
+import { parseDateTime, splitDisplayDateTime } from "../../utils/dateTime";
 
 const rowsPerPage = 10;
+// Page-number strip shows this many buttons; the rest scroll horizontally.
+const VISIBLE_PAGE_BUTTONS = 7;
+const PAGE_STRIP_WIDTH = VISIBLE_PAGE_BUTTONS * 32 + (VISIBLE_PAGE_BUTTONS - 1) * 8;
 
 const tableColumns = [
   "Sr.No",
@@ -25,11 +31,12 @@ const tableColumns = [
 ];
 
 // Rows already loaded on this page, kept across visits (the page unmounts
-// when you leave it) and keyed by page, so the table shows instantly when
-// you come back and then refreshes quietly. Search and dates are applied
-// locally, so they aren't part of the key.
+// when you leave it), so the table shows instantly when you come back and
+// then refreshes quietly. Keyed by page and by mode: with a date filter or a
+// search active the whole list is loaded (see loadAuditLogs) and cached once.
 const pageCache = new Map();
-const pageCacheKey = (requestedPage) => JSON.stringify([requestedPage]);
+const pageCacheKey = (requestedPage, isFilterMode = false) =>
+  JSON.stringify([requestedPage, isFilterMode]);
 
 export default function AuditTrailPage({ searchQuery = "" }) {
   const [fromDate, setFromDate] = useState("");
@@ -49,6 +56,10 @@ export default function AuditTrailPage({ searchQuery = "" }) {
   const toInputRef = useRef(null);
   const requestIdRef = useRef(0);
   const eventDetailsPopoverRef = useRef(null);
+  // GET /audit-logs only supports paging (no date or search params), so with
+  // From / To or a search active every page is loaded and the filter +
+  // pagination run over the complete list. Otherwise the backend pages it.
+  const isFilterMode = Boolean(fromDate || toDate || searchQuery.trim());
 
   useEffect(() => {
     setCurrentPage(1);
@@ -102,7 +113,8 @@ export default function AuditTrailPage({ searchQuery = "" }) {
 
   const loadAuditLogs = useCallback(async () => {
     const requestId = ++requestIdRef.current;
-    const cacheKey = pageCacheKey(currentPage - 1);
+    const requestedPage = isFilterMode ? 0 : currentPage - 1;
+    const cacheKey = pageCacheKey(requestedPage, isFilterMode);
     const cached = pageCache.get(cacheKey);
 
     if (cached) {
@@ -118,20 +130,39 @@ export default function AuditTrailPage({ searchQuery = "" }) {
     setEventDetailsPopover(null);
 
     try {
-      const response = await getAuditLogs({
-        page: currentPage - 1,
-        size: rowsPerPage,
-      });
-      const { rawRows, totalRecords: apiTotalRecords, totalPages } =
-        normalizeAuditLogsResponse(response.data, rowsPerPage);
+      let normalizedRows;
+      let apiTotalRecords;
+      let totalPages;
+
+      if (isFilterMode) {
+        normalizedRows = await fetchAllPages(async (page, size) => {
+          const pageResponse = await getAuditLogs({ page, size });
+          const normalized = normalizeAuditLogsResponse(pageResponse.data, size);
+          return {
+            rows: normalized.rawRows.map((row, index) =>
+              normalizeAuditLogRow(row, index, page * size),
+            ),
+            totalPages: normalized.totalPages,
+          };
+        });
+        apiTotalRecords = normalizedRows.length;
+        totalPages = Math.max(Math.ceil(normalizedRows.length / rowsPerPage), 1);
+      } else {
+        const response = await getAuditLogs({
+          page: currentPage - 1,
+          size: rowsPerPage,
+        });
+        const normalized = normalizeAuditLogsResponse(response.data, rowsPerPage);
+        const pageOffset = (currentPage - 1) * rowsPerPage;
+
+        normalizedRows = normalized.rawRows.map((row, index) =>
+          normalizeAuditLogRow(row, index, pageOffset),
+        );
+        apiTotalRecords = normalized.totalRecords;
+        totalPages = normalized.totalPages;
+      }
 
       if (requestIdRef.current !== requestId) return;
-
-      const pageOffset = (currentPage - 1) * rowsPerPage;
-
-      const normalizedRows = rawRows.map((row, index) =>
-        normalizeAuditLogRow(row, index, pageOffset),
-      );
 
       setAuditRows(normalizedRows);
       pageCache.set(cacheKey, {
@@ -158,20 +189,24 @@ export default function AuditTrailPage({ searchQuery = "" }) {
     } finally {
       if (requestIdRef.current === requestId) setIsLoading(false);
     }
-  }, [currentPage]);
+  }, [currentPage, isFilterMode]);
 
   useEffect(() => {
     loadAuditLogs();
   }, [loadAuditLogs]);
 
-  // Auto-refresh: re-fetches the current page in the background.
-  useAutoRefresh(loadAuditLogs, { intervalMs: LIVE_REFRESH_MS });
+  // Auto-refresh: re-fetches the current page in the background. Paused while
+  // a date filter / search is active, because that mode loads every page.
+  useAutoRefresh(loadAuditLogs, {
+    intervalMs: LIVE_REFRESH_MS,
+    enabled: !isFilterMode,
+  });
 
   const filteredRows = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
 
     return auditRows.filter((row) => {
-      const createdDate = row.createdAtRaw ? new Date(row.createdAtRaw) : null;
+      const createdDate = parseDateTime(row.createdAtRaw);
       const from = fromDate ? new Date(`${fromDate}T00:00:00`) : null;
       const to = toDate ? new Date(`${toDate}T23:59:59`) : null;
 
@@ -188,8 +223,36 @@ export default function AuditTrailPage({ searchQuery = "" }) {
     });
   }, [auditRows, fromDate, searchQuery, toDate]);
 
-  const totalPages = Math.max(totalApiPages, 1);
-  const visibleRows = filteredRows;
+  // Filter mode: the filtered complete list is paged here, so the total and
+  // the page count match what the filter found. Otherwise the backend pages.
+  const effectiveTotalRecords = isFilterMode ? filteredRows.length : totalRecords;
+  const totalPages = isFilterMode
+    ? Math.max(Math.ceil(filteredRows.length / rowsPerPage), 1)
+    : Math.max(totalApiPages, 1);
+  const visibleRows = isFilterMode
+    ? filteredRows.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+    : filteredRows;
+  const showingFrom = visibleRows.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const showingTo = (currentPage - 1) * rowsPerPage + visibleRows.length;
+  const allPageNumbers = useMemo(
+    () => Array.from({ length: totalPages }, (_, index) => index + 1),
+    [totalPages],
+  );
+  const pageStripRef = useRef(null);
+
+  // Keep the current page's button in view inside the scrollable strip
+  // (e.g. after moving past the visible buttons with the < > arrows).
+  useEffect(() => {
+    const activeButton = pageStripRef.current?.querySelector(
+      `[data-page="${currentPage}"]`,
+    );
+    scrollIntoHorizontalStrip(activeButton);
+  }, [currentPage, totalPages]);
+
+  // A filter that leaves fewer pages than the current one -> last page.
+  useEffect(() => {
+    if (!isLoading && currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, isLoading, totalPages]);
 
   const handleReset = () => {
     setFromDate("");
@@ -317,8 +380,8 @@ export default function AuditTrailPage({ searchQuery = "" }) {
 
                 {!errorMessage &&
                   visibleRows.map((row) => {
-                    const createdAt = splitDateTime(row.createdAtRaw);
-                    const updatedAt = splitDateTime(row.updatedAtRaw);
+                    const createdAt = splitDisplayDateTime(row.createdAtRaw);
+                    const updatedAt = splitDisplayDateTime(row.updatedAtRaw);
 
                     return (
                       <tr
@@ -367,10 +430,10 @@ export default function AuditTrailPage({ searchQuery = "" }) {
                         <td className="whitespace-nowrap px-4 py-3.5">
                           {row.createdBy}
                         </td>
-                        <td className="px-4 py-3.5">
+                        <td className="whitespace-nowrap px-4 py-3.5">
                           <DateTimeCell dateTime={createdAt} />
                         </td>
-                        <td className="px-4 py-3.5">
+                        <td className="whitespace-nowrap px-4 py-3.5">
                           <DateTimeCell dateTime={updatedAt} />
                         </td>
                         <td className="px-4 py-3.5">
@@ -393,9 +456,9 @@ export default function AuditTrailPage({ searchQuery = "" }) {
         </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-3">
-          <p className="text-[12px] text-[#7A7A7A]">
-            Showing <strong>{visibleRows.length}</strong> of{" "}
-            <strong>{totalRecords}</strong> audit trails
+          <p className="text-[13px] text-[#7A7A7A]">
+            Showing <strong>{showingFrom}-{showingTo}</strong> of{" "}
+            <strong>{effectiveTotalRecords}</strong> audit trails
           </p>
 
           <div className="flex items-center gap-2">
@@ -407,22 +470,27 @@ export default function AuditTrailPage({ searchQuery = "" }) {
             >
               &lt;
             </button>
-            {Array.from({ length: totalPages }, (_, index) => index + 1).map(
-              (page) => (
+            <div
+              ref={pageStripRef}
+              className="flex items-center gap-2 overflow-x-auto scroll-smooth"
+              style={{ maxWidth: `${PAGE_STRIP_WIDTH}px`, scrollbarWidth: "thin" }}
+            >
+              {allPageNumbers.map((page) => (
                 <button
-                  className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium ${
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[12px] font-medium transition ${
                     page === currentPage
                       ? "bg-[#F3F4F6] text-[#111827]"
-                      : "text-[#6B7280]"
+                      : "text-[#6B7280] hover:bg-[#F8F8F8]"
                   }`}
+                  data-page={page}
                   key={page}
                   onClick={() => setCurrentPage(page)}
                   type="button"
                 >
                   {page}
                 </button>
-              ),
-            )}
+              ))}
+            </div>
             <button
               className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] disabled:opacity-50"
               disabled={currentPage >= totalPages}
@@ -477,30 +545,16 @@ export default function AuditTrailPage({ searchQuery = "" }) {
   );
 }
 
+// Same look as Notification Record: date (DD-MM-YYYY) in blue, time below
+// it in green. nowrap keeps "27-10-2026" on one line (it used to break
+// after the second "-" in the narrow column).
 function DateTimeCell({ dateTime }) {
   return (
-    <div className="flex flex-col leading-5">
-      <span className="font-medium text-[#0072F0]">{dateTime.date}</span>
-      <span className="text-[#008F3A]">{dateTime.time}</span>
+    <div className="flex flex-col whitespace-nowrap text-[13px] leading-5">
+      <span className="font-medium text-[#2F80ED]">{dateTime.date}</span>
+      <span className="text-[#27AE60]">{dateTime.time}</span>
     </div>
   );
-}
-
-function splitDateTime(value) {
-  if (!value) return { date: "-", time: "-" };
-  const dateValue = new Date(value);
-
-  if (!Number.isNaN(dateValue.getTime())) {
-    return {
-      date: dateValue.toLocaleDateString("en-GB").replace(/\//g, " - "),
-      time: dateValue.toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
-  }
-
-  return { date: String(value), time: "-" };
 }
 
 // Converts a backend-style key (camelCase or snake_case) into a readable

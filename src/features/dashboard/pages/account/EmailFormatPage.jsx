@@ -84,7 +84,6 @@ function CreateNotificationFormatModal({ defaults, isEdit = false, isSaving, onC
   return createPortal(
     <div
       className="frms-modal-overlay fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4"
-      onClick={onClose}
     >
       <div
         className="relative flex max-h-[85vh] w-[92%] max-w-[600px] flex-col overflow-hidden rounded-[16px] bg-white p-7 shadow-2xl"

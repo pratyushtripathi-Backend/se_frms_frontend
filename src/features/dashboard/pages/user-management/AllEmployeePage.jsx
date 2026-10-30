@@ -1005,7 +1005,6 @@ export default function AllUsersPage({ searchQuery = "" }) {
       {editingUser && (
         <div
           className="frms-modal-overlay fixed inset-0 z-[100] flex items-center justify-center px-4"
-          onClick={handleCloseEdit}
         >
           <div
             className="w-full max-w-[520px] rounded-xl bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,.22)]"

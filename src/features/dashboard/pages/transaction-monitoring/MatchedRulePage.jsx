@@ -578,7 +578,11 @@ export default function MatchedRulePage() {
             <div style={{ position: "relative" }}>
               <select
                 disabled={isLoading}
-                onChange={(event) => setYear(event.target.value)}
+                onChange={(event) => {
+                  setYear(event.target.value);
+                  // New filter -> back to page 1 (the old page may not exist).
+                  setCurrentPage(1);
+                }}
                 style={{
                   ...styles.yearSelect,
                   ...(isLoading ? styles.controlsDisabled : {}),
@@ -605,7 +609,11 @@ export default function MatchedRulePage() {
 
             <div style={{ position: "relative" }}>
               <input
-                onChange={(event) => setFromDate(event.target.value)}
+                onChange={(event) => {
+                  setFromDate(event.target.value);
+                  // New filter -> back to page 1 (the old page may not exist).
+                  setCurrentPage(1);
+                }}
                 ref={fromInputRef}
                 style={styles.hiddenDateInput}
                 type="date"
@@ -631,7 +639,11 @@ export default function MatchedRulePage() {
 
             <div style={{ position: "relative" }}>
               <input
-                onChange={(event) => setToDate(event.target.value)}
+                onChange={(event) => {
+                  setToDate(event.target.value);
+                  // New filter -> back to page 1 (the old page may not exist).
+                  setCurrentPage(1);
+                }}
                 ref={toInputRef}
                 style={styles.hiddenDateInput}
                 type="date"

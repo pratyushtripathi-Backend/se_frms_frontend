@@ -693,7 +693,6 @@ export default function AllFraudRulesPage({ searchQuery = "" }) {
       {showAddRuleModal && (
         <div
           className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/45 px-4"
-          onClick={handleCloseAddRule}
         >
           <div
             className="w-[940px] max-h-[90vh] max-w-[92vw] overflow-y-auto rounded-2xl bg-white p-8 shadow-2xl"

@@ -579,7 +579,6 @@ export default function AllCategoryPage({ searchQuery = "" }) {
       {showAddCategoryModal && (
         <div
           className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
-          onClick={handleCancelAddCategory}
         >
           <div
             className="relative w-[760px] max-w-[94vw] rounded-lg bg-white p-10 shadow-2xl"

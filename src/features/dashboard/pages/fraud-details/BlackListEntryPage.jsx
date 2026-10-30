@@ -18,6 +18,7 @@ import {
   updateBlacklistStatus,
 } from "../../services/blacklistService";
 import { CONFIG_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
+import { getVisiblePageNumbers } from "../../utils/pagination";
 
 const TABLE_COLUMNS = [
   "Sr no",
@@ -208,7 +209,16 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
   const toInputRef = useRef(null);
   const rowsPerPage = 10;
   const requestIdRef = useRef(0);
-  const isLocalFilterActive = Boolean(year || fromDate || toDate);
+  // The list API has no date or search params, so with a Year / From / To
+  // filter or a header search active every page is loaded and the filter +
+  // pagination run over the complete list (otherwise a search only checked
+  // the 10 rows already on screen while the page count stayed unchanged).
+  const isLocalFilterActive = Boolean(year || fromDate || toDate || searchQuery.trim());
+
+  // A new search starts from page 1.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   const loadEntries = useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -298,7 +308,8 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
   }, [loadEntries]);
 
   // Auto-refresh: re-fetches the current page in the background. Paused while
-  // a Year/From/To filter is active, because that mode fetches every page.
+  // a Year/From/To filter or a search is active, because that mode fetches
+  // every page.
   useAutoRefresh(loadEntries, {
     intervalMs: CONFIG_REFRESH_MS,
     enabled: !isLocalFilterActive,
@@ -314,11 +325,13 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
 
       const rowDate = parseEntryDate(row.createdDate);
 
-      if (fromDate && rowDate && rowDate < new Date(fromDate)) {
+      // Local-midnight boundaries (new Date("YYYY-MM-DD") is UTC midnight,
+      // which dropped rows created on the From date itself).
+      if (fromDate && rowDate && rowDate < new Date(`${fromDate}T00:00:00`)) {
         return false;
       }
 
-      if (toDate && rowDate && rowDate > new Date(toDate)) {
+      if (toDate && rowDate && rowDate > new Date(`${toDate}T00:00:00`)) {
         return false;
       }
 
@@ -344,10 +357,14 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
   const showingFrom = effectiveTotalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
   const showingTo = Math.min(currentPage * rowsPerPage, effectiveTotalRecords);
 
-  const visiblePageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1).slice(
-    0,
-    5,
-  );
+  // 5 page buttons kept around the current page (previously always 1-5, so
+  // page 6+ had no button).
+  const visiblePageNumbers = getVisiblePageNumbers(currentPage, totalPages);
+
+  // A filter that leaves fewer pages than the current one -> last page.
+  useEffect(() => {
+    if (!isLoading && currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, isLoading, totalPages]);
 
   const handleResetFilters = () => {
     setYear("");
@@ -744,7 +761,6 @@ export default function BlackListEntryPage({ searchQuery = "" }) {
       {showAddEntryModal && (
         <div
           className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/55"
-          onClick={handleCloseModal}
         >
           <div
             className="relative w-[560px] max-w-[94vw] rounded-2xl bg-white p-8 shadow-2xl"

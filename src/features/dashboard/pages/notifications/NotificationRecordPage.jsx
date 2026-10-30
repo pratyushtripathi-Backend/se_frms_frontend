@@ -6,6 +6,11 @@ import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
 import { getAuthErrorMessage } from "../../../auth/services/authError";
 import { fetchNotifications } from "../../services/notificationService";
 import { LIVE_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
+import { scrollIntoHorizontalStrip } from "../../utils/scrollPageStrip";
+
+// Page-number strip shows this many buttons; the rest scroll horizontally.
+const VISIBLE_PAGE_BUTTONS = 5;
+const PAGE_STRIP_WIDTH = VISIBLE_PAGE_BUTTONS * 32 + (VISIBLE_PAGE_BUTTONS - 1) * 8;
 
 const TABLE_COLUMNS = [
   "Sr no",
@@ -250,7 +255,16 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
   const requestIdRef = useRef(0);
-  const isLocalFilterActive = Boolean(year || fromDate || toDate);
+  // The list API has no date or search params, so with a Year / From / To
+  // filter or a header search active every page is loaded and the filter +
+  // pagination run over the complete list (otherwise a search only checked
+  // the 10 rows already on screen while the page count stayed unchanged).
+  const isLocalFilterActive = Boolean(year || fromDate || toDate || searchQuery.trim());
+
+  // A new search starts from page 1.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   const loadNotifications = useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -339,7 +353,8 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
   }, [loadNotifications]);
 
   // Auto-refresh: re-fetches the current page in the background. Paused while
-  // a Year/From/To filter is active, because that mode fetches every page.
+  // a Year/From/To filter or a search is active, because that mode fetches
+  // every page.
   useAutoRefresh(loadNotifications, {
     intervalMs: LIVE_REFRESH_MS,
     enabled: !isLocalFilterActive,
@@ -355,11 +370,13 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
 
       const rowDate = parseRecordDate(row.createdDate);
 
-      if (fromDate && rowDate && rowDate < new Date(fromDate)) {
+      // Local-midnight boundaries (new Date("YYYY-MM-DD") is UTC midnight,
+      // which dropped rows created on the From date itself).
+      if (fromDate && rowDate && rowDate < new Date(`${fromDate}T00:00:00`)) {
         return false;
       }
 
-      if (toDate && rowDate && rowDate > new Date(toDate)) {
+      if (toDate && rowDate && rowDate > new Date(`${toDate}T00:00:00`)) {
         return false;
       }
 
@@ -385,10 +402,26 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
   const showingFrom = effectiveTotalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
   const showingTo = Math.min(currentPage * rowsPerPage, effectiveTotalRecords);
 
-  const visiblePageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1).slice(
-    0,
-    5,
+  // Every page number, in a horizontally scrollable strip.
+  const allPageNumbers = useMemo(
+    () => Array.from({ length: totalPages }, (_, index) => index + 1),
+    [totalPages],
   );
+  const pageStripRef = useRef(null);
+
+  // Keep the current page's button in view inside the strip (e.g. after
+  // moving past the visible buttons with the < > arrows).
+  useEffect(() => {
+    const activeButton = pageStripRef.current?.querySelector(
+      `[data-page="${currentPage}"]`,
+    );
+    scrollIntoHorizontalStrip(activeButton);
+  }, [currentPage, totalPages]);
+
+  // A filter that leaves fewer pages than the current one -> last page.
+  useEffect(() => {
+    if (!isLoading && currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, isLoading, totalPages]);
 
   const handleResetFilters = () => {
     setYear("");
@@ -610,20 +643,27 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
                 &lt;
               </button>
 
-              {visiblePageNumbers.map((page) => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  type="button"
-                  className={`flex h-8 w-8 items-center justify-center rounded-md text-[12px] font-medium transition ${
-                    page === currentPage
-                      ? "bg-[#F3F4F6] text-[#111827]"
-                      : "text-[#6B7280] hover:bg-[#F8F8F8]"
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
+              <div
+                ref={pageStripRef}
+                className="flex items-center gap-2 overflow-x-auto scroll-smooth"
+                style={{ maxWidth: `${PAGE_STRIP_WIDTH}px`, scrollbarWidth: "thin" }}
+              >
+                {allPageNumbers.map((page) => (
+                  <button
+                    key={page}
+                    data-page={page}
+                    onClick={() => setCurrentPage(page)}
+                    type="button"
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[12px] font-medium transition ${
+                      page === currentPage
+                        ? "bg-[#F3F4F6] text-[#111827]"
+                        : "text-[#6B7280] hover:bg-[#F8F8F8]"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
 
               <button
                 className="flex h-8 w-8 items-center justify-center rounded-md border border-[#E5E7EB] text-[#6B7280] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"

@@ -17,16 +17,18 @@ import {
   enrichRowsWithLocationNames,
 } from "../../utils/transactionNormalization";
 import Loader from "../../../../components/ui/Loader";
+import { fetchAllPages, resolveDateRange } from "../../utils/pagination";
 
 const rowsPerPage = 10;
 const AUTO_REFRESH_INTERVAL_MS = 8000;
 
 // Rows already loaded on this page, kept across visits (the page unmounts
-// when you leave it) and keyed by page / page size, so the table shows
-// instantly when you come back and then refreshes quietly. Year/from/to and
-// search only filter the loaded page locally, so they aren't part of the key.
+// when you leave it), so the table shows instantly when you come back and
+// then refreshes quietly. Keyed by page, page size, the date range sent to
+// the backend and the search text (search mode caches the whole list).
 const pageCache = new Map();
-const pageCacheKey = (requestedPage, size) => JSON.stringify([requestedPage, size]);
+const pageCacheKey = (requestedPage, size, range = {}, search = "") =>
+  JSON.stringify([requestedPage, size, range.fromDate ?? "", range.toDate ?? "", search]);
 
 export default function TransactionDataPage({ searchQuery = "" }) {
   const [year, setYear] = useState("");
@@ -69,10 +71,41 @@ export default function TransactionDataPage({ searchQuery = "" }) {
     setCurrentPage(1);
   };
 
+  // How filters are applied, so the rows, the total and the page count always
+  // match:
+  // - Year / From / To are sent to the backend (GET /transactions accepts an
+  //   inclusive fromDate / toDate), which pages the filtered set itself.
+  // - Header search can't be sent (the API has no text search), so while a
+  //   search is active every page of the date-filtered set is loaded and the
+  //   search + pagination run over that complete list.
+  const dateRange = useMemo(
+    () => resolveDateRange({ year, fromDate, toDate }),
+    [year, fromDate, toDate],
+  );
+  const searchText = searchQuery.trim().toLowerCase();
+  const isSearchMode = Boolean(searchText);
+
   const fetchTransactions = useCallback(
     async ({ silent = false } = {}) => {
       const requestId = ++requestIdRef.current;
-      const cacheKey = pageCacheKey(currentPage - 1, rowsPerPage);
+
+      if (dateRange.isEmpty) {
+        setTransactions([]);
+        setTotalRecords(0);
+        setTotalApiPages(1);
+        setIsLoading(false);
+        setIsLiveUpdating(false);
+        setError("");
+        return;
+      }
+
+      const requestedPage = isSearchMode ? 0 : currentPage - 1;
+      const cacheKey = pageCacheKey(
+        requestedPage,
+        rowsPerPage,
+        dateRange,
+        isSearchMode ? searchText : "",
+      );
       const cached = pageCache.get(cacheKey);
 
       if (!silent) {
@@ -93,19 +126,46 @@ export default function TransactionDataPage({ searchQuery = "" }) {
       }
 
       try {
-        const response = await getTransactions({
-          page: currentPage - 1,
-          size: rowsPerPage,
-        });
-        const { rawRows, totalRecords: apiTotalRecords, totalPages } =
-          normalizeTransactionsResponse(response.data, rowsPerPage);
+        let normalizedRows;
+        let apiTotalRecords;
+        let totalPages;
+
+        if (isSearchMode) {
+          normalizedRows = await fetchAllPages(async (page, size) => {
+            const response = await getTransactions({
+              page,
+              size,
+              fromDate: dateRange.fromDate,
+              toDate: dateRange.toDate,
+            });
+            const normalized = normalizeTransactionsResponse(response.data, size);
+            return {
+              rows: normalized.rawRows.map((row, index) =>
+                normalizeTransactionRow(row, index, page * size),
+              ),
+              totalPages: normalized.totalPages,
+            };
+          });
+          apiTotalRecords = normalizedRows.length;
+          totalPages = Math.max(Math.ceil(normalizedRows.length / rowsPerPage), 1);
+        } else {
+          const response = await getTransactions({
+            page: currentPage - 1,
+            size: rowsPerPage,
+            fromDate: dateRange.fromDate,
+            toDate: dateRange.toDate,
+          });
+          const normalized = normalizeTransactionsResponse(response.data, rowsPerPage);
+          const pageOffset = (currentPage - 1) * rowsPerPage;
+
+          normalizedRows = normalized.rawRows.map((row, index) =>
+            normalizeTransactionRow(row, index, pageOffset),
+          );
+          apiTotalRecords = normalized.totalRecords;
+          totalPages = normalized.totalPages;
+        }
 
         if (requestIdRef.current !== requestId) return;
-
-        const pageOffset = (currentPage - 1) * rowsPerPage;
-        const normalizedRows = rawRows.map((row, index) =>
-          normalizeTransactionRow(row, index, pageOffset),
-        );
 
         setTransactions(normalizedRows);
         setTotalRecords(apiTotalRecords);
@@ -118,33 +178,14 @@ export default function TransactionDataPage({ searchQuery = "" }) {
 
         // Resolve each row's "Locating..." placeholder into a real place
         // name via OpenStreetMap Nominatim (cached + rate-limited - see
-        // transactionNormalization.js), patching rows in as they resolve
-        // rather than waiting on every lookup to finish.
-        enrichRowsWithLocationNames(normalizedRows, (transactionId, locationName) => {
-          if (requestIdRef.current !== requestId) return;
-
-          // Keep the cached copy in step so a return visit shows the
-          // resolved place names instead of "Locating...".
-          const cachedEntry = pageCache.get(cacheKey);
-          if (cachedEntry) {
-            pageCache.set(cacheKey, {
-              ...cachedEntry,
-              rows: cachedEntry.rows.map((existingRow) =>
-                existingRow.transactionId === transactionId
-                  ? { ...existingRow, location: locationName }
-                  : existingRow,
-              ),
-            });
-          }
-
-          setTransactions((previousRows) =>
-            previousRows.map((existingRow) =>
-              existingRow.transactionId === transactionId
-                ? { ...existingRow, location: locationName }
-                : existingRow,
-            ),
-          );
-        });
+        // transactionNormalization.js). In search mode only the rows on
+        // screen are looked up (see the effect below), not the whole list.
+        if (!isSearchMode) {
+          enrichRowsWithLocationNames(normalizedRows, (transactionId, locationName) => {
+            if (requestIdRef.current !== requestId) return;
+            applyLocationName(cacheKey, transactionId, locationName);
+          });
+        }
 
         if (!silent) setError("");
       } catch (fetchError) {
@@ -174,60 +215,94 @@ export default function TransactionDataPage({ searchQuery = "" }) {
         }
       }
     },
-    [currentPage],
+    // applyLocationName only uses setters / the module cache.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentPage, dateRange, isSearchMode, searchText],
   );
+
+  // Patches a resolved place name into the rows on screen and the cached copy.
+  function applyLocationName(cacheKey, transactionId, locationName) {
+    const cachedEntry = pageCache.get(cacheKey);
+    if (cachedEntry) {
+      pageCache.set(cacheKey, {
+        ...cachedEntry,
+        rows: cachedEntry.rows.map((existingRow) =>
+          existingRow.transactionId === transactionId
+            ? { ...existingRow, location: locationName }
+            : existingRow,
+        ),
+      });
+    }
+
+    setTransactions((previousRows) =>
+      previousRows.map((existingRow) =>
+        existingRow.transactionId === transactionId
+          ? { ...existingRow, location: locationName }
+          : existingRow,
+      ),
+    );
+  }
 
   useEffect(() => {
     fetchTransactions({ silent: false });
   }, [fetchTransactions]);
 
-  // Auto-refresh: silently re-fetches the current page (any page, with any
-  // filter) every AUTO_REFRESH_INTERVAL_MS while the tab is visible, so new
-  // transactions appear without a manual reload. Filters here are applied to
-  // the fetched page in the browser, so this is always a single request.
-  // There's no live push (WebSocket/SSE) endpoint from the backend yet, so
-  // this is a lightweight polling-based approximation of real time.
+  // Auto-refresh: silently re-fetches the current page every
+  // AUTO_REFRESH_INTERVAL_MS while the tab is visible, so new transactions
+  // appear without a manual reload. Paused while a search is active, because
+  // that mode loads every page. There's no live push (WebSocket/SSE)
+  // endpoint from the backend yet, so this is a polling-based approximation.
   useEffect(() => {
+    if (isSearchMode) return undefined;
+
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
       fetchTransactions({ silent: true });
     }, AUTO_REFRESH_INTERVAL_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [fetchTransactions]);
+  }, [fetchTransactions, isSearchMode]);
 
+  // Search mode: filter the complete list, then page it here.
   const filteredData = useMemo(() => {
-    const normalizedSearch = searchQuery.trim().toLowerCase();
+    if (!isSearchMode) return transactions;
 
-    return transactions.filter((row) => {
-      const matchesSearch =
-        !normalizedSearch ||
-        Object.values(row).some((value) =>
-          String(value ?? "").toLowerCase().includes(normalizedSearch),
-        );
-      const createdDate = row.createdAtRaw
-        ? new Date(row.createdAtRaw)
-        : parseTransactionDate(row.createdDate);
-      const matchesYear =
-        !year ||
-        (row.createdAtRaw
-          ? String(row.createdAtRaw).slice(0, 4) === year
-          : row.createdDate.endsWith(year));
-      const matchesFromDate =
-        !fromDate || !createdDate || createdDate >= new Date(`${fromDate}T00:00:00`);
-      const matchesToDate =
-        !toDate || !createdDate || createdDate <= new Date(`${toDate}T23:59:59`);
+    return transactions.filter((row) =>
+      Object.values(row).some((value) =>
+        String(value ?? "").toLowerCase().includes(searchText),
+      ),
+    );
+  }, [isSearchMode, searchText, transactions]);
 
-      return matchesSearch && matchesYear && matchesFromDate && matchesToDate;
+  const effectiveTotalRecords = isSearchMode ? filteredData.length : totalRecords;
+  const totalPages = isSearchMode
+    ? Math.max(Math.ceil(filteredData.length / rowsPerPage), 1)
+    : Math.max(totalApiPages, 1);
+  const currentRows = isSearchMode
+    ? filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+    : filteredData;
+
+  // Search mode: look up place names only for the rows on screen.
+  const visibleRowIds = currentRows.map((row) => row.transactionId).join("|");
+  useEffect(() => {
+    if (!isSearchMode || currentRows.length === 0) return;
+
+    const cacheKey = pageCacheKey(0, rowsPerPage, dateRange, searchText);
+    enrichRowsWithLocationNames(currentRows, (transactionId, locationName) => {
+      applyLocationName(cacheKey, transactionId, locationName);
     });
-  }, [fromDate, searchQuery, toDate, transactions, year]);
+    // Re-run only when the set of rows on screen changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSearchMode, visibleRowIds]);
 
-  const totalPages = Math.max(totalApiPages, 1);
-  const currentRows = filteredData;
+  // A filter that leaves fewer pages than the current one -> last page.
+  useEffect(() => {
+    if (!isLoading && currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, isLoading, totalPages]);
 
   const firstVisibleRecord =
-    filteredData.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
-  const lastVisibleRecord = (currentPage - 1) * rowsPerPage + filteredData.length;
+    currentRows.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const lastVisibleRecord = (currentPage - 1) * rowsPerPage + currentRows.length;
 
   const exportHeaders = [
     "Sr.no",
@@ -918,7 +993,7 @@ export default function TransactionDataPage({ searchQuery = "" }) {
         <div style={styles.footerRow}>
           <div style={styles.footerText}>
             Showing <strong>{firstVisibleRecord}-{lastVisibleRecord}</strong> of{" "}
-            <strong>{totalRecords}</strong> transactions
+            <strong>{effectiveTotalRecords}</strong> transactions
           </div>
 
           <div style={styles.pagination}>
@@ -962,18 +1037,4 @@ export default function TransactionDataPage({ searchQuery = "" }) {
       </div>
     </div>
   );
-}
-
-function parseTransactionDate(value) {
-  if (!value) {
-    return null;
-  }
-
-  const [day, month, year] = String(value).split("-").map(Number);
-
-  if (!day || !month || !year) {
-    return null;
-  }
-
-  return new Date(year, month - 1, day);
 }

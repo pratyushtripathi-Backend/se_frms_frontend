@@ -19,6 +19,7 @@ import DashboardSuccessModal from "../../components/DashboardSuccessModal";
 
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
 import { CONFIG_REFRESH_MS, useRefreshTick } from "../../utils/useAutoRefresh";
+import { getVisiblePageNumbers } from "../../utils/pagination";
 
 // Rows already loaded on this page, kept across visits (the page unmounts
 // when you leave it) and keyed by page / search / filter mode, so the table
@@ -1018,7 +1019,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
               <FiChevronLeft />
             </button>
 
-            {Array.from({ length: Math.min(totalPages, 5) }, (_, index) => index + 1).map((page) => (
+            {getVisiblePageNumbers(currentPage, totalPages).map((page) => (
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
@@ -1055,7 +1056,7 @@ const UserBlacklistPage = ({ searchQuery = "" }) => {
       </div>
 
       {isModalOpen && (
-        <div className="frms-modal-overlay" style={styles.modalOverlay} onClick={closeModal}>
+        <div className="frms-modal-overlay" style={styles.modalOverlay}>
           <div style={styles.modalCard} onClick={(event) => event.stopPropagation()}>
             <div style={styles.modalHeader}>
               <div>

@@ -651,7 +651,6 @@ export default function AllRuleScorePage({ searchQuery = "" }) {
       {showAddRuleScoreModal && (
         <div
           className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/55 px-4"
-          onClick={handleCloseAddRuleScore}
         >
           <div
             className="relative w-[960px] max-w-[96vw] rounded-xl bg-white p-6 shadow-2xl"

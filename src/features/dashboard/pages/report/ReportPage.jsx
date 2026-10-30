@@ -3,6 +3,8 @@ import { FiChevronDown, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { CalendarDays, Download, RotateCcw, Loader2 } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../../auth/services/authError";
+import { scrollIntoHorizontalStrip } from "../../utils/scrollPageStrip";
+import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
 import { getTransactions } from "../../services/transactionService";
 import {
   getDecisions,
@@ -12,6 +14,10 @@ import {
 
 const REPORT_SIZE = 500;
 const PREVIEW_ROWS_PER_PAGE = 10;
+// Page-number strip: shows this many buttons at a time (32px button + 8px
+// gap) and scrolls horizontally for the rest, like the other pages.
+const VISIBLE_PAGE_BUTTONS = 5;
+const PAGE_STRIP_WIDTH = VISIBLE_PAGE_BUTTONS * 32 + (VISIBLE_PAGE_BUTTONS - 1) * 8;
 
 function findFirstArray(value, visited = new Set()) {
   if (!value) return [];
@@ -587,8 +593,20 @@ function downloadPdf(source, rows) {
   };
 }
 
+// Created / Updated date and time cells use the same colours as the other
+// pages' tables (#2F80ED date, #27AE60 time), both semi-bold.
+const DATE_CELL_STYLE = { color: "#2F80ED", fontWeight: 600, whiteSpace: "nowrap" };
+const TIME_CELL_STYLE = { color: "#27AE60", fontWeight: 600, whiteSpace: "nowrap" };
+
+function getDateTimeCellStyle(header) {
+  if (/^(Created|Updated) Date$/.test(header)) return DATE_CELL_STYLE;
+  if (/^(Created|Updated) Time$/.test(header)) return TIME_CELL_STYLE;
+  return null;
+}
+
 export default function ReportPage() {
-  const [selectedSourceValue, setSelectedSourceValue] = useState("");
+  // No "Select page" entry: the report opens on the first page type.
+  const [selectedSourceValue, setSelectedSourceValue] = useState(REPORT_SOURCES[0].value);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -598,6 +616,7 @@ export default function ReportPage() {
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [previewPage, setPreviewPage] = useState(1);
+  const pageStripRef = useRef(null);
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
 
@@ -607,7 +626,7 @@ export default function ReportPage() {
   );
 
   const handleResetFilters = () => {
-    setSelectedSourceValue("");
+    setSelectedSourceValue(REPORT_SOURCES[0].value);
     setFromDate("");
     setToDate("");
     setError("");
@@ -667,6 +686,15 @@ export default function ReportPage() {
     Math.ceil(previewRows.length / PREVIEW_ROWS_PER_PAGE),
     1,
   );
+
+  // Keep the current page's button scrolled into view inside the strip (e.g.
+  // after the arrows move past what's visible) - only the strip scrolls.
+  useEffect(() => {
+    const activeButton = pageStripRef.current?.querySelector(
+      `[data-page="${previewPage}"]`,
+    );
+    scrollIntoHorizontalStrip(activeButton);
+  }, [previewPage, totalPreviewPages]);
   const pagedPreviewRows = previewRows.slice(
     (previewPage - 1) * PREVIEW_ROWS_PER_PAGE,
     previewPage * PREVIEW_ROWS_PER_PAGE,
@@ -932,7 +960,20 @@ export default function ReportPage() {
       color: "#555555",
     },
 
+    // Horizontally scrollable strip holding every page number.
+    pageStrip: {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      maxWidth: `${PAGE_STRIP_WIDTH}px`,
+      overflowX: "auto",
+      scrollBehavior: "smooth",
+      scrollbarWidth: "thin",
+      paddingBottom: "2px",
+    },
+
     pageNumber: (isActive) => ({
+      flexShrink: 0,
       width: "32px",
       height: "32px",
       borderRadius: "6px",
@@ -993,7 +1034,6 @@ export default function ReportPage() {
               style={styles.pageSelect}
               value={selectedSourceValue}
             >
-              <option value="">Select page</option>
               {REPORT_SOURCES.map((source) => (
                 <option key={source.value} value={source.value}>
                   {source.label}
@@ -1021,10 +1061,10 @@ export default function ReportPage() {
             value={fromDate}
           />
           <button
-            onClick={() =>
-              fromInputRef.current?.showPicker
-                ? fromInputRef.current.showPicker()
-                : fromInputRef.current?.click()
+            // Opens the calendar right under this button (same helper as the
+            // other pages); with the input hidden, it used to open top-left.
+            onClick={(event) =>
+              openDashboardDatePicker(fromInputRef.current, event.currentTarget)
             }
             style={styles.dateButton}
             type="button"
@@ -1041,10 +1081,10 @@ export default function ReportPage() {
             value={toDate}
           />
           <button
-            onClick={() =>
-              toInputRef.current?.showPicker
-                ? toInputRef.current.showPicker()
-                : toInputRef.current?.click()
+            // Opens the calendar right under this button (same helper as the
+            // other pages); with the input hidden, it used to open top-left.
+            onClick={(event) =>
+              openDashboardDatePicker(toInputRef.current, event.currentTarget)
             }
             style={styles.dateButton}
             type="button"
@@ -1173,7 +1213,10 @@ export default function ReportPage() {
                       return (
                         <tr key={absoluteIndex} style={styles.tr}>
                           {selectedSource.columns.map((column) => (
-                            <td key={column.header} style={styles.td}>
+                            <td
+                              key={column.header}
+                              style={{ ...styles.td, ...getDateTimeCellStyle(column.header) }}
+                            >
                               {String(column.get(row, absoluteIndex) ?? "-")}
                             </td>
                           ))}
@@ -1212,16 +1255,19 @@ export default function ReportPage() {
                   <FiChevronLeft />
                 </button>
 
-                {Array.from({ length: totalPreviewPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => setPreviewPage(page)}
-                    style={styles.pageNumber(page === previewPage)}
-                    type="button"
-                  >
-                    {page}
-                  </button>
-                ))}
+                <div ref={pageStripRef} style={styles.pageStrip}>
+                  {Array.from({ length: totalPreviewPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      data-page={page}
+                      onClick={() => setPreviewPage(page)}
+                      style={styles.pageNumber(page === previewPage)}
+                      type="button"
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
 
                 <button
                   onClick={() =>

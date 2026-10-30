@@ -1,6 +1,7 @@
 import { Copy, X } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { splitDisplayDateTime } from "../../utils/dateTime";
 
 const STATUS_TONES = {
   review: "text-[#F2994A]",
@@ -46,14 +47,11 @@ function DetailRow({ label, value, valueClassName = "font-normal text-[#202224]"
 }
 
 function AuditSummaryCard({ index, row }) {
-  const created = row.createdAt ? new Date(row.createdAt) : null;
+  // The page's rows keep the timestamp as `createdAtRaw`; `createdAt` alone
+  // was always empty here, so this showed "-".
+  const created = splitDisplayDateTime(row.createdAtRaw ?? row.createdAt);
   const createdLabel =
-    created && !Number.isNaN(created.getTime())
-      ? `${created.toLocaleDateString("en-GB").replace(/\//g, "-")} ${created.toLocaleTimeString(
-          "en-IN",
-          { hour: "2-digit", minute: "2-digit" },
-        )}`
-      : row.createdAt || "-";
+    created.date === "-" ? "-" : `${created.date} ${created.time === "-" ? "" : created.time}`.trim();
 
   return (
     <DetailCard index={index} title="Audit Summary">

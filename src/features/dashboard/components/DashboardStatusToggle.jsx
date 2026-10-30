@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { isActiveStatus } from "../utils/status";
 
 export default function DashboardStatusToggle({ onToggle, status }) {
   const [isActive, setIsActive] = useState(isActiveStatus(status));
@@ -45,15 +46,5 @@ export default function DashboardStatusToggle({ onToggle, status }) {
         }`}
       />
     </button>
-  );
-}
-
-function isActiveStatus(status) {
-  if (typeof status === "boolean") return status;
-  if (typeof status === "number") return status === 1;
-  if (status === null || status === undefined || status === "") return false;
-
-  return ["active", "success", "true", "enabled", "pending", "1"].includes(
-    String(status).trim().toLowerCase(),
   );
 }

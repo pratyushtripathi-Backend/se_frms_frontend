@@ -47,6 +47,14 @@ export function getAdminRoles({ page = 0, size = 3 } = {}) {
   });
 }
 
+// GET /api/v1/admin/roles/active - every active role in one list (no paging),
+// for role pickers such as Add User's "Choose Role".
+export function getActiveAdminRoles() {
+  return apiClient.get("/admin/roles/active", {
+    skipAuthRedirect: true,
+  });
+}
+
 export function createAdminRole(payload) {
   return apiClient.post("/admin/roles", payload, {
     skipAuthRedirect: true,
@@ -207,12 +215,16 @@ export function updateEmailNotificationTemplateStatus(templateCode, status) {
     },
   );
 }
-export function getUsers({ page = 0, size = 10, search = "" } = {}) {
+// `role` (optional) filters on the backend by exact role name, e.g. "ADMIN"
+// (role__eq = case-insensitive exact match on the user's role), so the
+// total and page count are for that role only.
+export function getUsers({ page = 0, size = 10, search = "", role = "" } = {}) {
   return apiClient.get("/users", {
     params: {
       page,
       size,
       ...(search.trim() ? { search: search.trim() } : {}),
+      ...(role ? { role__eq: role } : {}),
     },
     skipAuthRedirect: true,
   });

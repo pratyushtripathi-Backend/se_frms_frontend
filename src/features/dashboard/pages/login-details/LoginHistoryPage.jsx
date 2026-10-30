@@ -28,6 +28,26 @@ const TABLE_COLUMNS = [
   "Updated At",
 ];
 
+// Export columns: the same headers, order and values as the table above, so
+// the PDF / CSV match the screen. Sr No continues from the page shown.
+function buildExportColumns(srOffset) {
+  return [
+    { header: "Sr No", value: (row, index) => srOffset + index + 1, bold: true },
+    { header: "User Name", value: (row) => row.userName, bold: true },
+    { header: "Date", value: (row) => row.date },
+    { header: "Time", value: (row) => row.time },
+    { header: "IP", value: (row) => row.ip },
+    { header: "Mac Address", value: (row) => row.macAddress },
+    { header: "Latitude", value: (row) => row.latitude },
+    { header: "Longitude", value: (row) => row.longitude },
+    { header: "Url", value: (row) => row.url, type: "link" },
+    { header: "Status", value: (row) => row.status, type: "status" },
+    { header: "Created By", value: (row) => row.createdBy },
+    { header: "Created Date", value: (row) => [row.createdDate, row.createdTime], type: "dateTime" },
+    { header: "Updated At", value: (row) => [row.updatedDate, row.updatedTime], type: "dateTime" },
+  ];
+}
+
 // Rows already loaded on this page, kept across visits (the page unmounts
 // when you leave it) and keyed by page / size / search / filter mode, so the
 // table shows instantly when you come back and then refreshes quietly.
@@ -206,6 +226,12 @@ export default function LoginHistoryPage({ searchQuery = "" }) {
     setCurrentPage(0);
   };
 
+  // With a date filter every matching row is exported (numbered from 1);
+  // otherwise it's the page on screen, numbered like the table.
+  const exportColumns = useMemo(
+    () => buildExportColumns(isLocalFilterActive ? 0 : currentPage * pageSize),
+    [isLocalFilterActive, currentPage, pageSize],
+  );
   const effectiveTotalRecords = isLocalFilterActive ? filteredData.length : totalRecords;
   const effectiveTotalPages = Math.max(Math.ceil(effectiveTotalRecords / pageSize), 1);
   const visibleData = isLocalFilterActive
@@ -303,7 +329,12 @@ export default function LoginHistoryPage({ searchQuery = "" }) {
             </button>
 
             {/* Export */}
-            <ExportFile rows={filteredData} />
+            <ExportFile
+              rows={filteredData}
+              columns={exportColumns}
+              fileName="LoginHistory"
+              title="Login History"
+            />
 
           </div>
         </div>
@@ -326,7 +357,7 @@ export default function LoginHistoryPage({ searchQuery = "" }) {
                   {TABLE_COLUMNS.map((column) => (
                     <th
                       key={column}
-                      className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[12px] font-semibold text-[#5A5A5A]"
+                      className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[13px] font-semibold text-[#5A5A5A]"
                     >
                       {column}
                     </th>
@@ -342,7 +373,7 @@ export default function LoginHistoryPage({ searchQuery = "" }) {
                 {visibleData.map((item, index) => (
                   <tr
                     key={item.id}
-                    className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
+                    className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
                   >
                     <td className="px-4 py-4 font-medium">
                       {currentPage * pageSize + index + 1}
@@ -396,7 +427,7 @@ export default function LoginHistoryPage({ searchQuery = "" }) {
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-4">
-                      <div className="flex flex-col text-[12px] leading-5">
+                      <div className="flex flex-col text-[13px] leading-5">
                         <span className="font-medium text-[#2F80ED]">
                           {item.createdDate}
                         </span>
@@ -408,7 +439,7 @@ export default function LoginHistoryPage({ searchQuery = "" }) {
                     </td>
 
                     <td className="px-4 py-4">
-                      <div className="flex flex-col text-[12px] leading-5">
+                      <div className="flex flex-col text-[13px] leading-5">
                         <span className="font-medium text-[#2F80ED]">
                           {item.updatedDate}
                         </span>
@@ -461,7 +492,7 @@ export default function LoginHistoryPage({ searchQuery = "" }) {
 
           <div className="flex items-center justify-between border-t border-[#ECECEC] bg-white px-6 py-4">
 
-            <p className="text-[12px] text-[#7A7A7A]">
+            <p className="text-[13px] text-[#7A7A7A]">
               Showing {visibleData.length} of {effectiveTotalRecords} transactions
             </p>
 

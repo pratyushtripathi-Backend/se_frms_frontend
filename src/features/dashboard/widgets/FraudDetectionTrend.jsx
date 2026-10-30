@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -14,6 +14,10 @@ const RED = "#F0424F";
 const BLUE = "#4C7EF3";
 
 const AUTO_REFRESH_INTERVAL_MS = 5000;
+
+// Day view shows only the latest N days. With every day of the range on the
+// axis the date labels overlapped into one unreadable strip.
+const DAY_VIEW_LIMIT = 10;
 
 const GROUP_BY_OPTIONS = [
   { label: "Day", value: "day" },
@@ -76,6 +80,17 @@ export default function FraudDetectionTrend() {
   const [hasLoaded, setHasLoaded] = useState(false);
 
   const requestIdRef = useRef(0);
+
+  // Day view: the most recent DAY_VIEW_LIMIT days, oldest -> newest (the
+  // API's periods are ISO dates, so a string sort is a date sort). Other
+  // groupings (week/month/quarter/year) are shown in full.
+  const visibleData = useMemo(() => {
+    if (groupBy !== "day") return chartData;
+
+    return [...chartData]
+      .sort((a, b) => String(a.period).localeCompare(String(b.period)))
+      .slice(-DAY_VIEW_LIMIT);
+  }, [chartData, groupBy]);
 
   const loadTrend = useCallback(
     async ({ silent = false } = {}) => {
@@ -181,7 +196,7 @@ export default function FraudDetectionTrend() {
 
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={chartData}
+            data={visibleData}
             margin={{
               top: 8,
               right: 6,

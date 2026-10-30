@@ -479,7 +479,6 @@ export default function ProfilePage() {
       {isEditingProfile && (
         <div
           className="frms-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 px-4"
-          onClick={handleCancelProfileEdit}
         >
           <div
             className="relative w-[620px] max-w-[92vw] rounded-[14px] bg-white px-9 py-8 shadow-2xl"

@@ -8,6 +8,7 @@ import { CalendarDays, RotateCcw } from "lucide-react";
 
 import { getAuthErrorMessage } from "../../../auth/services/authError";
 import {
+  getActiveAdminRoles,
   getUsers,
   updateUser,
   updateUserStatus,
@@ -25,16 +26,35 @@ const rowsPerPage = 10;
 // when you leave it) and keyed by page / search / filter mode, so the table
 // shows instantly when you come back and then refreshes quietly.
 const pageCache = new Map();
-const pageCacheKey = (requestedPage, search, isLocalFilterActive) =>
-  JSON.stringify([requestedPage, search ?? "", isLocalFilterActive]);
+const pageCacheKey = (requestedPage, search, isLocalFilterActive, role = "") =>
+  JSON.stringify([requestedPage, search ?? "", isLocalFilterActive, role]);
+
+// Active roles for the Role filter (GET /admin/roles/active), kept across
+// visits so the dropdown is filled instantly when you come back.
+let activeRoleOptionsCache = null;
+
+function normalizeActiveRoles(responseData) {
+  const payload = responseData?.responseData ?? responseData?.data ?? responseData;
+  const list = Array.isArray(payload) ? payload : [];
+
+  return list
+    .map((item) =>
+      typeof item === "string"
+        ? item
+        : item?.roleName ?? item?.name ?? item?.role ?? "",
+    )
+    .map((name) => String(name).trim())
+    .filter(Boolean);
+}
 
 export default function AllUsersPage({ searchQuery = "" }) {
   const [year, setYear] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  // Role filter
+  // Role filter (applied by the backend - see getUsers' role param)
   const [role, setRole] = useState("");
+  const [roleOptions, setRoleOptions] = useState(() => activeRoleOptionsCache ?? []);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [openMenu, setOpenMenu] = useState(null);
@@ -63,12 +83,33 @@ export default function AllUsersPage({ searchQuery = "" }) {
   const toInputRef = useRef(null);
 
   /*
-   * When any local filter is selected, we load all pages
-   * and apply filtering on the frontend.
+   * When a Year / From / To filter is selected, we load all pages
+   * and apply filtering on the frontend. Role is filtered by the backend,
+   * so it keeps normal paging.
    */
   const isLocalFilterActive = Boolean(
-    year || fromDate || toDate || role,
+    year || fromDate || toDate,
   );
+
+  // Role dropdown options: only active roles (same API as Add User).
+  useEffect(() => {
+    let isActive = true;
+
+    getActiveAdminRoles()
+      .then((response) => {
+        if (!isActive) return;
+        const names = normalizeActiveRoles(response.data);
+        activeRoleOptionsCache = names;
+        setRoleOptions(names);
+      })
+      .catch(() => {
+        // Keep whatever options are already shown; the table still works.
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   // Auto-refresh: bumps every few seconds (while the tab is visible) and is
   // a dependency of the loader effect below, so the current page re-fetches
@@ -91,6 +132,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
         isLocalFilterActive ? 0 : currentPage - 1,
         searchQuery,
         isLocalFilterActive,
+        role,
       );
       const cached = pageCache.get(cacheKey);
 
@@ -114,6 +156,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
           page: requestedPage,
           search: searchQuery,
           size: rowsPerPage,
+          role,
         });
 
         const normalizedResponse = normalizeUsersResponse(response.data);
@@ -137,6 +180,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
                   page: index + 1,
                   search: searchQuery,
                   size: rowsPerPage,
+                  role,
                 }),
             ),
           );
@@ -191,6 +235,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
     refreshTick,
     isLocalFilterActive,
     searchQuery,
+    role,
   ]);
 
   /*
@@ -456,13 +501,17 @@ export default function AllUsersPage({ searchQuery = "" }) {
           All Roles
         </option>
 
-        <option value="ADMIN">
-          ADMIN
-        </option>
+        {/* Active roles from GET /admin/roles/active */}
+        {roleOptions.map((roleName) => (
+          <option key={roleName} value={roleName}>
+            {roleName}
+          </option>
+        ))}
 
-        <option value="EMPLOYEE">
-          EMPLOYEE
-        </option>
+        {/* Keep a selected role visible even if it's no longer active */}
+        {role && !roleOptions.includes(role) && (
+          <option value={role}>{role}</option>
+        )}
       </select>
 
       <FiChevronDown
@@ -852,7 +901,6 @@ export default function AllUsersPage({ searchQuery = "" }) {
       {editingUser && (
         <div
           className="frms-modal-overlay fixed inset-0 z-[100] flex items-center justify-center px-4"
-          onClick={handleCloseEdit}
         >
           <div
             className="w-full max-w-[520px] rounded-xl bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,.22)]"

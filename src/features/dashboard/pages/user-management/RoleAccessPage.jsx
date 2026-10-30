@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import {
   CalendarDays,
-  Search,
   Plus,
   X,
   ChevronDown,
@@ -11,8 +10,8 @@ import {
 import { getAuthErrorMessage } from "../../../auth/services/authError";
 import {
   createRoleAccess,
+  getActiveAdminRoles,
   getAllAccessList,
-  getAdminRoles,
   getRoleAccessByRole,
   updateRoleAccess,
   updateRoleAccessStatus,
@@ -22,6 +21,7 @@ import DashboardStatusToggle from "../../components/DashboardStatusToggle";
 
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
 import { CONFIG_REFRESH_MS, useAutoRefresh } from "../../utils/useAutoRefresh";
+import { getVisiblePageNumbers } from "../../utils/pagination";
 const ROLE_ACCESS_COLUMN_ORDER = [
   "id",
   "access",
@@ -295,12 +295,12 @@ function EmptyState() {
       />
 
       <h3 className="text-[18px] font-semibold text-[#202224]">
-        Search to View Access Details
+        Select a Role to View Access Details
       </h3>
 
       <p className="mt-3 max-w-[480px] text-[13px] italic leading-6 text-[#9A9A9A]">
-        "Use the search bar above to find a user or role. Assigned permissions
-        and access details will appear here after a successful search."
+        "Choose a role from the dropdown above. Its assigned permissions and
+        access details will appear here."
       </p>
 
       <style>{`
@@ -335,8 +335,10 @@ export default function RoleAccessPage() {
   const [accessOptions, setAccessOptions] = useState(
     () => optionsCache.current?.accessOptions ?? [],
   );
+  // Active roles only (GET /admin/roles/active), used by the Role dropdown
+  // at the top of the page and by the Add / Edit Role Access popup.
   const [roleOptions, setRoleOptions] = useState(
-    () => optionsCache.current?.roleOptions ?? [],
+    () => optionsCache.current?.activeRoleOptions ?? [],
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -377,7 +379,7 @@ export default function RoleAccessPage() {
         setRoleAccessRows([]);
         setTotalRecords(0);
         setTotalPages(1);
-        setErrorMessage("Please search with a valid role id or role name.");
+        setErrorMessage("Please select a valid role.");
         return;
       }
 
@@ -441,22 +443,19 @@ export default function RoleAccessPage() {
     let isActive = true;
 
     async function loadRoles() {
-      const hasCachedRoles = Boolean(optionsCache.current?.roleOptions);
+      const hasCachedRoles = Boolean(optionsCache.current?.activeRoleOptions);
 
       // Cached options are shown right away; only show "Loading roles..."
       // when there is nothing to show yet.
       if (!hasCachedRoles) setIsLoadingRoles(true);
 
       try {
-        const response = await getAdminRoles({
-          page: 0,
-          size: 100,
-        });
+        const response = await getActiveAdminRoles();
         const normalizedOptions = normalizeRoleOptions(response.data);
 
         optionsCache.current = {
           ...optionsCache.current,
-          roleOptions: normalizedOptions,
+          activeRoleOptions: normalizedOptions,
         };
         if (isActive) setRoleOptions(normalizedOptions);
       } catch (error) {
@@ -548,7 +547,10 @@ export default function RoleAccessPage() {
     ? filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
     : filteredData;
 
-  const matchedRole = filteredData[0]?.role || searchValue;
+  const matchedRole =
+    roleOptions.find((option) => String(option.id) === String(debouncedSearchValue))?.label ||
+    filteredData[0]?.role ||
+    searchValue;
 
   const handleYearChange = (value) => {
     setYear(value);
@@ -572,8 +574,11 @@ export default function RoleAccessPage() {
     setCurrentPage(1);
   };
 
-  const handleSearch = () => {
-    const trimmedSearchInput = searchInput.trim();
+  // Picking a role in the dropdown loads its access list straight away.
+  const handleRoleSelect = (roleId) => {
+    const trimmedSearchInput = String(roleId ?? "").trim();
+
+    setSearchInput(trimmedSearchInput);
 
     if (!trimmedSearchInput) {
       setSearchValue("");
@@ -592,6 +597,15 @@ export default function RoleAccessPage() {
     setCurrentPage(1);
     setHasSearched(true);
   };
+
+  // With no "Select Role" entry in the dropdown, open on the first active
+  // role as soon as the list is loaded.
+  useEffect(() => {
+    if (!searchInput && roleOptions.length > 0) {
+      handleRoleSelect(roleOptions[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roleOptions]);
 
   const refreshRoleAccessRows = async (roleId) => {
     const refreshedResponse = await getRoleAccessByRole(roleId);
@@ -750,28 +764,31 @@ export default function RoleAccessPage() {
         {/* Top Controls */}
         <div className="mb-6 flex items-center gap-3">
           <div className="relative flex-1">
-            <Search
-              size={16}
-              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#A6A6A6]"
-            />
-
-            <input
-              type="text"
+            <select
               value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              placeholder="Search"
-              className="h-[46px] w-full rounded-lg border border-[#E5E7EB] bg-white pl-11 pr-4 text-[14px] text-[#202224] outline-none placeholder:text-[#A6A6A6]"
+              onChange={(e) => handleRoleSelect(e.target.value)}
+              className="h-[46px] w-full appearance-none rounded-lg border border-[#E5E7EB] bg-white px-4 pr-10 text-[14px] text-[#202224] outline-none"
+            >
+              {/* No "Select Role" entry: the first active role is picked
+                  automatically. This placeholder only shows until the
+                  roles arrive. */}
+              {roleOptions.length === 0 && (
+                <option value="" disabled>
+                  {isLoadingRoles ? "Loading roles..." : "No active roles"}
+                </option>
+              )}
+              {roleOptions.map((opt) => (
+                <option key={opt.id} value={String(opt.id)}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+
+            <ChevronDown
+              size={17}
+              className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#808080]"
             />
           </div>
-
-          <button
-            type="button"
-            onClick={handleSearch}
-            className="h-[46px] rounded-lg bg-[#EB4A4A] px-8 text-[14px] font-semibold text-white transition-colors hover:bg-[#D93A3A]"
-          >
-            Search
-          </button>
 
             {/* Add Role Access */}
             <button
@@ -912,7 +929,7 @@ export default function RoleAccessPage() {
                       ].map((column) => (
                         <th
                           key={column}
-                          className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[12px] font-semibold text-[#5A5A5A]"
+                          className="whitespace-nowrap border-b border-[#ECECEC] px-4 py-4 text-left text-[13px] font-semibold text-[#5A5A5A]"
                         >
                           {column}
                         </th>
@@ -926,7 +943,7 @@ export default function RoleAccessPage() {
                 }`}
               >
                 {isLoading && visibleData.length === 0 && (
-                  <tr className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563]">
+                  <tr className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563]">
                     <td colSpan={7} className="px-4 py-6 text-center">
                       Loading role access details...
                     </td>
@@ -934,7 +951,7 @@ export default function RoleAccessPage() {
                 )}
 
                 {!isLoading && filteredData.length === 0 && (
-                  <tr className="border-b border-[#EEF1F5] text-[12px] text-[#4B5563]">
+                  <tr className="border-b border-[#EEF1F5] text-[13px] text-[#4B5563]">
                     <td colSpan={7} className="px-4 py-6 text-center">
                       No role access details found.
                     </td>
@@ -944,7 +961,7 @@ export default function RoleAccessPage() {
                 {visibleData.map((item, index) => (
                   <tr
                     key={item.id}
-                    className="relative border-b border-[#EEF1F5] text-[12px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
+                    className="relative border-b border-[#EEF1F5] text-[13px] text-[#4B5563] transition-colors hover:bg-[#FAFBFC]"
                   >
                     <td className="whitespace-nowrap px-4 py-4 font-medium">
                       {(currentPage - 1) * rowsPerPage + index + 1}
@@ -964,7 +981,7 @@ export default function RoleAccessPage() {
                       {formatRoleAccessValue(item.createdBy)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4">
-                      <div className="flex flex-col text-[12px] leading-5">
+                      <div className="flex flex-col text-[13px] leading-5">
                         <span className="font-medium text-[#2F80ED]">
                           {formatRoleAccessValue(item.createdDate)}
                         </span>
@@ -974,7 +991,7 @@ export default function RoleAccessPage() {
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-4 py-4">
-                      <div className="flex flex-col text-[12px] leading-5">
+                      <div className="flex flex-col text-[13px] leading-5">
                         <span className="font-medium text-[#2F80ED]">
                           {formatRoleAccessValue(item.updatedDate)}
                         </span>
@@ -1000,7 +1017,7 @@ export default function RoleAccessPage() {
 
           <div className="flex items-center justify-between border-t border-[#ECECEC] bg-white px-6 py-4">
 
-            <p className="text-[12px] text-[#7A7A7A]">
+            <p className="text-[13px] text-[#7A7A7A]">
               Showing {visibleData.length} of {effectiveTotalRecords} transactions
             </p>
 
@@ -1015,7 +1032,7 @@ export default function RoleAccessPage() {
                 &lt;
               </button>
 
-              {Array.from({ length: Math.min(effectiveTotalPages, 5) }, (_, index) => index + 1).map((page) => (
+              {getVisiblePageNumbers(currentPage, effectiveTotalPages).map((page) => (
                 <button
                   key={page}
                   onClick={() => setCurrentPage(page)}
@@ -1057,6 +1074,8 @@ export default function RoleAccessPage() {
           mode={selectedRoleAccess ? "edit" : "add"}
           onClose={() => setShowFormModal(false)}
           onSave={handleSave}
+          // Add: only active roles can be given access. Edit: the role is
+          // fixed (dropdown disabled), so every role is passed to show it.
           roleOptions={roleOptions}
           selectedRoleAccess={selectedRoleAccess}
         />

@@ -184,18 +184,23 @@ export function getMatchedRules({ page = 0, size = 20, year, startDate, endDate 
   });
 }
 
-// Unlike GET /decisions (which defaults to createdAt DESC), the backend's
-// GET /decisions/cases has no default sort, so without `sort` pages come back
-// oldest-first and page 1 of each tab (Under Review / Allowed / Blocked)
-// held the oldest cases. Ask for newest-first explicitly.
+// GET /decisions/cases has no default sort, so it's requested explicitly:
+// most recently changed first (updatedAt DESC), then newest (createdAt DESC).
+// A decision's updatedAt is set when it's created and again when it's
+// reviewed, so a case just moved to Allowed / Blocked with the Action menu is
+// at the top of that tab, and new cases are at the top of Under Review.
+//
+// Two `sort` params must be sent as sort=a&sort=b (Spring's format); axios
+// would otherwise send sort[]=a&sort[]=b, which Spring ignores.
 export function getCases({ status = "REVIEW", page = 0, size = 10 } = {}) {
   return apiClient.get(`${decisionApiBaseUrl}/decisions/cases`, {
     params: {
       status,
       page,
       size,
-      sort: "createdAt,desc",
+      sort: ["updatedAt,desc", "createdAt,desc"],
     },
+    paramsSerializer: { indexes: null },
     skipAuthRedirect: true,
   });
 }

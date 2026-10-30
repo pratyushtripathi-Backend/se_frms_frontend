@@ -20,6 +20,7 @@ import DashboardStatusToggle from "../../components/DashboardStatusToggle";
 
 import { openDashboardDatePicker } from "../../utils/dashboardDatePicker";
 import { CONFIG_REFRESH_MS, useRefreshTick } from "../../utils/useAutoRefresh";
+import { getVisiblePageNumbers } from "../../utils/pagination";
 const INITIAL_ROLE_FORM = {
   roleName: "",
   status: true,
@@ -439,7 +440,7 @@ const ManageRolePage = ({ searchQuery = "" }) => {
       textAlign: "left",
       padding: "12px 18px",
       fontWeight: 600,
-      fontSize: "12px",
+      fontSize: "13px",
       color: "#444",
       whiteSpace: "nowrap",
     },
@@ -451,7 +452,7 @@ const ManageRolePage = ({ searchQuery = "" }) => {
 
     td: {
       padding: "10px 18px",
-      fontSize: "12px",
+      fontSize: "13px",
       color: "#555",
       whiteSpace: "nowrap",
     },
@@ -485,7 +486,7 @@ const ManageRolePage = ({ searchQuery = "" }) => {
     },
 
     footerText: {
-      fontSize: "12px",
+      fontSize: "13px",
       color: "#666",
     },
 
@@ -856,7 +857,7 @@ const ManageRolePage = ({ searchQuery = "" }) => {
               <FiChevronLeft />
             </button>
 
-            {Array.from({ length: Math.min(totalPages, 5) }, (_, index) => index + 1).map((page) => (
+            {getVisiblePageNumbers(currentPage, totalPages).map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
@@ -893,7 +894,7 @@ const ManageRolePage = ({ searchQuery = "" }) => {
       </div>
 
       {isRoleModalOpen && (
-        <div className="frms-modal-overlay" style={styles.modalOverlay} onClick={closeRoleModal}>
+        <div className="frms-modal-overlay" style={styles.modalOverlay}>
           <form
             style={styles.modalCard}
             onClick={(event) => event.stopPropagation()}
@@ -1182,7 +1183,7 @@ function RoleDateTime({ value }) {
   const [date, time = "-"] = formattedValue.split(" ");
 
   return (
-    <div className="flex flex-col text-[12px] leading-5">
+    <div className="flex flex-col text-[13px] leading-5">
       <span className="font-medium text-[#2F80ED]">{date}</span>
       <span className="text-[#27AE60]">{time}</span>
     </div>
