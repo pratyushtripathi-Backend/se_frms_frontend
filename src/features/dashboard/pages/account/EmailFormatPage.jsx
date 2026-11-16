@@ -6,6 +6,7 @@ import {
   X,
   ChevronDown,
   Pencil,
+  Maximize2,
 } from "lucide-react";
 import { getAuthErrorMessage } from "../../../auth/services/authError";
 import {
@@ -546,6 +547,115 @@ function SuccessModal({ message, onClose }) {
   );
 }
 
+function TemplateDetailModal({ template, onClose }) {
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const displayFields = template.extraRow
+    ? [...template.fieldsRow, template.extraRow]
+    : template.fieldsRow;
+  return createPortal(
+    <div
+      className="frms-modal-overlay fixed inset-y-0 left-[225px] right-0 z-[10000] flex items-center justify-center bg-black/50 px-4 py-6"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        aria-labelledby="email-template-detail-title"
+        aria-modal="true"
+        className="max-h-[92vh] w-[92vw] max-w-[1700px] overflow-y-auto rounded-[12px] bg-[#FBFBFB] shadow-[0_12px_24px_rgba(0,0,0,0.28)]"
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <header className="sticky top-0 z-10 flex min-h-[104px] flex-wrap items-center justify-between gap-4 border-b border-[#E1E1E1] bg-[#FBFBFB] px-8 py-5">
+          <h2 id="email-template-detail-title" className="text-[14px] font-semibold tracking-[0.01em] text-[#111111]">
+              {template.title}
+          </h2>
+
+          <div className="flex shrink-0 items-center gap-4">
+            {template.showEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  template.onEdit?.();
+                }}
+                className="inline-flex h-9 items-center gap-1.5 rounded-[6px] border border-[#0A50B9] bg-white px-3.5 text-[12px] font-medium text-[#0A50B9] transition-colors hover:bg-[#EFF6FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A50B9]"
+              >
+                <Pencil size={13} />
+                Edit
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                template.onCreate?.();
+              }}
+              className="inline-flex h-9 items-center gap-1.5 rounded-[6px] border border-[#F62B1A] bg-white px-3.5 text-[12px] font-medium text-[#F62B1A] transition-colors hover:bg-[#FFF1F1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F62B1A]"
+            >
+              <Plus size={13} strokeWidth={2.5} />
+              Create format
+            </button>
+            <button
+              type="button"
+              aria-label="Close email template details"
+              onClick={onClose}
+              className="grid h-10 w-10 place-items-center rounded-[5px] border border-[#AFAFAF] bg-white text-black transition-colors hover:bg-[#F3F4F6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A50B9]"
+            >
+              <Maximize2 size={19} strokeWidth={2} />
+            </button>
+          </div>
+        </header>
+
+        <div className="px-8 py-9">
+          <div className="grid gap-x-7 gap-y-6 sm:grid-cols-2 lg:grid-cols-7">
+            {displayFields.map((field) => (
+              <div key={field.label} className="min-w-0">
+                <p className="mb-1 text-[13px] font-semibold text-[#111111]">{field.label}</p>
+                <p className="break-words text-[13px] font-medium text-[#5D5D5D]">{field.value}</p>
+              </div>
+            ))}
+            <div>
+              <p className="mb-2 text-[13px] font-semibold text-[#303030]">Status</p>
+              <DashboardStatusToggle status={template.status} />
+            </div>
+            <div>
+              <p className="mb-1 text-[13px] font-semibold text-[#303030]">Created By</p>
+              <p className="break-words text-[13px] text-[#5D5D5D]">{template.createdBy}</p>
+            </div>
+            <div>
+              <p className="mb-1 text-[13px] font-semibold text-[#303030]">Created date</p>
+              <p className="text-[13px] font-medium text-[#2582DA]">{template.createdDate}</p>
+              <p className="text-[13px] text-[#11943D]">{template.createdTime}</p>
+            </div>
+            <div>
+              <p className="mb-1 text-[13px] font-semibold text-[#303030]">Updated At</p>
+              <p className="text-[13px] font-medium text-[#2582DA]">{template.updatedDate}</p>
+              <p className="text-[13px] text-[#11943D]">{template.updatedTime}</p>
+            </div>
+          </div>
+
+          <div className="mt-7 border-t border-[#E1E1E1] pt-8">
+            <p className="mb-1 text-[18px] font-semibold text-[#111111]">Body Text</p>
+            <p className="whitespace-pre-wrap break-words text-[16px] leading-[1.65] text-[#5D5D5D]">
+              {template.bodyText}
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
 function EmailFormatCard({
   title,
   fieldsRow,
@@ -561,104 +671,119 @@ function EmailFormatCard({
   showEdit = true,
   onEdit,
   onCreate,
+  onExpand,
   isLoading = false,
 }) {
+  const displayFields = extraRow ? [...fieldsRow, extraRow] : fieldsRow;
+  const detailGridColumns = extraRow
+    ? "lg:grid-cols-[minmax(100px,0.85fr)_minmax(110px,0.95fr)_minmax(95px,0.8fr)_minmax(150px,1.2fr)_minmax(220px,2fr)_minmax(82px,0.72fr)_minmax(82px,0.72fr)_minmax(96px,0.8fr)_minmax(96px,0.8fr)]"
+    : fieldsRow.length === 2
+      ? "lg:grid-cols-[minmax(150px,1.25fr)_minmax(130px,1.1fr)_minmax(250px,2.25fr)_minmax(84px,0.75fr)_minmax(90px,0.78fr)_minmax(102px,0.9fr)_minmax(102px,0.9fr)]"
+      : "lg:grid-cols-[minmax(150px,1.25fr)_minmax(130px,1.1fr)_minmax(80px,0.65fr)_minmax(250px,2.25fr)_minmax(84px,0.75fr)_minmax(90px,0.78fr)_minmax(102px,0.9fr)_minmax(102px,0.9fr)]";
+
   return (
-    <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-[14px] font-semibold text-[#202224]">{title}</h3>
+    <article className="overflow-hidden rounded-[10px] border border-[#E4E4E4] bg-[#FBFBFB]">
+      <header className="flex min-h-[70px] flex-wrap items-center justify-between gap-3 border-b border-[#E4E4E4] px-5 py-4 lg:px-6">
+        <h3 className="text-[14px] font-semibold tracking-[0.02em] text-[#111827]">{title}</h3>
 
         <div className="flex items-center gap-2">
           {showEdit && (
             <button
               type="button"
               onClick={onEdit}
-              className="flex h-8 items-center gap-1.5 rounded-lg border border-[#2F80ED] px-3 text-[12px] font-semibold text-[#2F80ED] transition-colors hover:bg-[#EFF6FF]"
+              className="inline-flex h-9 items-center gap-1.5 rounded-[6px] border border-[#0A50B9] bg-white px-3.5 text-[13px] font-medium text-[#0A50B9] transition-colors hover:bg-[#EFF6FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A50B9]"
             >
-              Edit
               <Pencil size={13} />
+              Edit
             </button>
           )}
 
           <button
             type="button"
             onClick={onCreate}
-            className="flex h-8 items-center gap-1.5 rounded-lg border border-[#FF0D0D] px-3 text-[12px] font-semibold text-[#FF0D0D] transition-colors hover:bg-[#FFF1F1]"
+            className="inline-flex h-9 items-center gap-1.5 rounded-[6px] border border-[#F62B1A] bg-white px-3.5 text-[13px] font-medium text-[#F62B1A] transition-colors hover:bg-[#FFF1F1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F62B1A]"
           >
-            Create format
             <Plus size={13} strokeWidth={2.5} />
+            Create format
+          </button>
+
+          <button
+            type="button"
+            aria-label="Open email template details"
+            onClick={() => onExpand?.({
+              title,
+              fieldsRow,
+              extraRow,
+              bodyText,
+              status,
+              createdBy,
+              createdDate,
+              createdTime,
+              updatedDate,
+              updatedTime,
+              showEdit,
+              onEdit,
+              onCreate,
+            })}
+            className="grid h-10 w-10 place-items-center rounded-[5px] border border-[#AFAFAF] bg-white text-black transition-colors hover:bg-[#F3F4F6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A50B9]"
+          >
+            <Maximize2 size={19} strokeWidth={2} />
           </button>
         </div>
-      </div>
+      </header>
 
       {isLoading ? (
-        <p className="py-8 text-center text-[13px] text-[#9CA3AF]">Loading...</p>
+        <div className="grid min-h-[190px] place-items-center px-5 py-8">
+          <span className="text-[13px] text-[#9CA3AF]">Loading template...</span>
+        </div>
       ) : (
-        <>
-          <div className="mb-4 grid grid-cols-3 gap-4">
-            {fieldsRow.map((field) => (
-              <div key={field.label} className="min-w-0">
-                <p className="mb-1 text-[12px] text-[#9CA3AF]">{field.label}</p>
-                <p className="truncate text-[13px] font-medium text-[#202224]">
-                  {field.value}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {extraRow && (
-            <div className="mb-4">
-              <p className="mb-1 text-[12px] text-[#9CA3AF]">{extraRow.label}</p>
-              <p className="text-[13px] font-medium text-[#202224]">
-                {extraRow.value}
+        <div className={`grid gap-x-5 gap-y-6 px-6 py-9 sm:grid-cols-2 ${detailGridColumns}`}>
+          {displayFields.map((field) => (
+            <div key={field.label} className="min-w-0">
+              <p className="mb-1 text-[14px] font-semibold tracking-[0.01em] text-[#111111]">{field.label}</p>
+              <p className="truncate text-[14px] font-medium text-[#5D5D5D]" title={field.value}>
+                {field.value}
               </p>
             </div>
-          )}
+          ))}
 
-          <div className="mb-4">
-            <p className="mb-1 text-[12px] text-[#9CA3AF]">Body Text</p>
-            <p className="text-[13px] leading-5 text-[#4B5563]">{bodyText}</p>
+          <div className="min-w-0">
+            <p className="mb-1 text-[14px] font-semibold tracking-[0.01em] text-[#111111]">Body Text</p>
+            <p className="line-clamp-4 text-[14px] leading-5 text-[#5D5D5D]" title={bodyText}>
+              {bodyText}
+            </p>
           </div>
 
-          {/* min-w-0 lets each column shrink to its share of the row instead of
-              growing to fit its content, so a long Created By value (an email
-              or user id with no spaces) wraps in its own column rather than
-              running into Created date. */}
-          <div className="grid grid-cols-4 gap-4 border-t border-[#F1F1F1] pt-4">
-            <div className="min-w-0">
-              <p className="mb-1 text-[12px] text-[#9CA3AF]">Status</p>
-              <DashboardStatusToggle onToggle={onToggleStatus} status={status} />
-            </div>
+          <div className="min-w-0">
+            <p className="mb-2 text-[14px] font-semibold tracking-[0.01em] text-[#303030]">Status</p>
+            <DashboardStatusToggle onToggle={onToggleStatus} status={status} />
+          </div>
 
-            <div className="min-w-0">
-              <p className="mb-1 text-[12px] text-[#9CA3AF]">Created By</p>
-              <p
-                className="text-[13px] leading-5 text-[#4B5563] [overflow-wrap:anywhere]"
-                title={createdBy}
-              >
-                {createdBy}
-              </p>
-            </div>
+          <div className="min-w-0">
+            <p className="mb-1 text-[14px] font-semibold tracking-[0.01em] text-[#303030]">Created By</p>
+            <p className="text-[14px] leading-5 text-[#5D5D5D] [overflow-wrap:anywhere]" title={createdBy}>
+              {createdBy}
+            </p>
+          </div>
 
-            <div className="min-w-0">
-              <p className="mb-1 text-[12px] text-[#9CA3AF]">Created date</p>
-              <div className="flex flex-col text-[13px] leading-5">
-                <span className="font-medium text-[#2F80ED]">{createdDate}</span>
-                <span className="text-[#27AE60]">{createdTime}</span>
-              </div>
-            </div>
-
-            <div className="min-w-0">
-              <p className="mb-1 text-[12px] text-[#9CA3AF]">Updated At</p>
-              <div className="flex flex-col text-[13px] leading-5">
-                <span className="font-medium text-[#2F80ED]">{updatedDate}</span>
-                <span className="text-[#27AE60]">{updatedTime}</span>
-              </div>
+          <div className="min-w-0">
+            <p className="mb-1 text-[14px] font-semibold tracking-[0.01em] text-[#303030]">Created date</p>
+            <div className="flex flex-col text-[14px] leading-5">
+              <span className="font-medium text-[#2582DA]">{createdDate}</span>
+              <span className="text-[#11943D]">{createdTime}</span>
             </div>
           </div>
-        </>
+
+          <div className="min-w-0">
+            <p className="mb-1 text-[14px] font-semibold tracking-[0.01em] text-[#303030]">Updated At</p>
+            <div className="flex flex-col text-[14px] leading-5">
+              <span className="font-medium text-[#2582DA]">{updatedDate}</span>
+              <span className="text-[#11943D]">{updatedTime}</span>
+            </div>
+          </div>
+        </div>
       )}
-    </div>
+    </article>
   );
 }
 
@@ -689,6 +814,7 @@ export default function EmailFormatPage() {
 
   const [showFormModal, setShowFormModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [expandedTemplate, setExpandedTemplate] = useState(null);
 
   const fromInputRef = useRef(null);
   const toInputRef = useRef(null);
@@ -1009,26 +1135,19 @@ export default function EmailFormatPage() {
   };
 
   return (
-    <div className="flex min-h-full flex-col bg-[#F4F5F9] pl-6 pr-6 pt-6">
+    <div className="flex min-h-full flex-col bg-white px-6 pt-3 lg:px-7">
 
-      {/* Main Card */}
-      <div className="rounded-[20px] bg-white p-6 shadow-sm">
+      <section className="min-h-[calc(100vh-140px)] bg-white">
 
-        {/* Top Controls */}
-        <div className="mb-6 flex items-center justify-between">
-
-          <h2 className="text-[17px] font-semibold text-[#202224]">
-            Email Format
-          </h2>
-
-          <div className="flex items-center gap-3">
+        <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
+          <div className="flex flex-wrap items-center justify-end gap-3">
 
             {/* Year */}
             <div className="relative">
               <select
                 value={year}
                 onChange={(e) => setYear(e.target.value)}
-                className="h-10 w-[110px] appearance-none rounded-lg border border-[#E5E7EB] bg-white pl-3 pr-8 text-[13px] text-[#808080] outline-none"
+                className="h-[37px] w-[105px] appearance-none rounded-[8px] border border-[#D9D9D966] bg-white pl-3 pr-8 text-[13px] font-medium text-[#363636] outline-none transition-colors focus:border-[#0A50B9]"
               >
                 <option value="">Year</option>
                 {YEAR_OPTIONS.map((opt) => (
@@ -1057,7 +1176,7 @@ export default function EmailFormatPage() {
               <button
                 type="button"
                 onClick={(event) => openDashboardDatePicker(fromInputRef.current, event.currentTarget)}
-                className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[13px] text-[#808080]"
+                className="flex h-[37px] w-[171px] items-center justify-between rounded-[8px] border border-[#D9D9D966] bg-white px-3 text-[14px] text-[#8B8B8B] transition-colors hover:border-[#B8CDE9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A50B9]"
               >
                 <span>{fromDate || "From"}</span>
                 <CalendarDays size={15} />
@@ -1077,7 +1196,7 @@ export default function EmailFormatPage() {
               <button
                 type="button"
                 onClick={(event) => openDashboardDatePicker(toInputRef.current, event.currentTarget)}
-                className="flex h-10 w-[125px] items-center justify-between rounded-lg border border-[#E5E7EB] px-3 text-[13px] text-[#808080]"
+                className="flex h-[37px] w-[171px] items-center justify-between rounded-[8px] border border-[#D9D9D966] bg-white px-3 text-[14px] text-[#8B8B8B] transition-colors hover:border-[#B8CDE9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A50B9]"
               >
                 <span>{toDate || "To"}</span>
                 <CalendarDays size={15} />
@@ -1099,16 +1218,16 @@ export default function EmailFormatPage() {
           </div>
         )}
 
-        {/* Cards grid */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="flex flex-col gap-4">
 
           {/* Login Credential — live API */}
           <EmailFormatCard
             title="Login & Forgot Password Email Format"
             fieldsRow={[
+              // `subject` is normalized from the email-template API response
+              // (including subjectTemplate/templateSubject fallbacks).
               { label: "Subject", value: loginCredentialTemplate?.subject ?? "-" },
               { label: "Template Code", value: loginCredentialTemplate?.templateCode ?? "-" },
-              { label: "Channel", value: loginCredentialTemplate?.channel ?? "-" },
             ]}
             bodyText={loginCredentialTemplate?.bodyText ?? "-"}
             status={loginCredentialTemplate?.status}
@@ -1133,6 +1252,7 @@ export default function EmailFormatPage() {
             showEdit={Boolean(loginCredentialTemplate)}
             onEdit={() => handleEditTemplate(loginCredentialTemplate)}
             onCreate={() => handleOpenCreateFormat()}
+            onExpand={setExpandedTemplate}
             isLoading={isLoading && emailTemplates.length === 0}
           />
 
@@ -1140,9 +1260,10 @@ export default function EmailFormatPage() {
           <EmailFormatCard
             title="Login & Forgot Password Email Format"
             fieldsRow={[
+              // `subject` is normalized from the email-template API response
+              // (including subjectTemplate/templateSubject fallbacks).
               { label: "Subject", value: forgotPasswordTemplate?.subject ?? "-" },
               { label: "Template Code", value: forgotPasswordTemplate?.templateCode ?? "-" },
-              { label: "Channel", value: forgotPasswordTemplate?.channel ?? "-" },
             ]}
             bodyText={forgotPasswordTemplate?.bodyText ?? "-"}
             status={forgotPasswordTemplate?.status}
@@ -1167,6 +1288,7 @@ export default function EmailFormatPage() {
             showEdit={Boolean(forgotPasswordTemplate)}
             onEdit={() => handleEditTemplate(forgotPasswordTemplate)}
             onCreate={() => handleOpenCreateFormat(PASSWORD_RESET_TEMPLATE_DEFAULTS)}
+            onExpand={setExpandedTemplate}
             isLoading={isLoading && emailTemplates.length === 0}
           />
 
@@ -1188,9 +1310,8 @@ export default function EmailFormatPage() {
                         ? matchedTemplate.templateCode
                         : card.templateCode,
                   },
-                  { label: "Notification Type", value: matchedTemplate?.channel ?? card.notificationType },
+                  { label: "Subject", value: matchedTemplate?.subject ?? card.subject },
                 ]}
-                extraRow={{ label: "Subject", value: matchedTemplate?.subject ?? card.subject }}
                 bodyText={matchedTemplate?.bodyText ?? card.bodyText}
                 status={matchedTemplate?.status ?? card.status}
                 createdBy={matchedTemplate?.createdBy ?? card.createdBy}
@@ -1201,6 +1322,7 @@ export default function EmailFormatPage() {
                 showEdit
                 onEdit={() => handleOpenNotificationEdit(card)}
                 onCreate={() => handleOpenNotificationCreate(card)}
+                onExpand={setExpandedTemplate}
                 isLoading={
                   isLoadingNotificationTemplates && notificationTemplates.length === 0
                 }
@@ -1210,7 +1332,7 @@ export default function EmailFormatPage() {
 
         </div>
 
-      </div>
+      </section>
 
       {/* Modals */}
       {showFormModal && (
@@ -1237,6 +1359,13 @@ export default function EmailFormatPage() {
         <SuccessModal
           message={successMessage}
           onClose={() => setShowSuccessModal(false)}
+        />
+      )}
+
+      {expandedTemplate && (
+        <TemplateDetailModal
+          template={expandedTemplate}
+          onClose={() => setExpandedTemplate(null)}
         />
       )}
 

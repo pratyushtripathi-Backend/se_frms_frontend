@@ -873,7 +873,7 @@ export default function AllUsersPage({ searchQuery = "" }) {
 
             {/* Next */}
             <button
-              className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-[#E5E7EB] bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-[#000000] bg-white disabled:cursor-not-allowed disabled:opacity-50"
               disabled={
                 currentPage >=
                 effectiveTotalPages

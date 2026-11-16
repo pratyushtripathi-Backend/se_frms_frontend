@@ -584,11 +584,11 @@ export default function NotificationRecordPage({ searchQuery = "" }) {
                     </td>
                     <td className="whitespace-nowrap px-4 py-4">{row.transactionId}</td>
                     <td
-                      className="whitespace-nowrap px-4 py-4 font-semibold text-[#2563EB] cursor-pointer"
-                      onClick={() => setChannelModalRow(row)}
-                    >
-                      Type....
-                    </td>
+  className="whitespace-nowrap px-4 py-4 font-semibold text-[#2563EB] underline decoration-2 decoration-[#2563EB] underline-offset-[3px] cursor-pointer"
+  onClick={() => setChannelModalRow(row)}
+>
+  Type
+</td>
                     <td className="whitespace-nowrap px-4 py-4">{row.subject}</td>
                     <td
                       className={`whitespace-nowrap px-4 py-4 font-semibold ${

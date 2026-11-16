@@ -111,6 +111,21 @@ function formatQuarter(date) {
   return `Q${quarter} ${date.getFullYear()}`;
 }
 
+// Transaction totals are in INR. Use Intl's compact Indian notation so very
+// large values remain legible (for example, 2,00,000Cr becomes 2L Cr).
+function formatYAxisAmount(value) {
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount)) return "-";
+  const formatted = new Intl.NumberFormat("en-IN", {
+    notation: "compact",
+    compactDisplay: "short",
+    maximumFractionDigits: 1,
+  }).format(amount);
+
+  return formatted.replace("LCr", "L Cr");
+}
+
 // Prepare graph data according to selected period.
 function normalizeVolumeResponse(responseData, period) {
   const payload =
@@ -189,10 +204,18 @@ export default function TransactionMonitoring() {
 
   const dateInputRef = useRef(null);
   const requestIdRef = useRef(0);
+  const isLoadingRef = useRef(false);
 
   // Load transaction volume based on selected date and period.
   const loadVolume = useCallback(
     async ({ silent = false } = {}) => {
+      // A live event and the polling tick can happen together. Keep one
+      // request in flight so the chart does not queue duplicate calls.
+      if (isLoadingRef.current) {
+        return;
+      }
+
+      isLoadingRef.current = true;
       const requestId = ++requestIdRef.current;
 
       const { fromDate, toDate } = resolveRange(
@@ -235,6 +258,8 @@ export default function TransactionMonitoring() {
           "Failed to load daily transaction volume",
           err
         );
+      } finally {
+        isLoadingRef.current = false;
       }
     },
     [selectedPeriod, selectedDate]
@@ -257,6 +282,35 @@ export default function TransactionMonitoring() {
 
       // Invalidate requests belonging to previous selection.
       requestIdRef.current += 1;
+    };
+  }, [loadVolume]);
+
+  // Refresh promptly when a completed fraud event arrives through the
+  // existing WebSocket alert stream. Debouncing makes transaction bursts
+  // result in one analytics fetch rather than a request per event.
+  useEffect(() => {
+    let refreshTimeoutId;
+
+    const handleTransactionActivity = () => {
+      window.clearTimeout(refreshTimeoutId);
+      refreshTimeoutId = window.setTimeout(() => {
+        if (document.visibilityState === "visible") {
+          loadVolume({ silent: true });
+        }
+      }, 250);
+    };
+
+    window.addEventListener(
+      "frms:transaction-activity",
+      handleTransactionActivity
+    );
+
+    return () => {
+      window.clearTimeout(refreshTimeoutId);
+      window.removeEventListener(
+        "frms:transaction-activity",
+        handleTransactionActivity
+      );
     };
   }, [loadVolume]);
 
@@ -369,7 +423,7 @@ export default function TransactionMonitoring() {
             margin={{
               top: 30,
               right: 12,
-              left: 4,
+              left: 10,
               bottom: 24,
             }}
           >
@@ -420,16 +474,8 @@ export default function TransactionMonitoring() {
             />
 
             <YAxis
-              width={44}
-              tickFormatter={(value) =>
-                value === 0
-                  ? "0"
-                  : `${(
-                      value / 1000
-                    ).toFixed(
-                      value % 1000 === 0 ? 0 : 1
-                    )}K`
-              }
+              width={64}
+              tickFormatter={formatYAxisAmount}
               axisLine={false}
               tickLine={false}
               tick={{

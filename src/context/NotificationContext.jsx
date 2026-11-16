@@ -99,6 +99,10 @@ export function NotificationProvider({ children }) {
       if (notification.read !== true) {
         setUnreadCount((count) => count + 1);
       }
+
+      // Dashboard widgets listen for this signal to refresh analytics as soon
+      // as a live fraud event is received.
+      window.dispatchEvent(new Event("frms:transaction-activity"));
     });
 
     // Read state is shared: when any admin opens the notifications view,

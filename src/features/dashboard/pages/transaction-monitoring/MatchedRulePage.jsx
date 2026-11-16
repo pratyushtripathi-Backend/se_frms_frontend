@@ -367,16 +367,19 @@ export default function MatchedRulePage() {
       whiteSpace: "nowrap",
     },
 
-    matchedRuleTd: {
-      padding: "10px 18px",
-      fontSize: "13px",
-      fontWeight: 600,
-      color: "#2563EB",
-      whiteSpace: "nowrap",
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      maxWidth: "360px",
-    },
+   matchedRuleTd: {
+  padding: "10px 18px",
+  fontSize: "13px",
+  fontWeight: 600,
+  color: "#2563EB",
+  textDecoration: "underline",
+  textUnderlineOffset: "3px",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  maxWidth: "360px",
+  cursor: "pointer",
+},
 
     statusPill: (isActive) => ({
       position: "relative",
@@ -783,11 +786,10 @@ export default function MatchedRulePage() {
                   <td style={styles.td}>{row.transactionId}</td>
                   <td style={styles.td}>{row.scoringId}</td>
                   <td
-                    style={{ ...styles.matchedRuleTd, cursor: "pointer" }}
-                    title={row.matchedRule}
-                    onClick={() => setRulesModalRow(row)}
+                     style={styles.matchedRuleTd}
+                     onClick={() => setRulesModalRow(row)}
                   >
-                    Matched Rule....
+                    Matched Rule
                   </td>
                   <td style={styles.td}>
                     <span style={styles.statusPill(row.status === "Active")}>

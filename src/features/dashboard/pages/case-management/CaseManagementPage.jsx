@@ -850,9 +850,9 @@ export default function CaseManagementPage() {
                                 type="button"
                                 onClick={() => setRulesModalRow(row)}
                                 title={row.matchedRule}
-                                className="font-semibold text-[#2563EB] hover:underline"
+                                className="font-semibold text-[#2563EB] underline decoration-2 decoration-[#2563EB] underline-offset-[3px] cursor-pointer"
                               >
-                                Matched Rule....
+                                Matched Rule
                               </button>
                             ) : (
                               "-"

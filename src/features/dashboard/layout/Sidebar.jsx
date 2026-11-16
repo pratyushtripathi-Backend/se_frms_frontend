@@ -19,9 +19,9 @@ import { useState } from "react";
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutGrid, page: "dashboard" },
   { label: "Fraud Details", icon: FileEdit, chevron: true },
-  { label: "Fraud Alert", icon: AlertTriangle, page: "fraud-alert" },
+ 
   { label: "Transaction Monitoring", icon: Monitor, chevron: true },
-  { label: "Risk Analytics", icon: BarChart3 },
+
   { label: "Case Management", icon: FolderSearch, page: "case-management" },
   { label: "User Management", icon: User, chevron: true },
   { label: "Report", icon: FileText, page: "report" },
